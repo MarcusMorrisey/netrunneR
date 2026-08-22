@@ -6,4 +6,10 @@ if (!requireNamespace("renv", quietly = TRUE)) {
   install.packages("remotes")
   remotes::install_github("rstudio/renv@v1.2.4")
 }
-renv::restore(project = ".", prompt = FALSE)
+# The rocker/r-ver image's own Rprofile.site pins CRAN to a date-frozen p3m.dev
+# snapshot (2024-02-28) whose /src/contrib index does not carry the current
+# package versions renv.lock actually pins (confirmed via direct 404s), while
+# p3m.dev's "latest" alias serves the same packages as binaries successfully.
+# Overriding repos here, not by editing Rprofile.site, keeps this local to the
+# restore step.
+renv::restore(project = ".", prompt = FALSE, repos = c(CRAN = "https://p3m.dev/cran/__linux__/jammy/latest"))
