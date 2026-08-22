@@ -4,7 +4,10 @@ R_IMAGE := rocker/r-ver:4.3.2
 DOCKER_RUN := docker run --rm -v $(CURDIR):/pkg -w /pkg $(R_IMAGE)
 # Restores the package's own declared Imports/Suggests from renv.lock before
 # any target runs, since a fresh rocker container has none of them installed.
-RESTORE_DEPS := if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv"); renv::restore(project = ".", prompt = FALSE)
+# renv itself is bootstrapped via remotes::install_github(), matching the
+# Dockerfile (ref: DL-007): rocker/r-ver ships no renv and CRAN does not
+# serve arbitrary historical versions by version string.
+RESTORE_DEPS := if (!requireNamespace("renv", quietly = TRUE)) { install.packages("remotes"); remotes::install_github("rstudio/renv@v1.2.4") }; renv::restore(project = ".", prompt = FALSE)
 
 .PHONY: check test document coverage
 
