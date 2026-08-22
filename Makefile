@@ -6,7 +6,7 @@ DOCKER_RUN := docker run --rm -v $(CURDIR):/pkg -w /pkg $(R_IMAGE)
 # from source here need their headers too (git/gert, sqlite/RSQLite,
 # curl/httr2, plus libicu/libxml2/libx11 pulled in transitively by
 # stringi/xml2/clipr when no matching binary is available).
-APT_INSTALL := apt-get update -qq && apt-get install -y --no-install-recommends -qq git libgit2-dev libsqlite3-dev libcurl4-openssl-dev libicu-dev libxml2-dev libx11-dev > /dev/null
+APT_INSTALL := apt-get update -qq && apt-get install -y --no-install-recommends -qq curl git libgit2-dev libsqlite3-dev libcurl4-openssl-dev libicu-dev libxml2-dev libx11-dev > /dev/null
 
 .PHONY: check test document coverage
 
