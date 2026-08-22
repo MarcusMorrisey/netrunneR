@@ -1,0 +1,6 @@
+# R session/build artifacts and the local renv library, never committed
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+renv/library

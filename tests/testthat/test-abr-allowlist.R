@@ -1,0 +1,31 @@
+# Exercises both fail-closed layers from R/build-abr.R and
+# R/validate-helpers.R: the dplyr::select(all_of(...)) allowlist and
+# the independent check_deny_pattern() regex scan.
+test_that("build_abr() selects only ABR_TOURNAMENT_ALLOWLIST columns, dropping unknown upstream keys", {
+  tournaments <- tibble::tibble(
+    id = "t1", name = "Regional", date = "2023-05-01", format = "standard",
+    region = "NA", country = "US", player_count = 32L, cut_size = 8L,
+    identity_a_code = "id-a", identity_c_code = "id-c",
+    organizer_email = "leak@example.com"
+  )
+  staged_raw <- list(tournaments = tournaments, tournament_count = 1L, raw_dir = withr::local_tempdir())
+
+  li <- new_lineage("abr", "api_poll", withr::local_tempdir(), schema_version = 1L,
+                    build_module_path = "R/build-abr.R")
+
+  built <- build_abr(li, staged_raw)
+
+  expect_setequal(names(dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), built$db_path), "tournament") |> dplyr::collect()),
+                   ABR_TOURNAMENT_ALLOWLIST)
+})
+
+test_that("dplyr::all_of() errors closed when ABR_TOURNAMENT_ALLOWLIST names a missing column", {
+  tournaments <- tibble::tibble(id = "t1")
+  expect_error(dplyr::select(tournaments, dplyr::all_of(ABR_TOURNAMENT_ALLOWLIST)))
+})
+
+test_that("check_deny_pattern() with ABR_DENY_PATTERN flags a personal-data column name", {
+  df <- tibble::tibble(id = "t1", organizer_email = "x@example.com")
+  result <- check_deny_pattern(df, ABR_DENY_PATTERN)
+  expect_identical(result$status, "fail")
+})

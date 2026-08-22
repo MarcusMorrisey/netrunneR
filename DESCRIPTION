@@ -1,0 +1,53 @@
+Package: netrunneR
+Title: Offline Mirror and Analysis Toolkit for Netrunner Card-Game Data
+Version: 0.1.0
+Authors@R: person("Marcus", "Morrisey", email = "marcus.morrisey@gmail.com", role = c("aut", "cre"))
+Description: Maintains an offline, versioned mirror of Netrunner card-game
+    data sources (NetrunnerDB, AlwaysBeRunning, the community cardpool
+    repository, the Jinteki implementation repository and the Comprehensive
+    Rules hub) with per-lineage fetch and build dispatch, a shared
+    atomic promote/validate/ledger pipeline, and derived ratings and
+    matchup views shared by a scheduled sync container and a Shiny app.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends: R (>= 4.3)
+Imports:
+    httr2,
+    gert,
+    rvest,
+    fs,
+    filelock,
+    dplyr,
+    tidyr,
+    purrr,
+    stringr,
+    rlang,
+    tibble,
+    DBI,
+    RSQLite,
+    dbplyr,
+    digest,
+    jsonlite,
+    PlayerRatings,
+    optparse,
+    cli,
+    lubridate,
+    readr,
+    shiny,
+    stats,
+    tools,
+    utils
+Suggests:
+    testthat (>= 3.0.0),
+    withr,
+    callr,
+    roxygen2,
+    pkgdown,
+    renv,
+    devtools,
+    covr,
+    rcmdcheck
+Config/testthat/edition: 3
+Config/renv.lock.md5: 00000000000000000000000000000000
