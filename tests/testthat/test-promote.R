@@ -37,7 +37,11 @@ test_that("swap_active() re-points active atomically with no absent window", {
         rename_calls_to_active <<- rename_calls_to_active + 1L
         expect_identical(basename(fs::path_real(active_link)), "release-1")
       }
-      fs::file_move(path, new_path, ...)
+      # Call the real rename directly rather than fs::file_move(): with
+      # .package = "fs", the mock replaces file_move in fs's own
+      # namespace too, so calling fs::file_move() here would re-enter
+      # this same mock and recurse until the C stack overflows.
+      file.rename(path, new_path)
     },
     .package = "fs"
   )
