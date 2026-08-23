@@ -27,6 +27,7 @@ validate_release <- function(lineage, built, checks = list()) {
 }
 
 #' Null-coalescing helper used internally across validate.R for optional args.
-#' @name %||%
+#' @name grapes-or-or-grapes
+#' @aliases %||%
 #' @keywords internal
 `%||%` <- function(x, y) if (is.null(x)) y else x

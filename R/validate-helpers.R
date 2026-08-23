@@ -1,6 +1,10 @@
 # Individual validation-check primitives combined by validate_release()
 # into one report; each returns a {check, status, message} record.
 #' Assert every value of a column falls in an allowed set
+#' @param df A data frame.
+#' @param column Character. Name of the column to check.
+#' @param allowed Vector of values the column is allowed to contain.
+#' @return A check-result list with `check`, `status`, and `message`.
 #' @export
 check_col_vals_in_set <- function(df, column, allowed) {
   bad <- setdiff(unique(df[[column]]), allowed)
@@ -13,6 +17,10 @@ check_col_vals_in_set <- function(df, column, allowed) {
 }
 
 #' Assert rows are distinct on one or more key columns
+#' @param df A data frame.
+#' @param keys Character vector of one or more column names forming the
+#'   uniqueness key.
+#' @return A check-result list with `check`, `status`, and `message`.
 #' @export
 check_rows_distinct <- function(df, keys) {
   n_dup <- sum(duplicated(df[keys]))
@@ -28,6 +36,12 @@ check_rows_distinct <- function(df, keys) {
 #'
 #' Skipped (status "skip") on a lineage's first release, when there is no
 #' previous row count to compare against.
+#' @param current_n Integer. Row count in the current release.
+#' @param previous_n Integer or NULL/NA. Row count in the previous release,
+#'   if any.
+#' @param max_pct_drop Numeric. Fractional drop (0-1) past which status is
+#'   "warn" rather than "pass".
+#' @return A check-result list with `check`, `status`, and `message`.
 #' @export
 check_row_count_delta <- function(current_n, previous_n, max_pct_drop = 0.5) {
   if (is.null(previous_n) || is.na(previous_n) || previous_n == 0) {

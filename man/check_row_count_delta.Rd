@@ -6,6 +6,18 @@
 \usage{
 check_row_count_delta(current_n, previous_n, max_pct_drop = 0.5)
 }
+\arguments{
+\item{current_n}{Integer. Row count in the current release.}
+
+\item{previous_n}{Integer or NULL/NA. Row count in the previous release,
+if any.}
+
+\item{max_pct_drop}{Numeric. Fractional drop (0-1) past which status is
+"warn" rather than "pass".}
+}
+\value{
+A check-result list with \code{check}, \code{status}, and \code{message}.
+}
 \description{
 Skipped (status "skip") on a lineage's first release, when there is no
 previous row count to compare against.

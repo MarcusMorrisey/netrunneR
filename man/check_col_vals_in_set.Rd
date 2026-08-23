@@ -6,6 +6,16 @@
 \usage{
 check_col_vals_in_set(df, column, allowed)
 }
+\arguments{
+\item{df}{A data frame.}
+
+\item{column}{Character. Name of the column to check.}
+
+\item{allowed}{Vector of values the column is allowed to contain.}
+}
+\value{
+A check-result list with \code{check}, \code{status}, and \code{message}.
+}
 \description{
 Assert every value of a column falls in an allowed set
 }

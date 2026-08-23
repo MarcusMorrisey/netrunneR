@@ -6,6 +6,15 @@
 \usage{
 check_rows_distinct(df, keys)
 }
+\arguments{
+\item{df}{A data frame.}
+
+\item{keys}{Character vector of one or more column names forming the
+uniqueness key.}
+}
+\value{
+A check-result list with \code{check}, \code{status}, and \code{message}.
+}
 \description{
 Assert rows are distinct on one or more key columns
 }
