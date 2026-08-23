@@ -2,11 +2,13 @@ test_that("run_decklist_sweep() orders decklists ascending and de-duplicates on 
 # Exercises the date-range sweep in R/decklist-sweep.R: ascending order,
 # id de-duplication and the 30-day lower-bound rule.
 
+  # date_creation, not date, matches the real /decklists/by_date/<date>
+  # envelope (confirmed live against netrunnerdb.com/api/2.0/public).
   httr2::local_mocked_responses(function(req) {
     httr2::response(
       status_code = 200,
       body = charToRaw(jsonlite::toJSON(
-        list(data = list(list(id = "d1", date = "2023-01-01"))), auto_unbox = TRUE
+        list(data = list(list(id = "d1", date_creation = "2023-01-01"))), auto_unbox = TRUE
       ))
     )
   })
@@ -16,7 +18,7 @@ test_that("run_decklist_sweep() orders decklists ascending and de-duplicates on 
 
   sweep <- run_decklist_sweep(li)
 
-  expect_true(all(diff(sweep$decklists$date) >= 0) || nrow(sweep$decklists) <= 1)
+  expect_true(all(diff(sweep$decklists$date_creation) >= 0) || nrow(sweep$decklists) <= 1)
   expect_false(any(duplicated(sweep$decklists$id)))
   expect_identical(sweep$sweep_timezone, "UTC")
 })

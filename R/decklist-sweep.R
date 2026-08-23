@@ -26,12 +26,15 @@ run_decklist_sweep <- function(lineage) {
   })
   if (nrow(decklists) == 0) {
     # An entirely empty sweep (no decklists on any date in range) collapses
-    # to a zero-column tibble via as_tibble(list()), leaving no `date`/`id`
-    # columns for the arrange/distinct calls below.
-    decklists <- tibble::tibble(id = character(0), date = character(0))
+    # to a zero-column tibble via as_tibble(list()), leaving no
+    # `date_creation`/`id` columns for the arrange/distinct calls below.
+    decklists <- tibble::tibble(id = character(0), date_creation = character(0))
   }
 
-  decklists <- dplyr::arrange(decklists, .data$date)
+  # The real /decklists/by_date/<date> envelope names this field
+  # date_creation (confirmed live), not date -- verified against
+  # netrunnerdb.com/api/2.0/public this session.
+  decklists <- dplyr::arrange(decklists, .data$date_creation)
   decklists <- dplyr::distinct(decklists, .data$id, .keep_all = TRUE)
 
   list(
