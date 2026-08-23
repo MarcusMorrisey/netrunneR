@@ -23,8 +23,17 @@ fetch_abr <- function(lineage, attempt_dir) {
   page_limit <- 500L
   stopifnot(page_limit <= 500L)
 
+  # The live endpoint's response body is a bare JSON array of tournament
+  # objects -- there is no {"results": [...], "tournament_count": N}
+  # wrapper -- and only the array's first element carries a
+  # tournament_count field at all; every other element's tournament_count
+  # is null. jsonlite::fromJSON(simplifyVector = TRUE) auto-coerces that
+  # array into a data.frame, so first_page$tournament_count is a whole
+  # column (mostly NA past row 1), not a scalar: `NA >= 0` is NA, and
+  # stopifnot() on a length>1 vector containing an NA both fail in ways
+  # that only surface once real (not fixture-shaped) data is fetched.
   first_page <- abr_get(lineage$base_url, "/tournaments/results", list(limit = page_limit, offset = 0))
-  tournament_count <- first_page$tournament_count
+  tournament_count <- first_page$tournament_count[1]
   stopifnot(is.numeric(tournament_count), tournament_count >= 0)
 
   pages <- list(first_page)
@@ -34,7 +43,11 @@ fetch_abr <- function(lineage, attempt_dir) {
     offset <- offset + page_limit
   }
 
-  tournaments <- purrr::map_dfr(pages, function(p) tibble::as_tibble(p$results))
+  # Each page IS the tournaments data.frame directly (see the bare-array
+  # note above) -- there is no $results field to index into. p$results
+  # previously returned NULL on every page, silently collapsing
+  # `tournaments` to zero rows on every real (non-fixture) run.
+  tournaments <- purrr::map_dfr(pages, tibble::as_tibble)
   if (nrow(tournaments) == 0) {
     # An empty `results` page collapses to a zero-column tibble via
     # as_tibble(list()), leaving no `id` column for the lookups below and
