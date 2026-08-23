@@ -2,20 +2,38 @@
 % Please edit documentation in R/build-rules.R
 \name{check_version_monotonic}
 \alias{check_version_monotonic}
-\title{Require version strictly increasing in publish-date order}
+\title{Cross-check the hub's listing order against publish-date order}
 \usage{
 check_version_monotonic(index)
 }
 \arguments{
-\item{index}{A tibble with a \code{version} and \code{published_date} column.}
+\item{index}{A tibble with a \code{version} and \code{published_date} column, in
+the hub's own newest-first listing order.}
 }
 \value{
 A check-result list with \code{check}, \code{status}, and \code{message}.
 }
 \description{
-Blocks promotion on any reordering rather than silently sorting the
-index, since an out-of-order index is itself a signal the upstream hub
-changed its listing behavior and needs a human look before this
-release is trusted.
+The hub lists releases newest-first, so a well-formed index's order
+matches published_date sorted \emph{descending}, not ascending -- comparing
+against an ascending sort is a bug that fails on every correctly
+ordered real index with 2+ distinct dates, confirmed live this
+session with a clean two-row fixture that has zero anomalies.
+}
+\details{
+The hub page also carries no actual publish-date field; published_date
+is sourced from each PDF's HTTP Last-Modified header (see
+head_last_modified(), R/fetch-web-archive.R), which is only a proxy
+and can drift from true release order even once the sort direction
+above is fixed -- confirmed live this session: nullsignal.games has
+re-uploaded/touched older PDFs (e.g. v1.0's Last-Modified postdates
+v1.1/1.2/1.3's, and v22.12/v23.08 share an identical Last-Modified
+date despite being listed newest-first) in ways that don't reflect a
+real reordering of releases. The hub's own listing order -- what
+\code{index} is already in, and what gets written and promoted regardless
+of this check's outcome -- is trusted as the authoritative version
+sequence; a disagreement is recorded as a warning for a human to look
+at, not a promotion-blocking failure, since blocking here would mean
+this lineage can never promote again once one old PDF's mtime drifts.
 }
 \keyword{internal}

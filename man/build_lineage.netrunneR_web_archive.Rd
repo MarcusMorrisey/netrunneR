@@ -15,9 +15,10 @@
 }
 \description{
 Builds the rules release tables from the parsed hub index and the
-pooled PDF hashes, and supplies the lineage's validate checks requiring
-version strictly increasing in publish-date order without silent
-reordering, and requiring every recorded pdf_url's current bytes to
-match its stored hash, blocking promotion rather than overwriting a
-pool entry.
+pooled PDF hashes, and supplies the lineage's validate checks warning
+when the hub's own listing order disagrees with publish-date order
+(the hub order is what's written and promoted either way -- see
+check_version_monotonic()), and requiring every recorded pdf_url's
+current bytes to match its stored hash, blocking promotion rather than
+overwriting a pool entry.
 }
