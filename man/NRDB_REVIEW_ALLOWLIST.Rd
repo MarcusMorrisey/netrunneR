@@ -14,7 +14,13 @@ no card_code), and /reviews carries a \code{user} field with the
 reviewer's public NetrunnerDB username -- kept here on the same
 precedent as ABR_TOURNAMENT_ALLOWLIST's winner_runner_identity/
 winner_corp_identity: a publicly displayed identity attached to
-public content, not private personal data.}
+public content, not private personal data. \code{comments} is deliberately
+excluded: it is not a count (confirmed live) but a nested array of
+comment-thread objects (user, comment, date_create, date_update) per
+review -- a list-column DBI::dbWriteTable() cannot bind into a plain
+column, same shape problem the removed decklist \code{cards} field had.
+Nothing needs comment threads today, so they are dropped rather than
+serialized in, same call as dropping decklist mirroring entirely.}
 \usage{
 NRDB_REVIEW_ALLOWLIST
 }
@@ -31,6 +37,12 @@ no card_code), and /reviews carries a \code{user} field with the
 reviewer's public NetrunnerDB username -- kept here on the same
 precedent as ABR_TOURNAMENT_ALLOWLIST's winner_runner_identity/
 winner_corp_identity: a publicly displayed identity attached to
-public content, not private personal data.
+public content, not private personal data. \code{comments} is deliberately
+excluded: it is not a count (confirmed live) but a nested array of
+comment-thread objects (user, comment, date_create, date_update) per
+review -- a list-column DBI::dbWriteTable() cannot bind into a plain
+column, same shape problem the removed decklist \code{cards} field had.
+Nothing needs comment threads today, so they are dropped rather than
+serialized in, same call as dropping decklist mirroring entirely.
 }
 \keyword{internal}

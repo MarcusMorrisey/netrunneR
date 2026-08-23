@@ -2,14 +2,15 @@
 -- populated by R/build-nrdb.R from the reviews/rulings endpoints.
 -- Column names match the real API response fields exactly (confirmed
 -- live against netrunnerdb.com/api/2.0/public) -- rulings carry no id
--- field at all, so the ruling table has no primary key.
+-- field at all, so the ruling table has no primary key. review has no
+-- comments column: it is a nested array of comment-thread objects
+-- upstream, not a count, and nothing needs comment threads today.
 CREATE TABLE review (
   id TEXT PRIMARY KEY,
   title TEXT,
   user TEXT,
   ruling TEXT,
   votes INTEGER,
-  comments INTEGER,
   date_create TEXT,
   date_update TEXT
 );

@@ -10,9 +10,15 @@
 #' reviewer's public NetrunnerDB username -- kept here on the same
 #' precedent as ABR_TOURNAMENT_ALLOWLIST's winner_runner_identity/
 #' winner_corp_identity: a publicly displayed identity attached to
-#' public content, not private personal data.
+#' public content, not private personal data. `comments` is deliberately
+#' excluded: it is not a count (confirmed live) but a nested array of
+#' comment-thread objects (user, comment, date_create, date_update) per
+#' review -- a list-column DBI::dbWriteTable() cannot bind into a plain
+#' column, same shape problem the removed decklist `cards` field had.
+#' Nothing needs comment threads today, so they are dropped rather than
+#' serialized in, same call as dropping decklist mirroring entirely.
 #' @keywords internal
-NRDB_REVIEW_ALLOWLIST <- c("id", "title", "user", "ruling", "votes", "comments", "date_create", "date_update")
+NRDB_REVIEW_ALLOWLIST <- c("id", "title", "user", "ruling", "votes", "date_create", "date_update")
 
 #' Same allowlist, for the ruling table.
 #' @keywords internal
