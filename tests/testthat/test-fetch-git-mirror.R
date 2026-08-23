@@ -6,6 +6,10 @@ test_that("fetch_lineage.netrunneR_git_mirror() clones and checks out the config
   writeLines("hello", file.path(upstream, "README.md"))
   gert::git_add("README.md", repo = upstream)
   gert::git_commit("initial", repo = upstream, author = "Test <test@example.com>")
+  # git_init()'s default branch name depends on the host's git config
+  # (commonly "master" unless init.defaultBranch is set); pin it to "main"
+  # explicitly so this fixture doesn't depend on ambient git config.
+  gert::git_branch_create("main", repo = upstream, checkout = TRUE)
 
   attempt_dir <- withr::local_tempdir()
   li <- new_lineage("cardpool", "git_mirror", withr::local_tempdir(), repo_url = upstream, ref = "main")

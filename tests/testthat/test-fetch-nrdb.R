@@ -5,12 +5,19 @@ test_that("the nrdb api-poll fetch helper builds a User-Agent from NRDB_CONTACT 
 
   withr::local_envvar(NRDB_CONTACT = "fixture@example.test")
 
-  httr2::local_mocked_responses(list(
-    httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(
-      list(total = 10L, last_updated = "2023-01-01", version_number = "1.0", results = list()), auto_unbox = TRUE
-    ))),
+  # run_decklist_sweep() (called from fetch_nrdb()) issues one request per
+  # day in its ~30-day default window, so a fixed-length response list
+  # would be exhausted well before the sweep finishes; a function mock
+  # dispatching on path handles any number of calls, matching the pattern
+  # in test-decklist-sweep.R.
+  httr2::local_mocked_responses(function(req) {
+    if (grepl("/reviews$", req$url)) {
+      return(httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(
+        list(total = 10L, last_updated = "2023-01-01", version_number = "1.0", results = list()), auto_unbox = TRUE
+      ))))
+    }
     httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(results = list()), auto_unbox = TRUE)))
-  ))
+  })
 
   li <- new_lineage("nrdb", "api_poll", withr::local_tempdir(), base_url = "https://example.test/api")
   attempt_dir <- withr::local_tempdir()

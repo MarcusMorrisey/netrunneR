@@ -87,6 +87,10 @@ abr_get <- function(base_url, path, query = list()) {
   req <- httr2::req_url_query(req, !!!query)
   req <- httr2::req_options(req, cookiejar = jar, cookiefile = jar)
   req <- httr2::req_throttle(req, rate = 1 / 2)
+  # httr2 auto-throws its own httr2_http_* error on any non-2xx status by
+  # default, which would bypass the netrunneR_abr_5xx classification below
+  # entirely -- disable that so req_perform() always returns a response.
+  req <- httr2::req_error(req, is_error = function(resp) FALSE)
 
   resp <- httr2::req_perform(req)
   if (httr2::resp_status(resp) >= 500) {
