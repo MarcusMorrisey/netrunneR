@@ -36,8 +36,8 @@ build_nrdb <- function(lineage, staged_raw) {
   apply_schema(con, "nrdb")
   DBI::dbWithTransaction(con, {
     DBI::dbWriteTable(con, "decklist", decklists, append = TRUE)
-    DBI::dbWriteTable(con, "review", tibble::as_tibble(staged_raw$reviews$results), append = TRUE)
-    DBI::dbWriteTable(con, "ruling", tibble::as_tibble(staged_raw$rulings$results), append = TRUE)
+    DBI::dbWriteTable(con, "review", tibble::as_tibble(staged_raw$reviews$data), append = TRUE)
+    DBI::dbWriteTable(con, "ruling", tibble::as_tibble(staged_raw$rulings$data), append = TRUE)
   })
 
   br <- build_revision(lineage, build_module_path = "R/build-nrdb.R")

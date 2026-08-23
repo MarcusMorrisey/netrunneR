@@ -21,8 +21,8 @@ run_decklist_sweep <- function(lineage) {
   dates <- seq(bounds$sweep_start, bounds$sweep_end, by = "day")
 
   decklists <- purrr::map_dfr(dates, function(d) {
-    page <- nrdb_get(lineage$base_url, "/decklists/by-date", list(date = format(d, "%Y-%m-%d")))
-    tibble::as_tibble(page$results)
+    page <- nrdb_get(lineage$base_url, sprintf("/decklists/by_date/%s", format(d, "%Y-%m-%d")))
+    tibble::as_tibble(page$data)
   })
   if (nrow(decklists) == 0) {
     # An entirely empty sweep (no decklists on any date in range) collapses

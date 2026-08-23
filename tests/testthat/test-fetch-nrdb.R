@@ -1,4 +1,4 @@
-test_that("the nrdb api-poll fetch helper builds a User-Agent from NRDB_CONTACT and compares against the previous release", {
+test_that("the nrdb api-poll fetch helper builds a User-Agent from NRDB_CONTACT and shape-checks the data envelope", {
 # Covers the nrdb-specific helper in R/fetch-nrdb.R; the shared
 # netrunneR_api_poll S3 dispatch itself is covered by
 # test-fetch-api-poll.R. (ref: DL-005)
@@ -13,10 +13,10 @@ test_that("the nrdb api-poll fetch helper builds a User-Agent from NRDB_CONTACT 
   httr2::local_mocked_responses(function(req) {
     if (grepl("/reviews$", req$url)) {
       return(httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(
-        list(total = 10L, last_updated = "2023-01-01", version_number = "1.0", results = list()), auto_unbox = TRUE
+        list(data = list(list(id = 1L, title = "fixture review"))), auto_unbox = TRUE
       ))))
     }
-    httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(results = list()), auto_unbox = TRUE)))
+    httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(data = list()), auto_unbox = TRUE)))
   })
 
   li <- new_lineage("nrdb", "api_poll", withr::local_tempdir(), base_url = "https://example.test/api")
@@ -24,8 +24,14 @@ test_that("the nrdb api-poll fetch helper builds a User-Agent from NRDB_CONTACT 
 
   staged <- fetch_nrdb(li, attempt_dir)
 
-  expect_identical(staged$reviews$total, 10L)
-  expect_true(length(staged$checks) == 3)
+  expect_identical(NROW(staged$reviews$data), 1L)
+  expect_true(length(staged$checks) == 2)
+  expect_true(all(vapply(staged$checks, function(x) identical(x$status, "pass"), logical(1))))
+})
+
+test_that("compare_shape() fails when a response has no data list", {
+  result <- compare_shape(list(unexpected = "field"), "reviews")
+  expect_identical(result$status, "fail")
 })
 
 # httr2's local_mocked_responses() replaces the whole perform-with-retry
@@ -39,12 +45,12 @@ test_that("nrdb_get() configures req_retry() with a bounded max_tries", {
   captured_req <- NULL
   httr2::local_mocked_responses(function(req) {
     captured_req <<- req
-    httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(total = 1L), auto_unbox = TRUE)))
+    httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(data = list()), auto_unbox = TRUE)))
   })
   withr::local_envvar(NRDB_CONTACT = "fixture@example.test")
   result <- nrdb_get("https://example.test/api", "/reviews")
 
-  expect_identical(result$total, 1L)
+  expect_identical(length(result$data), 0L)
   expect_true(is.finite(captured_req$policies$retry_max_tries))
   expect_gt(captured_req$policies$retry_max_tries, 1)
 })

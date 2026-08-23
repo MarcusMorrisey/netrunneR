@@ -2,9 +2,8 @@
 #'
 #' Fetches the NetrunnerDB reviews, rulings and decklist resources with a
 #' req_user_agent() built from NRDB_CONTACT, one-to-two-second
-#' req_throttle() pacing and req_retry() backoff, comparing the response
-#' total, last_updated and version_number fields against the previous
-#' release as warning-level checks.
+#' req_throttle() pacing and req_retry() backoff, running a per-attempt
+#' shape check against each response's data envelope.
 #'
 #' @param lineage A lineage object of class netrunneR_api_poll named "nrdb".
 #' @param attempt_dir Character. Staging directory for this sync attempt.
@@ -29,11 +28,25 @@ fetch_nrdb <- function(lineage, attempt_dir) {
   jsonlite::write_json(reviews, file.path(raw_dir, "reviews.json"), auto_unbox = TRUE)
   jsonlite::write_json(rulings, file.path(raw_dir, "rulings.json"), auto_unbox = TRUE)
 
-  previous <- previous_nrdb_manifest(lineage)
+  # The real NetrunnerDB /reviews and /rulings envelope is `{"data": [...]}`
+  # only -- no total, last_updated or version_number field exists at the
+  # top level (verified live against netrunnerdb.com/api/2.0/public this
+  # session). The previous field-by-field comparison against those
+  # nonexistent fields was already inert before this fix: write_manifest()
+  # (R/sync.R) only ever persists release_id, lineage, content_identity,
+  # build_revision, validate_report and promoted_at onto manifest.json, so
+  # previous$reviews_total/last_updated/version_number were always NULL
+  # and compare_field() always fell back to its "skip" branch. Rather than
+  # invent a fake historical comparison against state that was never
+  # reliably persisted, this now runs a per-attempt shape check -- does
+  # the envelope actually carry a `data` list -- which is the one real,
+  # honestly-derived signal available here. The real content-change
+  # signal for nrdb already exists at the sync layer, where
+  # no_op_change() (R/sync.R) diffs content_identity against the active
+  # release.
   comparison_checks <- list(
-    compare_field(reviews$total, previous$reviews_total, "reviews_total"),
-    compare_field(reviews$last_updated, previous$reviews_last_updated, "reviews_last_updated"),
-    compare_field(reviews$version_number, previous$reviews_version_number, "reviews_version_number")
+    compare_shape(reviews, "reviews"),
+    compare_shape(rulings, "rulings")
   )
 
   list(
@@ -42,7 +55,10 @@ fetch_nrdb <- function(lineage, attempt_dir) {
     rulings = rulings,
     sweep = sweep,
     checks = comparison_checks,
-    content_identity = digest::digest(list(reviews$total, rulings$total, sweep$sweep_end), algo = "sha256")
+    content_identity = digest::digest(
+      list(NROW(reviews$data), NROW(rulings$data), sweep$sweep_end),
+      algo = "sha256"
+    )
   )
 }
 
@@ -66,14 +82,19 @@ nrdb_get <- function(base_url, path, query = list()) {
   jsonlite::fromJSON(body, simplifyVector = TRUE)
 }
 
-#' Warning-level field-by-field comparison against the previous release
+#' Per-attempt shape check on a NetrunnerDB response envelope
+#'
+#' Verifies the response actually carries a `data` list, since that is
+#' the only field the real API guarantees at the top level. A fail-status
+#' result blocks promotion via validate_release()'s fail gate (R/validate.R).
 #' @keywords internal
-compare_field <- function(current, previous, label) {
-  if (is.null(previous)) {
-    return(list(check = label, status = "skip", message = "no previous release"))
-  }
-  status <- if (identical(current, previous)) "pass" else "warn"
-  list(check = label, status = status, message = sprintf("previous=%s current=%s", previous, current))
+compare_shape <- function(resp, label) {
+  ok <- is.list(resp) && "data" %in% names(resp) && is.list(resp$data)
+  list(
+    check = sprintf("%s_shape", label),
+    status = if (ok) "pass" else "fail",
+    message = sprintf("data field present=%s rows=%s", ok, if (ok) NROW(resp$data) else NA)
+  )
 }
 
 #' @keywords internal

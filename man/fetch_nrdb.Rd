@@ -21,8 +21,7 @@ data and pagination for abr, a date-range sweep for nrdb.
 \description{
 Fetches the NetrunnerDB reviews, rulings and decklist resources with a
 req_user_agent() built from NRDB_CONTACT, one-to-two-second
-req_throttle() pacing and req_retry() backoff, comparing the response
-total, last_updated and version_number fields against the previous
-release as warning-level checks.
+req_throttle() pacing and req_retry() backoff, running a per-attempt
+shape check against each response's data envelope.
 }
 \keyword{internal}
