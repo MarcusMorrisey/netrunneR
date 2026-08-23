@@ -1,12 +1,24 @@
 #' Extract normalized ice/breaker trait rows from the implementation tree
 #'
 #' Extracts a normalized ice_breaker_traits tibble from the Jinteki
-#' implementation tree, one row per ice or breaker card keyed by the same
-#' code cardpool uses, carrying subtypes, base strength and per-subtype
-#' break cost. Cross-checks codes against cardpool in both directions as a
-#' counted warning that never blocks promotion, since implementation and
-#' cardpool are fetched independently and are expected to drift briefly
-#' around a new card's release.
+#' implementation tree, one row per card-definition file, carrying
+#' subtypes, base strength and per-subtype break cost. Cross-checks codes
+#' against cardpool in both directions as a counted warning that never
+#' blocks promotion, since implementation and cardpool are fetched
+#' independently and are expected to drift briefly around a new card's
+#' release.
+#'
+#' The real mtgred/netrunner tree (confirmed live this session) is a
+#' Clojure project with card definitions grouped one file per card
+#' *category* under src/clj/game/cards/ (agendas.clj, ice.clj,
+#' programs.clj, ...) -- there is no server/cards/*.js per-card layout.
+#' extract_ice_breaker_traits() below is still the pre-existing stub (it
+#' has never parsed real trait data out of a definition file's contents,
+#' only derived a placeholder `code` from the filename), so pointed at
+#' the real path it now produces one placeholder row per category file
+#' rather than per card. Real per-card trait extraction would mean
+#' parsing individual defcard forms out of Clojure source and is future
+#' work, not something this fix invents.
 #'
 #' @param lineage A lineage object of class netrunneR_git_mirror named "implementation".
 #' @param staged_raw The value returned by fetch_lineage.netrunneR_git_mirror().
@@ -14,7 +26,7 @@
 #' @keywords internal
 build_implementation <- function(lineage, staged_raw) {
   raw_dir <- staged_raw$raw_dir
-  card_def_files <- fs::dir_ls(file.path(raw_dir, "server", "cards"), recurse = TRUE, glob = "*.js")
+  card_def_files <- fs::dir_ls(file.path(raw_dir, "src", "clj", "game", "cards"), recurse = TRUE, glob = "*.clj")
 
   traits <- purrr::map_dfr(card_def_files, extract_ice_breaker_traits)
   traits <- dplyr::arrange(traits, .data$code)
