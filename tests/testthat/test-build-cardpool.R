@@ -2,7 +2,7 @@
 # cardpool build path against fixture JSON.
 test_that("build_lineage.netrunneR_git_mirror() dispatches to build_cardpool() for the cardpool lineage", {
   raw_dir <- withr::local_tempdir()
-  fs::dir_create(file.path(raw_dir, "packs"))
+  fs::dir_create(file.path(raw_dir, "pack"))
   writeLines('[{"code":"c1","name":"core","position":1}]', file.path(raw_dir, "cycles.json"))
   writeLines('[{"code":"anarch","name":"Anarch","side":"runner"}]', file.path(raw_dir, "factions.json"))
   writeLines('[{"code":"p1","name":"Core Set","cycle_code":"c1","position":1}]', file.path(raw_dir, "packs.json"))

@@ -91,6 +91,10 @@ apply_schema <- function(con, lineage_name) {
   schema_path <- fs::path_package("netrunneR", "sql", "schema", paste0(lineage_name, ".sql"))
   if (!fs::file_exists(schema_path)) return(invisible(FALSE))
   ddl <- readLines(schema_path, warn = FALSE)
+  # Strip full-line "-- ..." comments before splitting on ";" -- a comment
+  # containing a semicolon (e.g. explanatory prose) would otherwise split a
+  # single statement into malformed fragments.
+  ddl <- ddl[!grepl("^\\s*--", ddl)]
   statements <- strsplit(paste(ddl, collapse = "\n"), ";")[[1]]
   for (stmt in statements) {
     stmt <- trimws(stmt)

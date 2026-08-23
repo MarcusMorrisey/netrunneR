@@ -12,13 +12,16 @@
 #' narrowing this to git-mirror-only lineages would let a shared-code or
 #' DDL change silently change nrdb/abr/rules output without a new revision.
 #'
-#' All inputs are read from pkg_root/pkg-src, a flat mirror of R/ and
-#' renv.lock that the Dockerfile copies into inst/pkg-src before
-#' R CMD INSTALL: R CMD INSTALL compiles R/*.R into a lazy-load database
-#' rather than leaving the source files on disk, and strips the inst/
-#' prefix from everything under inst/, so neither the raw R/*.R bytes nor
-#' a top-level renv.lock are otherwise reachable once the package is
-#' installed and running inside the sync container.
+#' Inputs are read from pkg_root/pkg-src when it exists: a flat mirror of
+#' R/ and renv.lock that the Dockerfile copies into inst/pkg-src before
+#' R CMD INSTALL, since R CMD INSTALL compiles R/*.R into a lazy-load
+#' database rather than leaving the source files on disk, and strips the
+#' inst/ prefix from everything under inst/, so neither the raw R/*.R
+#' bytes nor a top-level renv.lock are otherwise reachable once the
+#' package is installed and running inside the sync container. Outside an
+#' installed package (devtools::test(), R CMD check on the source tree),
+#' pkg_root is the source root itself and R/*.R plus renv.lock are already
+#' there, so pkg-src is skipped in favor of pkg_root directly.
 #'
 #' @param lineage A lineage object.
 #' @param build_module_path Character. Path to the lineage's own build
@@ -28,7 +31,8 @@
 #' @export
 build_revision <- function(lineage, build_module_path) {
   pkg_root <- find_package_root()
-  src_root <- file.path(pkg_root, "pkg-src")
+  pkg_src_dir <- file.path(pkg_root, "pkg-src")
+  src_root <- if (fs::dir_exists(pkg_src_dir)) pkg_src_dir else pkg_root
 
   shared_modules <- c(
     "R/sync.R", "R/promote.R", "R/build-revision.R", "R/capture.R",
@@ -36,7 +40,13 @@ build_revision <- function(lineage, build_module_path) {
     "R/config.R"
   )
 
-  schema_dir <- file.path(pkg_root, "sql", "schema")
+  # Installed layout strips the inst/ prefix (sql/schema); the source tree
+  # keeps it (inst/sql/schema).
+  schema_dir <- if (fs::dir_exists(file.path(pkg_root, "sql", "schema"))) {
+    file.path(pkg_root, "sql", "schema")
+  } else {
+    file.path(pkg_root, "inst", "sql", "schema")
+  }
   schema_files <- if (fs::dir_exists(schema_dir)) sort(fs::dir_ls(schema_dir, glob = "*.sql")) else character(0)
 
   inputs <- list(

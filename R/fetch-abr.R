@@ -35,6 +35,16 @@ fetch_abr <- function(lineage, attempt_dir) {
   }
 
   tournaments <- purrr::map_dfr(pages, function(p) tibble::as_tibble(p$results))
+  if (nrow(tournaments) == 0) {
+    # An empty `results` page collapses to a zero-column tibble via
+    # as_tibble(list()), leaving no `id` column for the lookups below and
+    # no ABR_TOURNAMENT_ALLOWLIST columns for build_abr()'s all_of() select
+    # to find. Reintroduce the expected shape with zero rows so a
+    # legitimately empty page doesn't crash downstream.
+    tournaments <- tibble::as_tibble(stats::setNames(
+      rep(list(character(0)), length(ABR_TOURNAMENT_ALLOWLIST)), ABR_TOURNAMENT_ALLOWLIST
+    ))
+  }
 
   entries <- purrr::map(tournaments$id, function(id) abr_get(lineage$base_url, sprintf("/tournaments/%s/entries", id)))
   videos <- purrr::map(tournaments$id, function(id) abr_get(lineage$base_url, sprintf("/tournaments/%s/videos", id)))
