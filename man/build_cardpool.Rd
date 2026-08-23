@@ -13,5 +13,8 @@ fs::dir_ls(recurse = TRUE), with explicit column types and
 dplyr::arrange() row ordering before each dbWriteTable() call inside
 one transaction, so byte-identical raw content always produces a
 byte-identical processed database regardless of directory listing order.
+Each table is passed through its allowlist (above) before being
+written, since the upstream JSON carries materially more fields than
+inst/sql/schema/cardpool.sql declares.
 }
 \keyword{internal}
