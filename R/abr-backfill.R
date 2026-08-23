@@ -28,6 +28,15 @@
 #'   checkpoint entry, FALSE if the backfill was interrupted before that.
 #' @export
 run_abr_backfill <- function(lineage, tournament_ids) {
+  # The real ABR /tournaments/results endpoint returns id as a JSON
+  # number, not a string (confirmed live), so jsonlite::fromJSON()
+  # parses tournaments$id as an integer column -- coerce to character
+  # here to match this function's own documented contract, since the
+  # checkpoint tibble below is seeded character(0) and an integer id
+  # otherwise fails dplyr::bind_rows() with a type-mismatch error on the
+  # very first real (non-fixture) backfill run.
+  tournament_ids <- as.character(tournament_ids)
+
   pool_dir <- file.path(lineage$store_root, "objects")
   fs::dir_create(pool_dir, mode = "0700")
 
