@@ -2,8 +2,11 @@
 #'
 #' Fetches the ABR tournaments results pages, per-tournament entries, the
 #' bulk videos endpoint and the upcoming endpoint sequentially with
-#' two-second req_throttle() pacing and a hard stop on any 5xx. Uses a
-#' fresh req_options cookie jar per request deleted immediately after,
+#' two-second req_throttle() pacing and a hard stop on any 5xx --
+#' except for the per-tournament entries step, where an isolated 5xx is
+#' tombstoned and retried later rather than aborting the whole crawl (see
+#' run_abr_backfill(), R/abr-backfill.R). Uses a fresh req_options cookie
+#' jar per request deleted immediately after,
 #' sends no conditional headers, derives the page count from
 #' tournament_count on the first element rather than looping until empty,
 #' and enforces the 500-row limit cap with a hard stopifnot().
@@ -70,11 +73,27 @@ fetch_abr <- function(lineage, attempt_dir) {
 
   # run_abr_backfill() persists each resolved id's entries into the
   # content-addressed pool and checkpoint beside store_root (both outside
-  # attempt_dir, so they survive this attempt being discarded) and skips
-  # any id already resolved by a prior interrupted run; read_backfill_object()
-  # then re-reads each tournament's entries back off the pool in the same
-  # order as tournaments$id so the shape returned below is unchanged.
-  run_abr_backfill(lineage, tournaments$id)
+  # attempt_dir, so they survive this attempt being discarded), skips any
+  # id already settled by a prior run, and tombstones an isolated
+  # per-tournament 5xx (confirmed live: tournament 5379's /entries
+  # endpoint 500s in isolation, the rest of the server healthy) rather
+  # than hard-stopping the whole crawl on it.
+  backfill_result <- run_abr_backfill(lineage, tournaments$id)
+  if (!isTRUE(backfill_result$all_settled)) {
+    # Some ids are still within their 30-day tombstone retry window --
+    # not yet permanent_unavailable, but not resolved either. Abort this
+    # attempt rather than build a release with silently missing entries;
+    # promotion stays blocked until every id resolves or ages out.
+    rlang::abort(
+      "ABR backfill has tournament ids still pending retry; aborting this attempt so promotion stays blocked until they resolve or become permanent_unavailable",
+      class = "netrunneR_abr_backfill_incomplete"
+    )
+  }
+  if (length(backfill_result$permanent_ids) > 0) {
+    # A tournament whose /entries endpoint has 5xx'd every day for 30
+    # days is excluded from the release rather than blocking it forever.
+    tournaments <- dplyr::filter(tournaments, !.data$id %in% backfill_result$permanent_ids)
+  }
   entries <- purrr::map(tournaments$id, function(id) read_backfill_object(lineage, id))
   # /videos is a single bulk call covering every tournament's videos, not
   # a per-tournament endpoint -- fetched once regardless of how many

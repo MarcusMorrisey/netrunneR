@@ -18,8 +18,11 @@ deny-pattern check in build_abr(). (ref: DL-002)}
 \description{
 Fetches the ABR tournaments results pages, per-tournament entries, the
 bulk videos endpoint and the upcoming endpoint sequentially with
-two-second req_throttle() pacing and a hard stop on any 5xx. Uses a
-fresh req_options cookie jar per request deleted immediately after,
+two-second req_throttle() pacing and a hard stop on any 5xx --
+except for the per-tournament entries step, where an isolated 5xx is
+tombstoned and retried later rather than aborting the whole crawl (see
+run_abr_backfill(), R/abr-backfill.R). Uses a fresh req_options cookie
+jar per request deleted immediately after,
 sends no conditional headers, derives the page count from
 tournament_count on the first element rather than looping until empty,
 and enforces the 500-row limit cap with a hard stopifnot().

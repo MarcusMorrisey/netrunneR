@@ -17,8 +17,10 @@ yet passed build_abr()'s two-layer allowlist and deny-pattern check.
 (ref: DL-002)}
 }
 \value{
-Invisibly, TRUE once every id in tournament_ids has a resolved
-checkpoint entry, FALSE if the backfill was interrupted before that.
+Invisibly, a list with \code{all_settled} (TRUE once every id in
+tournament_ids is either resolved or permanent_unavailable -- i.e.
+nothing is left pending a future retry) and \code{permanent_ids} (the
+subset of tournament_ids marked permanent_unavailable).
 }
 \description{
 Writes only into the content-addressed object pool, checkpointing
@@ -37,4 +39,15 @@ unresolved work as an interrupted "backfill" one. It stays exported
 and independently callable so a specific set of tournament ids can
 also be re-resolved directly, e.g. after a data issue narrower than a
 full sync attempt.
+
+A single tournament id's /entries request can 5xx in isolation --
+confirmed live this session against a real, otherwise-healthy server
+-- so an isolated failure is recorded as a dated tombstone and
+retried at most once per calendar day, same discipline as the
+now-removed nrdb decklist reconciliation's tombstoning. After
+ABR_BACKFILL_TOMBSTONE_DAYS of consecutive daily failures the id is
+marked permanent_unavailable and excluded from the release rather
+than blocking it forever. A run of ABR_BACKFILL_MAX_CONSECUTIVE_5XX
+failures in a row is treated as a real outage and re-raised, same
+fail-closed behavior abr_get() already had.
 }

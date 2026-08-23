@@ -11,7 +11,7 @@ read_backfill_object(lineage, tournament_id)
 
 \item{tournament_id}{Character scalar. Must already have a resolved
 checkpoint entry (i.e. run_abr_backfill() has been called with this
-id first).}
+id first and it did not come back permanent_unavailable).}
 }
 \description{
 Companion to run_abr_backfill(): reads the same object_path that

@@ -1,3 +1,20 @@
+#' Consecutive 5xx responses from ABR's /entries endpoint treated as a
+#' real upstream outage rather than isolated per-tournament breakage.
+#' Confirmed live this session: tournament 5379's /entries endpoint
+#' 500s consistently and in isolation (curled directly, twice, with
+#' every other endpoint healthy) -- a single bad id is not evidence of
+#' an outage, so tombstoning past it and continuing is correct, but a
+#' run of failures back-to-back looks exactly like the retry-storm
+#' scenario abr_get()'s hard-stop exists to protect the volunteer-run
+#' server from, and re-raises instead.
+#' @keywords internal
+ABR_BACKFILL_MAX_CONSECUTIVE_5XX <- 3L
+
+#' Days a persistently-failing tournament id is retried daily before
+#' being marked permanent_unavailable and excluded from the release.
+#' @keywords internal
+ABR_BACKFILL_TOMBSTONE_DAYS <- 30L
+
 #' Run the interruptible ABR backfill
 #'
 #' Writes only into the content-addressed object pool, checkpointing
@@ -16,6 +33,17 @@
 #' also be re-resolved directly, e.g. after a data issue narrower than a
 #' full sync attempt.
 #'
+#' A single tournament id's /entries request can 5xx in isolation --
+#' confirmed live this session against a real, otherwise-healthy server
+#' -- so an isolated failure is recorded as a dated tombstone and
+#' retried at most once per calendar day, same discipline as the
+#' now-removed nrdb decklist reconciliation's tombstoning. After
+#' ABR_BACKFILL_TOMBSTONE_DAYS of consecutive daily failures the id is
+#' marked permanent_unavailable and excluded from the release rather
+#' than blocking it forever. A run of ABR_BACKFILL_MAX_CONSECUTIVE_5XX
+#' failures in a row is treated as a real outage and re-raised, same
+#' fail-closed behavior abr_get() already had.
+#'
 #' @param lineage A lineage object of class netrunneR_api_poll named "abr".
 #' @param tournament_ids Character vector of tournament ids to backfill.
 #'
@@ -24,8 +52,10 @@
 #' yet passed build_abr()'s two-layer allowlist and deny-pattern check.
 #' (ref: DL-002)
 #'
-#' @return Invisibly, TRUE once every id in tournament_ids has a resolved
-#'   checkpoint entry, FALSE if the backfill was interrupted before that.
+#' @return Invisibly, a list with `all_settled` (TRUE once every id in
+#'   tournament_ids is either resolved or permanent_unavailable -- i.e.
+#'   nothing is left pending a future retry) and `permanent_ids` (the
+#'   subset of tournament_ids marked permanent_unavailable).
 #' @export
 run_abr_backfill <- function(lineage, tournament_ids) {
   # The real ABR /tournaments/results endpoint returns id as a JSON
@@ -33,8 +63,8 @@ run_abr_backfill <- function(lineage, tournament_ids) {
   # parses tournaments$id as an integer column -- coerce to character
   # here to match this function's own documented contract, since the
   # checkpoint tibble below is seeded character(0) and an integer id
-  # otherwise fails dplyr::bind_rows() with a type-mismatch error on the
-  # very first real (non-fixture) backfill run.
+  # otherwise fails dplyr::bind_rows()/rows_upsert() with a type-mismatch
+  # error on the very first real (non-fixture) backfill run.
   tournament_ids <- as.character(tournament_ids)
 
   pool_dir <- file.path(lineage$store_root, "objects")
@@ -44,23 +74,74 @@ run_abr_backfill <- function(lineage, tournament_ids) {
   checkpoint <- if (fs::file_exists(checkpoint_path)) {
     readRDS(checkpoint_path)
   } else {
-    tibble::tibble(tournament_id = character(0), resolved = logical(0))
+    tibble::tibble(
+      tournament_id = character(0), resolved = logical(0),
+      first_failed_at = character(0), last_failed_at = character(0),
+      permanent_unavailable = logical(0)
+    )
   }
+  # A checkpoint written before tombstoning existed only has
+  # tournament_id/resolved -- backfill the new columns rather than
+  # discard real, already-fetched progress (312 tournaments' entries
+  # were on disk under the old schema when this was added).
+  for (col in c("first_failed_at", "last_failed_at")) {
+    if (!col %in% names(checkpoint)) checkpoint[[col]] <- NA_character_
+  }
+  if (!"permanent_unavailable" %in% names(checkpoint)) checkpoint$permanent_unavailable <- FALSE
 
-  remaining <- setdiff(tournament_ids, checkpoint$tournament_id[checkpoint$resolved])
+  today <- format(Sys.Date(), "%Y-%m-%d")
+  settled_ids <- checkpoint$tournament_id[checkpoint$resolved | checkpoint$permanent_unavailable]
+  already_attempted_today <- checkpoint$tournament_id[!is.na(checkpoint$last_failed_at) & checkpoint$last_failed_at == today]
+  remaining <- setdiff(tournament_ids, union(settled_ids, already_attempted_today))
+
+  consecutive_failures <- 0L
 
   for (id in remaining) {
-    entries <- abr_get(lineage$base_url, "/entries", list(id = id))
-    object_path <- file.path(pool_dir, paste0(id, ".json"))
-    jsonlite::write_json(entries, object_path, auto_unbox = TRUE)
-    Sys.chmod(object_path, mode = "0600")
+    result <- tryCatch(
+      list(ok = TRUE, entries = abr_get(lineage$base_url, "/entries", list(id = id))),
+      netrunneR_abr_5xx = function(e) list(ok = FALSE)
+    )
 
-    checkpoint <- dplyr::bind_rows(checkpoint, tibble::tibble(tournament_id = id, resolved = TRUE))
+    if (isTRUE(result$ok)) {
+      object_path <- file.path(pool_dir, paste0(id, ".json"))
+      jsonlite::write_json(result$entries, object_path, auto_unbox = TRUE)
+      Sys.chmod(object_path, mode = "0600")
+
+      checkpoint <- dplyr::rows_upsert(checkpoint, tibble::tibble(
+        tournament_id = id, resolved = TRUE,
+        first_failed_at = NA_character_, last_failed_at = NA_character_,
+        permanent_unavailable = FALSE
+      ), by = "tournament_id")
+      consecutive_failures <- 0L
+    } else {
+      consecutive_failures <- consecutive_failures + 1L
+      if (consecutive_failures >= ABR_BACKFILL_MAX_CONSECUTIVE_5XX) {
+        rlang::abort(
+          sprintf("ABR /entries returned 5xx for %d consecutive tournament ids; treating as an outage, not isolated per-id breakage", consecutive_failures),
+          class = "netrunneR_abr_backfill_outage"
+        )
+      }
+
+      prior <- checkpoint[checkpoint$tournament_id == id, ]
+      first_failed_at <- if (nrow(prior) > 0 && !is.na(prior$first_failed_at[1])) prior$first_failed_at[1] else today
+      age_days <- as.integer(as.Date(today) - as.Date(first_failed_at))
+      permanent <- age_days >= ABR_BACKFILL_TOMBSTONE_DAYS
+
+      checkpoint <- dplyr::rows_upsert(checkpoint, tibble::tibble(
+        tournament_id = id, resolved = FALSE,
+        first_failed_at = first_failed_at, last_failed_at = today,
+        permanent_unavailable = permanent
+      ), by = "tournament_id")
+    }
+
     saveRDS(checkpoint, checkpoint_path)
   }
 
-  all_resolved <- all(tournament_ids %in% checkpoint$tournament_id[checkpoint$resolved])
-  invisible(all_resolved)
+  settled_ids <- checkpoint$tournament_id[checkpoint$resolved | checkpoint$permanent_unavailable]
+  all_settled <- all(tournament_ids %in% settled_ids)
+  permanent_ids <- intersect(tournament_ids, checkpoint$tournament_id[checkpoint$permanent_unavailable])
+
+  invisible(list(all_settled = all_settled, permanent_ids = permanent_ids))
 }
 
 #' Read one tournament's entries back off the checkpointed object pool
@@ -73,7 +154,7 @@ run_abr_backfill <- function(lineage, tournament_ids) {
 #' @param lineage A lineage object of class netrunneR_api_poll named "abr".
 #' @param tournament_id Character scalar. Must already have a resolved
 #'   checkpoint entry (i.e. run_abr_backfill() has been called with this
-#'   id first).
+#'   id first and it did not come back permanent_unavailable).
 #'
 #' @keywords internal
 read_backfill_object <- function(lineage, tournament_id) {
