@@ -15,8 +15,9 @@ test_that("build_abr() selects only ABR_TOURNAMENT_ALLOWLIST columns, dropping u
 
   built <- build_abr(li, staged_raw)
 
-  expect_setequal(names(dplyr::tbl(DBI::dbConnect(RSQLite::SQLite(), built$db_path), "tournament") |> dplyr::collect()),
-                   ABR_TOURNAMENT_ALLOWLIST)
+  con <- DBI::dbConnect(RSQLite::SQLite(), built$db_path)
+  withr::defer(DBI::dbDisconnect(con))
+  expect_setequal(names(dplyr::tbl(con, "tournament") |> dplyr::collect()), ABR_TOURNAMENT_ALLOWLIST)
 })
 
 test_that("dplyr::all_of() errors closed when ABR_TOURNAMENT_ALLOWLIST names a missing column", {
