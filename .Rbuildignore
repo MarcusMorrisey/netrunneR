@@ -1,6 +1,5 @@
-^renv$
-^renv\.lock$
 ^\.claude$
 ^\.Rproj\.user$
 ^\.github$
 ^\.ci$
+^Makefile$

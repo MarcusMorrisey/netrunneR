@@ -4,3 +4,10 @@
 .RData
 .Ruserdata
 renv/library
+
+# build_revision()'s installed-tree mirror of R/ and renv.lock: created by
+# the Dockerfile and by `make check`'s pre-check step, never committed.
+inst/pkg-src
+
+# R CMD check output directory
+netrunneR.Rcheck/

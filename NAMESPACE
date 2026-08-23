@@ -38,4 +38,7 @@ export(run_decklist_sweep)
 export(run_sync)
 export(swap_active)
 export(validate_release)
-importFrom(rlang,abort)
+importFrom(rlang,
+  .data,
+  abort
+)
