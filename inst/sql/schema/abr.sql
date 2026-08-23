@@ -4,13 +4,13 @@
 -- this table.
 CREATE TABLE tournament (
   id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
+  title TEXT NOT NULL,
   date TEXT NOT NULL,
   format TEXT NOT NULL,
-  region TEXT,
-  country TEXT,
-  player_count INTEGER,
-  cut_size INTEGER,
-  identity_a_code TEXT,
-  identity_c_code TEXT
+  location_state TEXT,
+  location_country TEXT,
+  players_count INTEGER,
+  top_count INTEGER,
+  winner_runner_identity TEXT,
+  winner_corp_identity TEXT
 );

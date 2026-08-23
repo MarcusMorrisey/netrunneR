@@ -54,7 +54,7 @@ test_that("a Set-Cookie sentinel never reaches raw, objects, manifest.json or re
   sentinel <- "SENTINEL-HEADER-LEAK-TOKEN"
 
   httr2::local_mocked_responses(function(req) {
-    body <- if (grepl("/entries$", req$url) || grepl("/videos$", req$url) || grepl("/upcoming$", req$url)) {
+    body <- if (grepl("/entries", req$url) || grepl("/videos$", req$url) || grepl("/upcoming$", req$url)) {
       list()
     } else {
       list(tournament_count = 0L, results = list())

@@ -3,9 +3,9 @@
 # the independent check_deny_pattern() regex scan.
 test_that("build_abr() selects only ABR_TOURNAMENT_ALLOWLIST columns, dropping unknown upstream keys", {
   tournaments <- tibble::tibble(
-    id = "t1", name = "Regional", date = "2023-05-01", format = "standard",
-    region = "NA", country = "US", player_count = 32L, cut_size = 8L,
-    identity_a_code = "id-a", identity_c_code = "id-c",
+    id = "t1", title = "Regional", date = "2023-05-01", format = "standard",
+    location_state = "NA", location_country = "US", players_count = 32L, top_count = 8L,
+    winner_runner_identity = "35013", winner_corp_identity = "35068",
     organizer_email = "leak@example.com"
   )
   staged_raw <- list(tournaments = tournaments, tournament_count = 1L, raw_dir = withr::local_tempdir())

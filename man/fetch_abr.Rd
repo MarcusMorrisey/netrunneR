@@ -16,12 +16,12 @@ provenance data that has not yet passed the two-layer allowlist and
 deny-pattern check in build_abr(). (ref: DL-002)}
 }
 \description{
-Fetches the ABR tournaments results pages, per-tournament entries,
-videos and upcoming endpoints sequentially with two-second
-req_throttle() pacing and a hard stop on any 5xx. Uses a fresh
-req_options cookie jar per request deleted immediately after, sends no
-conditional headers, derives the page count from tournament_count on
-the first element rather than looping until empty, and enforces the
-500-row limit cap with a hard stopifnot().
+Fetches the ABR tournaments results pages, per-tournament entries, the
+bulk videos endpoint and the upcoming endpoint sequentially with
+two-second req_throttle() pacing and a hard stop on any 5xx. Uses a
+fresh req_options cookie jar per request deleted immediately after,
+sends no conditional headers, derives the page count from
+tournament_count on the first element rather than looping until empty,
+and enforces the 500-row limit cap with a hard stopifnot().
 }
 \keyword{internal}

@@ -4,7 +4,7 @@
 test_that("fetch_lineage.netrunneR_api_poll() delegates to the abr helper with tournament_count-derived pagination", {
   httr2::local_mocked_responses(list(
     httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(
-      list(tournament_count = 1L, results = list(list(id = "t1", name = "Fixture Cup", date = "2023-01-01"))),
+      list(tournament_count = 1L, results = list(list(id = "t1", title = "Fixture Cup", date = "2023-01-01"))),
       auto_unbox = TRUE
     ))),
     httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(), auto_unbox = TRUE))),

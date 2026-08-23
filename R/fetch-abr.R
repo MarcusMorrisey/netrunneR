@@ -1,12 +1,12 @@
 #' Fetch ABR tournaments, entries, videos and upcoming events
 #'
-#' Fetches the ABR tournaments results pages, per-tournament entries,
-#' videos and upcoming endpoints sequentially with two-second
-#' req_throttle() pacing and a hard stop on any 5xx. Uses a fresh
-#' req_options cookie jar per request deleted immediately after, sends no
-#' conditional headers, derives the page count from tournament_count on
-#' the first element rather than looping until empty, and enforces the
-#' 500-row limit cap with a hard stopifnot().
+#' Fetches the ABR tournaments results pages, per-tournament entries, the
+#' bulk videos endpoint and the upcoming endpoint sequentially with
+#' two-second req_throttle() pacing and a hard stop on any 5xx. Uses a
+#' fresh req_options cookie jar per request deleted immediately after,
+#' sends no conditional headers, derives the page count from
+#' tournament_count on the first element rather than looping until empty,
+#' and enforces the 500-row limit cap with a hard stopifnot().
 #'
 #' @param lineage A lineage object of class netrunneR_api_poll named "abr".
 #' @param attempt_dir Character. Staging directory for this sync attempt.
@@ -46,8 +46,11 @@ fetch_abr <- function(lineage, attempt_dir) {
     ))
   }
 
-  entries <- purrr::map(tournaments$id, function(id) abr_get(lineage$base_url, sprintf("/tournaments/%s/entries", id)))
-  videos <- purrr::map(tournaments$id, function(id) abr_get(lineage$base_url, sprintf("/tournaments/%s/videos", id)))
+  entries <- purrr::map(tournaments$id, function(id) abr_get(lineage$base_url, "/entries", list(id = id)))
+  # /videos is a single bulk call covering every tournament's videos, not
+  # a per-tournament endpoint -- fetched once regardless of how many
+  # tournaments were returned above.
+  videos <- abr_get(lineage$base_url, "/videos")
   upcoming <- abr_get(lineage$base_url, "/tournaments/upcoming")
 
   write_json_raw(raw_dir, "tournaments.json", tournaments)

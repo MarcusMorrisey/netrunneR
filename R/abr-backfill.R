@@ -32,7 +32,7 @@ run_abr_backfill <- function(lineage, tournament_ids) {
   remaining <- setdiff(tournament_ids, checkpoint$tournament_id[checkpoint$resolved])
 
   for (id in remaining) {
-    entries <- abr_get(lineage$base_url, sprintf("/tournaments/%s/entries", id))
+    entries <- abr_get(lineage$base_url, "/entries", list(id = id))
     object_path <- file.path(pool_dir, paste0(id, ".json"))
     jsonlite::write_json(entries, object_path, auto_unbox = TRUE)
     Sys.chmod(object_path, mode = "0600")

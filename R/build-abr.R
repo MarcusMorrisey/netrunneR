@@ -36,8 +36,8 @@ build_lineage.netrunneR_api_poll <- function(lineage, staged_raw, ...) {
 #' store. (ref: DL-002)
 #' @keywords internal
 ABR_TOURNAMENT_ALLOWLIST <- c(
-  "id", "name", "date", "format", "region", "country",
-  "player_count", "cut_size", "identity_a_code", "identity_c_code"
+  "id", "title", "date", "format", "location_state", "location_country",
+  "players_count", "top_count", "winner_runner_identity", "winner_corp_identity"
 )
 
 #' @keywords internal
