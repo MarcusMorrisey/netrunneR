@@ -43,16 +43,21 @@ test_that("build_cardpool() drops unrecognized upstream keys instead of erroring
   # Mirrors the real Null-Signal-Games/netrunner-cards-json shape, which
   # carries materially more fields per record (rotated/size/date_release/
   # ffg_id/flavor/illustrator/quantity/uniqueness/...) than
-  # inst/sql/schema/cardpool.sql declares. raw_dir is nested under a fresh
-  # attempt directory -- see the dirname(raw_dir)/db_path note on the
-  # dispatch test above.
+  # inst/sql/schema/cardpool.sql declares, and names the faction table's
+  # side column side_code upstream (matching the card table's own
+  # side_code) rather than the schema's side. raw_dir is nested under a
+  # fresh attempt directory -- see the dirname(raw_dir)/db_path note on
+  # the dispatch test above.
   raw_dir <- file.path(withr::local_tempdir(), "raw")
   fs::dir_create(file.path(raw_dir, "pack"))
   writeLines(
     '[{"code":"c1","name":"core","position":1,"rotated":true,"size":1}]',
     file.path(raw_dir, "cycles.json")
   )
-  writeLines('[{"code":"anarch","name":"Anarch","side":"runner"}]', file.path(raw_dir, "factions.json"))
+  writeLines(
+    '[{"code":"anarch","name":"Anarch","color":"FF4500","color_xterm":202,"is_mini":false,"side_code":"runner"}]',
+    file.path(raw_dir, "factions.json")
+  )
   writeLines(
     '[{"code":"p1","name":"Core Set","cycle_code":"c1","position":1,"date_release":"2012-09-06","ffg_id":1,"size":1}]',
     file.path(raw_dir, "packs.json")
@@ -73,6 +78,8 @@ test_that("build_cardpool() drops unrecognized upstream keys instead of erroring
   expect_identical(unknown_check$status, "warn")
   expect_match(unknown_check$message, "rotated")
   expect_match(unknown_check$message, "quantity")
+  expect_no_match(unknown_check$message, "faction\\.side_code")
+  expect_match(unknown_check$message, "faction\\.color")
 
   con <- DBI::dbConnect(RSQLite::SQLite(), built$db_path)
   on.exit(DBI::dbDisconnect(con))
@@ -80,4 +87,5 @@ test_that("build_cardpool() drops unrecognized upstream keys instead of erroring
     sort(DBI::dbListFields(con, "card")),
     sort(CARDPOOL_CARD_ALLOWLIST)
   )
+  expect_identical(DBI::dbGetQuery(con, "SELECT side FROM faction WHERE code = 'anarch'")$side, "runner")
 })

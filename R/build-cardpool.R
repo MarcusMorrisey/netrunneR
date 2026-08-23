@@ -95,6 +95,16 @@ build_cardpool <- function(lineage, staged_raw) {
 
   cycles <- read_json_tibble(file.path(raw_dir, "cycles.json"))
   factions <- read_json_tibble(file.path(raw_dir, "factions.json"))
+  # Upstream names this field side_code, matching the card table's own
+  # side_code column; the cardpool schema's faction table names it side
+  # instead (inst/sql/schema/cardpool.sql), predating this fix and left
+  # unchanged here rather than migrated, since nothing else depends on
+  # the upstream name. any_of() so a fixture/test tibble without
+  # side_code at all (already exercised by CARDPOOL_FACTION_ALLOWLIST's
+  # NA-backfill path below) isn't broken by the rename.
+  if ("side_code" %in% names(factions)) {
+    factions <- dplyr::rename(factions, side = "side_code")
+  }
   packs <- read_json_tibble(file.path(raw_dir, "packs.json"))
 
   pack_card_files <- fs::dir_ls(file.path(raw_dir, "pack"), recurse = TRUE, glob = "*.json")
