@@ -6,6 +6,10 @@ test_that("build_lineage.netrunneR_git_mirror() dispatches to build_cardpool() f
   writeLines('[{"code":"c1","name":"core","position":1}]', file.path(raw_dir, "cycles.json"))
   writeLines('[{"code":"anarch","name":"Anarch","side":"runner"}]', file.path(raw_dir, "factions.json"))
   writeLines('[{"code":"p1","name":"Core Set","cycle_code":"c1","position":1}]', file.path(raw_dir, "packs.json"))
+  writeLines(
+    '[{"code":"01001","title":"Sure Gamble","pack_code":"p1","faction_code":"anarch","type_code":"event","side_code":"runner"}]',
+    file.path(raw_dir, "pack", "p1.json")
+  )
 
   li <- new_lineage("cardpool", "git_mirror", withr::local_tempdir(), schema_version = 1L,
                     build_module_path = "R/build-cardpool.R")

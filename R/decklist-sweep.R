@@ -24,6 +24,12 @@ run_decklist_sweep <- function(lineage) {
     page <- nrdb_get(lineage$base_url, "/decklists/by-date", list(date = format(d, "%Y-%m-%d")))
     tibble::as_tibble(page$results)
   })
+  if (nrow(decklists) == 0) {
+    # An entirely empty sweep (no decklists on any date in range) collapses
+    # to a zero-column tibble via as_tibble(list()), leaving no `date`/`id`
+    # columns for the arrange/distinct calls below.
+    decklists <- tibble::tibble(id = character(0), date = character(0))
+  }
 
   decklists <- dplyr::arrange(decklists, .data$date)
   decklists <- dplyr::distinct(decklists, .data$id, .keep_all = TRUE)

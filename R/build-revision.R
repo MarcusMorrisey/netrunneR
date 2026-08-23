@@ -87,6 +87,15 @@ renv_lock_hash <- function(src_root) {
 #' @keywords internal
 find_package_root <- function() {
   pkg_root <- system.file(package = "netrunneR")
-  if (nzchar(pkg_root)) return(pkg_root)
+  if (nzchar(pkg_root)) {
+    # An installed package's DESCRIPTION lives directly at pkg_root.
+    # devtools::load_all()'s system.file() shim instead resolves into
+    # <source_root>/inst (to mimic post-install inst/ promotion for
+    # development), which has no DESCRIPTION -- step back up to the real
+    # source root, where R/*.R and renv.lock actually live.
+    if (fs::file_exists(file.path(pkg_root, "DESCRIPTION"))) return(pkg_root)
+    parent <- dirname(pkg_root)
+    if (fs::file_exists(file.path(parent, "DESCRIPTION"))) return(parent)
+  }
   getwd()
 }

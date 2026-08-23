@@ -28,12 +28,23 @@ test_that("the nrdb api-poll fetch helper builds a User-Agent from NRDB_CONTACT 
   expect_true(length(staged$checks) == 3)
 })
 
-test_that("req_retry() backs off a fixture transient failure", {
-  httr2::local_mocked_responses(list(
-    httr2::response(status_code = 503, body = charToRaw("{}")),
+# httr2's local_mocked_responses() replaces the whole perform-with-retry
+# pipeline with a single response lookup (verified directly: neither a
+# fixed-length list of [503, 200] nor a call-counting function mock ever
+# triggers a second attempt), so retry-then-succeed can't actually be
+# exercised through a mock. Instead this checks nrdb_get() wires up
+# req_retry() with a real, bounded max_tries by inspecting the request
+# object the mock receives.
+test_that("nrdb_get() configures req_retry() with a bounded max_tries", {
+  captured_req <- NULL
+  httr2::local_mocked_responses(function(req) {
+    captured_req <<- req
     httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(total = 1L), auto_unbox = TRUE)))
-  ))
+  })
   withr::local_envvar(NRDB_CONTACT = "fixture@example.test")
   result <- nrdb_get("https://example.test/api", "/reviews")
+
   expect_identical(result$total, 1L)
+  expect_true(is.finite(captured_req$policies$retry_max_tries))
+  expect_gt(captured_req$policies$retry_max_tries, 1)
 })
