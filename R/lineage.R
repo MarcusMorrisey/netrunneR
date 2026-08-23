@@ -30,10 +30,12 @@ new_lineage <- function(name, source_type, store_root, ...) {
 .LINEAGE_REGISTRY <- list(
   nrdb = list(source_type = "api_poll", schedule = "daily", schema_version = 1L,
               pacing = list(min_delay_s = 1, max_delay_s = 2),
-              build_module_path = "R/build-nrdb.R"),
+              build_module_path = "R/build-nrdb.R",
+              base_url = "https://netrunnerdb.com/api/2.0/public"),
   abr = list(source_type = "api_poll", schedule = "daily", schema_version = 1L,
              pacing = list(min_delay_s = 2, max_delay_s = 2),
-             build_module_path = "R/build-abr.R"),
+             build_module_path = "R/build-abr.R",
+             base_url = "https://alwaysberunning.net/api"),
   cardpool = list(source_type = "git_mirror", schedule = "daily", schema_version = 1L,
                   pacing = NULL, build_module_path = "R/build-cardpool.R",
                   repo_url = "https://github.com/Null-Signal-Games/netrunner-cards-json.git"),
@@ -63,8 +65,9 @@ BUILTIN_LINEAGES <- names(.LINEAGE_REGISTRY)
 #'
 #' @return A lineage object as constructed by [new_lineage()], carrying the
 #'   lineage's source_type, schedule, pacing policy, schema-version constant,
-#'   build_module_path, and any source-specific fields (repo_url/ref for
-#'   git_mirror lineages, hub_url for web_archive lineages).
+#'   build_module_path, and any source-specific fields (base_url for
+#'   api_poll lineages, repo_url/ref for git_mirror lineages, hub_url for
+#'   web_archive lineages).
 #' @export
 lineage <- function(name) {
   if (!name %in% BUILTIN_LINEAGES) {
@@ -83,6 +86,7 @@ lineage <- function(name) {
     schema_version = entry$schema_version,
     pacing = entry$pacing,
     build_module_path = entry$build_module_path,
+    base_url = entry$base_url,
     repo_url = entry$repo_url,
     ref = entry$ref,
     hub_url = entry$hub_url
