@@ -2,24 +2,17 @@
 % Please edit documentation in R/fetch-nrdb.R
 \name{fetch_nrdb}
 \alias{fetch_nrdb}
-\title{Fetch NetrunnerDB reviews, rulings and decklists}
+\title{Fetch NetrunnerDB reviews and rulings}
 \usage{
 fetch_nrdb(lineage, attempt_dir)
 }
 \arguments{
 \item{lineage}{A lineage object of class netrunneR_api_poll named "nrdb".}
 
-\item{attempt_dir}{Character. Staging directory for this sync attempt.
-
-Delegates to run_decklist_sweep() (R/decklist-sweep.R) for the
-date-range decklist sweep; abr and nrdb share the netrunneR_api_poll
-S3 dispatch in R/fetch-api-poll.R but keep separate per-lineage
-helper files because they carry different risk surfaces -- personal
-data and pagination for abr, a date-range sweep for nrdb.
-(ref: DL-005)}
+\item{attempt_dir}{Character. Staging directory for this sync attempt.}
 }
 \description{
-Fetches the NetrunnerDB reviews, rulings and decklist resources with a
+Fetches the NetrunnerDB reviews and rulings resources with a
 req_user_agent() built from NRDB_CONTACT, one-to-two-second
 req_throttle() pacing and req_retry() backoff, running a per-attempt
 shape check against each response's data envelope.

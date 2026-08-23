@@ -2,7 +2,7 @@
 % Please edit documentation in R/build-nrdb.R
 \name{build_nrdb}
 \alias{build_nrdb}
-\title{Build the nrdb release and run abr-to-decklist reconciliation}
+\title{Build the nrdb release}
 \usage{
 build_nrdb(lineage, staged_raw)
 }
@@ -12,11 +12,6 @@ build_nrdb(lineage, staged_raw)
 \item{staged_raw}{The value returned by fetch_nrdb().}
 }
 \description{
-Builds the nrdb tables and runs reconciliation: anti_joins the decklist
-ids referenced by the captured abr release against the staged index,
-issues one rate-limited request per gap, records a definitive 404 or
-403 as a dated tombstone retried daily for 30 days before becoming
-permanent_unavailable, and blocks promotion on any transient failure or
-unresolved id.
+Builds the nrdb review and ruling tables from the fetched envelopes.
 }
 \keyword{internal}

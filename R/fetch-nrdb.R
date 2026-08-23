@@ -1,19 +1,12 @@
-#' Fetch NetrunnerDB reviews, rulings and decklists
+#' Fetch NetrunnerDB reviews and rulings
 #'
-#' Fetches the NetrunnerDB reviews, rulings and decklist resources with a
+#' Fetches the NetrunnerDB reviews and rulings resources with a
 #' req_user_agent() built from NRDB_CONTACT, one-to-two-second
 #' req_throttle() pacing and req_retry() backoff, running a per-attempt
 #' shape check against each response's data envelope.
 #'
 #' @param lineage A lineage object of class netrunneR_api_poll named "nrdb".
 #' @param attempt_dir Character. Staging directory for this sync attempt.
-#'
-#' Delegates to run_decklist_sweep() (R/decklist-sweep.R) for the
-#' date-range decklist sweep; abr and nrdb share the netrunneR_api_poll
-#' S3 dispatch in R/fetch-api-poll.R but keep separate per-lineage
-#' helper files because they carry different risk surfaces -- personal
-#' data and pagination for abr, a date-range sweep for nrdb.
-#' (ref: DL-005)
 #'
 #' @keywords internal
 fetch_nrdb <- function(lineage, attempt_dir) {
@@ -22,8 +15,6 @@ fetch_nrdb <- function(lineage, attempt_dir) {
 
   reviews <- nrdb_get(lineage$base_url, "/reviews")
   rulings <- nrdb_get(lineage$base_url, "/rulings")
-
-  sweep <- run_decklist_sweep(lineage)
 
   jsonlite::write_json(reviews, file.path(raw_dir, "reviews.json"), auto_unbox = TRUE)
   jsonlite::write_json(rulings, file.path(raw_dir, "rulings.json"), auto_unbox = TRUE)
@@ -53,10 +44,9 @@ fetch_nrdb <- function(lineage, attempt_dir) {
     raw_dir = raw_dir,
     reviews = reviews,
     rulings = rulings,
-    sweep = sweep,
     checks = comparison_checks,
     content_identity = digest::digest(
-      list(NROW(reviews$data), NROW(rulings$data), sweep$sweep_end),
+      list(NROW(reviews$data), NROW(rulings$data)),
       algo = "sha256"
     )
   )
@@ -95,13 +85,4 @@ compare_shape <- function(resp, label) {
     status = if (ok) "pass" else "fail",
     message = sprintf("data field present=%s rows=%s", ok, if (ok) NROW(resp$data) else NA)
   )
-}
-
-#' @keywords internal
-previous_nrdb_manifest <- function(lineage) {
-  active <- tryCatch(resolve_release(lineage), error = function(e) NULL)
-  if (is.null(active)) return(list())
-  manifest_path <- file.path(active$release_dir, "manifest.json")
-  if (!fs::file_exists(manifest_path)) return(list())
-  jsonlite::fromJSON(manifest_path, simplifyVector = FALSE)
 }
