@@ -24,3 +24,23 @@ test_that("run_abr_backfill() checkpoints resolved ids and skips them on a re-ru
   mtime_after <- fs::file_info(file.path(store_root, "objects", "t1.json"))$modification_time
   expect_identical(mtime_before, mtime_after)
 })
+
+# Confirms read_backfill_object() (R/abr-backfill.R), fetch_abr()'s
+# companion read path for the pool run_abr_backfill() writes, reads back
+# exactly what was persisted.
+test_that("read_backfill_object() reads back what run_abr_backfill() wrote to the pool", {
+  httr2::local_mocked_responses(function(req) {
+    httr2::response(
+      status_code = 200,
+      body = charToRaw(jsonlite::toJSON(list(note = "round-trip"), auto_unbox = TRUE))
+    )
+  })
+
+  store_root <- withr::local_tempdir()
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+                    schema_version = 1L, build_module_path = "R/build-abr.R")
+
+  run_abr_backfill(li, "t1")
+
+  expect_identical(read_backfill_object(li, "t1")$note, "round-trip")
+})

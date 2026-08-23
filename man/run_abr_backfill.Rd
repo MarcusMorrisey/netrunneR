@@ -28,3 +28,13 @@ every tournament has a resolved object. This keeps a mistake in a
 roughly 4400-request, two-second-paced crawl against a volunteer-run
 server cheap to resume rather than expensive to redo from scratch.
 }
+\details{
+fetch_abr() (R/fetch-abr.R) calls this for the entries step of every
+sync attempt, scheduled or backfill alike -- checkpointing the
+expensive crawl is a property of the entries fetch itself, not of
+mode, since an interrupted "scheduled" run loses exactly the same
+unresolved work as an interrupted "backfill" one. It stays exported
+and independently callable so a specific set of tournament ids can
+also be re-resolved directly, e.g. after a data issue narrower than a
+full sync attempt.
+}

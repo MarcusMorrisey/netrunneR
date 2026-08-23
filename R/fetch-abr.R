@@ -8,6 +8,15 @@
 #' tournament_count on the first element rather than looping until empty,
 #' and enforces the 500-row limit cap with a hard stopifnot().
 #'
+#' The per-tournament entries step -- the ~4400-request, two-second-paced
+#' part of this fetch that can take hours -- is routed through
+#' run_abr_backfill()'s checkpointed object pool (R/abr-backfill.R)
+#' rather than a bare loop over abr_get(), for every mode, not only an
+#' explicit backfill invocation. A process kill or crash partway through
+#' therefore leaves already-resolved tournaments' entries on disk in
+#' lineage$store_root/objects, so the next run -- whatever mode invokes
+#' it -- resumes from checkpoint instead of refetching from scratch.
+#'
 #' @param lineage A lineage object of class netrunneR_api_poll named "abr".
 #' @param attempt_dir Character. Staging directory for this sync attempt.
 #'
@@ -59,7 +68,14 @@ fetch_abr <- function(lineage, attempt_dir) {
     ))
   }
 
-  entries <- purrr::map(tournaments$id, function(id) abr_get(lineage$base_url, "/entries", list(id = id)))
+  # run_abr_backfill() persists each resolved id's entries into the
+  # content-addressed pool and checkpoint beside store_root (both outside
+  # attempt_dir, so they survive this attempt being discarded) and skips
+  # any id already resolved by a prior interrupted run; read_backfill_object()
+  # then re-reads each tournament's entries back off the pool in the same
+  # order as tournaments$id so the shape returned below is unchanged.
+  run_abr_backfill(lineage, tournaments$id)
+  entries <- purrr::map(tournaments$id, function(id) read_backfill_object(lineage, id))
   # /videos is a single bulk call covering every tournament's videos, not
   # a per-tournament endpoint -- fetched once regardless of how many
   # tournaments were returned above.

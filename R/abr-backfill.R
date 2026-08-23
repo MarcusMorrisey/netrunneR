@@ -7,6 +7,15 @@
 #' roughly 4400-request, two-second-paced crawl against a volunteer-run
 #' server cheap to resume rather than expensive to redo from scratch.
 #'
+#' fetch_abr() (R/fetch-abr.R) calls this for the entries step of every
+#' sync attempt, scheduled or backfill alike -- checkpointing the
+#' expensive crawl is a property of the entries fetch itself, not of
+#' mode, since an interrupted "scheduled" run loses exactly the same
+#' unresolved work as an interrupted "backfill" one. It stays exported
+#' and independently callable so a specific set of tournament ids can
+#' also be re-resolved directly, e.g. after a data issue narrower than a
+#' full sync attempt.
+#'
 #' @param lineage A lineage object of class netrunneR_api_poll named "abr".
 #' @param tournament_ids Character vector of tournament ids to backfill.
 #'
@@ -43,4 +52,22 @@ run_abr_backfill <- function(lineage, tournament_ids) {
 
   all_resolved <- all(tournament_ids %in% checkpoint$tournament_id[checkpoint$resolved])
   invisible(all_resolved)
+}
+
+#' Read one tournament's entries back off the checkpointed object pool
+#'
+#' Companion to run_abr_backfill(): reads the same object_path that
+#' function's write_json(..., auto_unbox = TRUE) wrote, with matching
+#' simplifyVector = TRUE parsing, so the value fetch_abr() gets back
+#' matches the shape abr_get() would have returned directly.
+#'
+#' @param lineage A lineage object of class netrunneR_api_poll named "abr".
+#' @param tournament_id Character scalar. Must already have a resolved
+#'   checkpoint entry (i.e. run_abr_backfill() has been called with this
+#'   id first).
+#'
+#' @keywords internal
+read_backfill_object <- function(lineage, tournament_id) {
+  object_path <- file.path(lineage$store_root, "objects", paste0(tournament_id, ".json"))
+  jsonlite::fromJSON(object_path, simplifyVector = TRUE)
 }

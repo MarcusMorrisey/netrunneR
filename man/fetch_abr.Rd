@@ -24,4 +24,14 @@ sends no conditional headers, derives the page count from
 tournament_count on the first element rather than looping until empty,
 and enforces the 500-row limit cap with a hard stopifnot().
 }
+\details{
+The per-tournament entries step -- the ~4400-request, two-second-paced
+part of this fetch that can take hours -- is routed through
+run_abr_backfill()'s checkpointed object pool (R/abr-backfill.R)
+rather than a bare loop over abr_get(), for every mode, not only an
+explicit backfill invocation. A process kill or crash partway through
+therefore leaves already-resolved tournaments' entries on disk in
+lineage$store_root/objects, so the next run -- whatever mode invokes
+it -- resumes from checkpoint instead of refetching from scratch.
+}
 \keyword{internal}
