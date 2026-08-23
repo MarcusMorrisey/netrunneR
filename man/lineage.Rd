@@ -11,8 +11,9 @@ lineage(name)
 }
 \value{
 A lineage object as constructed by \code{\link[=new_lineage]{new_lineage()}}, carrying the
-lineage's source_type, schedule, pacing policy, schema-version constant
-and build_module_path.
+lineage's source_type, schedule, pacing policy, schema-version constant,
+build_module_path, and any source-specific fields (repo_url/ref for
+git_mirror lineages, hub_url for web_archive lineages).
 }
 \description{
 Each entry's store_root is file.path("/data", name) with no case

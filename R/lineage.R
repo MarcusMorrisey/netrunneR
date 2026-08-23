@@ -35,11 +35,14 @@ new_lineage <- function(name, source_type, store_root, ...) {
              pacing = list(min_delay_s = 2, max_delay_s = 2),
              build_module_path = "R/build-abr.R"),
   cardpool = list(source_type = "git_mirror", schedule = "daily", schema_version = 1L,
-                  pacing = NULL, build_module_path = "R/build-cardpool.R"),
+                  pacing = NULL, build_module_path = "R/build-cardpool.R",
+                  repo_url = "https://github.com/Null-Signal-Games/netrunner-cards-json.git"),
   rules = list(source_type = "web_archive", schedule = "monthly", schema_version = 1L,
-               pacing = NULL, build_module_path = "R/build-rules.R"),
+               pacing = NULL, build_module_path = "R/build-rules.R",
+               hub_url = "https://nullsignal.games/rules/comp-rules/"),
   implementation = list(source_type = "git_mirror", schedule = "daily", schema_version = 1L,
-                        pacing = NULL, build_module_path = "R/build-implementation.R")
+                        pacing = NULL, build_module_path = "R/build-implementation.R",
+                        repo_url = "https://github.com/mtgred/netrunner.git", ref = "master")
 )
 
 #' The five built-in lineage names
@@ -59,8 +62,9 @@ BUILTIN_LINEAGES <- names(.LINEAGE_REGISTRY)
 #' @param name Character. One of BUILTIN_LINEAGES.
 #'
 #' @return A lineage object as constructed by [new_lineage()], carrying the
-#'   lineage's source_type, schedule, pacing policy, schema-version constant
-#'   and build_module_path.
+#'   lineage's source_type, schedule, pacing policy, schema-version constant,
+#'   build_module_path, and any source-specific fields (repo_url/ref for
+#'   git_mirror lineages, hub_url for web_archive lineages).
 #' @export
 lineage <- function(name) {
   if (!name %in% BUILTIN_LINEAGES) {
@@ -78,6 +82,9 @@ lineage <- function(name) {
     schedule = entry$schedule,
     schema_version = entry$schema_version,
     pacing = entry$pacing,
-    build_module_path = entry$build_module_path
+    build_module_path = entry$build_module_path,
+    repo_url = entry$repo_url,
+    ref = entry$ref,
+    hub_url = entry$hub_url
   )))
 }
