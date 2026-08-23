@@ -40,9 +40,14 @@ test_that("fetch_lineage.netrunneR_web_archive() parses a fixture hub index and 
     "https://example.test/rules-1.6.pdf"
   ))
   expect_true(all(nzchar(staged$index$pooled_hash)))
+  # raw_dir is attempt_dir/raw, same as every other lineage -- not
+  # attempt_dir itself (regression: build_lineage.netrunneR_web_archive()
+  # derives db_path from dirname(raw_dir), so an unnested raw_dir made
+  # every attempt collide on one shared staging/processed/rules.sqlite).
+  expect_identical(staged$raw_dir, file.path(attempt_dir, "raw"))
   for (sha in staged$index$pooled_hash) {
     expect_true(fs::file_exists(file.path(
-      attempt_dir, "objects", substr(sha, 1, 2), paste0(sha, ".pdf")
+      attempt_dir, "raw", "objects", substr(sha, 1, 2), paste0(sha, ".pdf")
     )))
   }
 })

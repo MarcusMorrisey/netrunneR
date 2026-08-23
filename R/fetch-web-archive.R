@@ -12,19 +12,30 @@
 #' @return A list with `raw_dir`, `index`, and `content_identity`.
 #' @export
 fetch_lineage.netrunneR_web_archive <- function(lineage, attempt_dir, ...) {
+  # raw_dir is nested one level under attempt_dir (attempt_dir/raw), same
+  # as every other lineage's fetch step -- confirmed live this session:
+  # returning attempt_dir itself here made build_lineage.netrunneR_web_archive()'s
+  # file.path(raw_dir, "..", "processed", "rules.sqlite") resolve to
+  # staging/processed/rules.sqlite, a single path SHARED across every
+  # attempt rather than scoped to one, so a second real run always
+  # collided on the first's leftover "table rules_version already
+  # exists" and could never succeed.
+  raw_dir <- file.path(attempt_dir, "raw")
+  fs::dir_create(raw_dir)
+
   index_req <- httr2::request(lineage$hub_url)
   index_resp <- httr2::req_perform(index_req)
   index_html <- rvest::read_html(capture_response_body(index_resp, as = "string"))
 
   index <- parse_rules_hub_index(index_html)
 
-  objects_dir <- file.path(attempt_dir, "objects")
+  objects_dir <- file.path(raw_dir, "objects")
   fs::dir_create(objects_dir)
 
   index$pooled_hash <- purrr::map_chr(index$pdf_url, function(url) pool_pdf(url, objects_dir))
 
   list(
-    raw_dir = attempt_dir,
+    raw_dir = raw_dir,
     index = index,
     content_identity = digest::digest(index$pooled_hash, algo = "sha256")
   )
