@@ -14,6 +14,24 @@ A tibble with columns \code{version}, \code{published_date}, \code{title},
 \code{pdf_url}.
 }
 \description{
-Parse the rules hub index HTML into a version/date/title/url tibble
+The hub page (https://nullsignal.games/rules/comp-rules/) has no
+\verb{<table>} markup at all: the latest release sits in a Kadence
+info-box block, and every older release is a plain \verb{<p><a>} link
+further down the same \code{.entry-content} region. There is no published
+date anywhere in the page text or markup, so \code{published_date} is
+sourced from each candidate PDF's own \code{Last-Modified} response
+header via a HEAD request.
+}
+\details{
+Candidates are identified by link text: text must contain
+"Comprehensive Rules" case-insensitively, and must not contain "Card
+Text Updates" (the separate card-text-update category). The
+changes-highlighted variant of the latest PDF describes itself in
+link text as "PDF with Changes Highlighted" rather than as
+"Annotated", so the "Annotated" exclusion is checked against the
+href (which does carry an \verb{_Annotated} filename suffix), not the
+text. Each surviving href is deduplicated, since the hub links the
+same PDF twice for several releases (a heading link plus a
+"Download" button).
 }
 \keyword{internal}

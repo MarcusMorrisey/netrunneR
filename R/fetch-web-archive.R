@@ -31,18 +31,72 @@ fetch_lineage.netrunneR_web_archive <- function(lineage, attempt_dir, ...) {
 }
 
 #' Parse the rules hub index HTML into a version/date/title/url tibble
+#'
+#' The hub page (https://nullsignal.games/rules/comp-rules/) has no
+#' `<table>` markup at all: the latest release sits in a Kadence
+#' info-box block, and every older release is a plain `<p><a>` link
+#' further down the same `.entry-content` region. There is no published
+#' date anywhere in the page text or markup, so `published_date` is
+#' sourced from each candidate PDF's own `Last-Modified` response
+#' header via a HEAD request.
+#'
+#' Candidates are identified by link text: text must contain
+#' "Comprehensive Rules" case-insensitively, and must not contain "Card
+#' Text Updates" (the separate card-text-update category). The
+#' changes-highlighted variant of the latest PDF describes itself in
+#' link text as "PDF with Changes Highlighted" rather than as
+#' "Annotated", so the "Annotated" exclusion is checked against the
+#' href (which does carry an `_Annotated` filename suffix), not the
+#' text. Each surviving href is deduplicated, since the hub links the
+#' same PDF twice for several releases (a heading link plus a
+#' "Download" button).
+#'
 #' @param html An xml_document parsed by rvest::read_html().
 #' @return A tibble with columns `version`, `published_date`, `title`,
 #'   `pdf_url`.
 #' @keywords internal
 parse_rules_hub_index <- function(html) {
-  rows <- rvest::html_elements(html, "table.rules-index tr")
+  links <- rvest::html_elements(html, ".entry-content a[href$='.pdf']")
+  href <- rvest::html_attr(links, "href")
+  text <- stringr::str_squish(rvest::html_text(links))
+
+  is_candidate <- stringr::str_detect(text, stringr::regex("comprehensive rules", ignore_case = TRUE)) &
+    !stringr::str_detect(text, stringr::regex("card text updates", ignore_case = TRUE)) &
+    !stringr::str_detect(href, stringr::regex("annotated", ignore_case = TRUE))
+
+  href <- href[is_candidate]
+  text <- text[is_candidate]
+
+  not_dup <- !duplicated(href)
+  href <- href[not_dup]
+  text <- text[not_dup]
+
+  version <- stringr::str_match(text, stringr::regex("v\\.?(\\d+\\.\\d+)", ignore_case = TRUE))[, 2]
+
+  published_date <- purrr::map(href, head_last_modified)
+
   tibble::tibble(
-    version = rvest::html_text(rvest::html_elements(rows, ".version")),
-    published_date = as.Date(rvest::html_text(rvest::html_elements(rows, ".published-date"))),
-    title = rvest::html_text(rvest::html_elements(rows, ".title")),
-    pdf_url = rvest::html_attr(rvest::html_elements(rows, "a.pdf-link"), "href")
+    version = version,
+    published_date = do.call(c, published_date),
+    title = text,
+    pdf_url = href
   )
+}
+
+#' HEAD a candidate PDF URL and return its Last-Modified date
+#'
+#' The hub page carries no published-date text anywhere, so this is the
+#' only source of `published_date` for the parsed index. `resp_date()`
+#' parses httr2's own `Date` response header, not `Last-Modified`, so
+#' the header is read and parsed directly here instead.
+#'
+#' @param url Character. PDF URL to HEAD.
+#' @return A length-1 Date.
+#' @keywords internal
+head_last_modified <- function(url) {
+  resp <- httr2::req_perform(httr2::req_method(httr2::request(url), "HEAD"))
+  last_modified <- httr2::resp_header(resp, "last-modified")
+  as.Date(as.POSIXct(last_modified, format = "%a, %d %b %Y %H:%M:%S", tz = "GMT"))
 }
 
 #' Download a not-yet-pooled PDF into the content-addressed object pool
