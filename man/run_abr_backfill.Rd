@@ -48,6 +48,15 @@ now-removed nrdb decklist reconciliation's tombstoning. After
 ABR_BACKFILL_TOMBSTONE_DAYS of consecutive daily failures the id is
 marked permanent_unavailable and excluded from the release rather
 than blocking it forever. A run of ABR_BACKFILL_MAX_CONSECUTIVE_5XX
-failures in a row is treated as a real outage and re-raised, same
-fail-closed behavior abr_get() already had.
+failures in a row among ids being attempted for the first time is
+treated as a real outage and re-raised, same fail-closed behavior
+abr_get() already had -- but a failure on an id already known-bad
+from a prior run (it already has a checkpointed first_failed_at)
+never counts toward that streak, since re-attempting a small pool of
+chronically-broken ids failing again is expected, not evidence of a
+fresh outage; those ids fall through to the tombstone-retry path
+individually instead. Confirmed live this session: tournament ids
+5379, 4134, 2182, 1769 and 1655 have all been failing since
+2026-08-23 and, being scattered non-adjacent ids, tripped the old
+blind consecutive-count guard purely by being retried together.
 }

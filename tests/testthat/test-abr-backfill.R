@@ -144,6 +144,77 @@ test_that("run_abr_backfill() re-raises once consecutive 5xx failures look like 
   )
 })
 
+# Regression test for a real false-positive: 5 already-known-bad ids
+# (checkpointed from a prior run, e.g. tournament ids 5379, 4134, 2182,
+# 1769, 1655 -- confirmed live, scattered non-adjacent ids each 5xx-ing
+# in isolation on an otherwise-healthy server) retried together as a
+# small batch must NOT trip the outage guard just because 3+ of them
+# fail back-to-back within that retry batch. Each should instead be
+# tombstoned/retried individually, same as a lone isolated failure.
+test_that("run_abr_backfill() does not treat a retry batch of already-known-bad ids as an outage", {
+  httr2::local_mocked_responses(function(req) {
+    httr2::response(status_code = 500, body = charToRaw("boom"))
+  })
+
+  store_root <- withr::local_tempdir()
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+                    schema_version = 1L, build_module_path = "R/build-abr.R")
+
+  bad_ids <- c("5379", "4134", "2182", "1769", "1655")
+  checkpoint_path <- file.path(store_root, "backfill-checkpoint.rds")
+  fs::dir_create(store_root)
+  saveRDS(
+    tibble::tibble(
+      tournament_id = bad_ids, resolved = FALSE,
+      first_failed_at = as.character(Sys.Date() - 1),
+      last_failed_at = as.character(Sys.Date() - 1),
+      permanent_unavailable = FALSE
+    ),
+    checkpoint_path
+  )
+
+  result <- run_abr_backfill(li, bad_ids)
+
+  expect_false(result$all_settled)
+  expect_identical(result$permanent_ids, character(0))
+
+  checkpoint <- readRDS(checkpoint_path)
+  expect_true(all(!checkpoint$resolved))
+  expect_true(all(checkpoint$last_failed_at == format(Sys.Date(), "%Y-%m-%d")))
+})
+
+# A batch mixing already-known-bad retries with fresh ids: the known-bad
+# retries failing must not count toward the outage streak, but a run of
+# ABR_BACKFILL_MAX_CONSECUTIVE_5XX consecutive failures among the fresh
+# (first-time) ids must still trip the guard -- real outage protection
+# for newly-attempted ids is unaffected by this fix.
+test_that("run_abr_backfill() still detects an outage among fresh ids even when known-bad retries are interleaved", {
+  httr2::local_mocked_responses(function(req) {
+    httr2::response(status_code = 500, body = charToRaw("boom"))
+  })
+
+  store_root <- withr::local_tempdir()
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+                    schema_version = 1L, build_module_path = "R/build-abr.R")
+
+  checkpoint_path <- file.path(store_root, "backfill-checkpoint.rds")
+  fs::dir_create(store_root)
+  saveRDS(
+    tibble::tibble(
+      tournament_id = "known_bad", resolved = FALSE,
+      first_failed_at = as.character(Sys.Date() - 1),
+      last_failed_at = as.character(Sys.Date() - 1),
+      permanent_unavailable = FALSE
+    ),
+    checkpoint_path
+  )
+
+  expect_error(
+    run_abr_backfill(li, c("known_bad", "fresh1", "fresh2", "fresh3")),
+    class = "netrunneR_abr_backfill_outage"
+  )
+})
+
 # After ABR_BACKFILL_TOMBSTONE_DAYS of daily failures, a tournament is
 # marked permanent_unavailable instead of blocking the release forever.
 test_that("run_abr_backfill() marks a tournament permanent_unavailable once its tombstone ages past the retry window", {
