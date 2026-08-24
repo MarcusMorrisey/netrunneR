@@ -108,6 +108,22 @@ Modes are `scheduled` (short-circuits when content is unchanged),
 `--release-id`). Lock contention exits with status 4 and writes no ledger
 record: a concurrent run is a skip, not a failure.
 
+**Zero-argument invocation (LINEAGE/MODE env vars).** When both
+`--lineage` and `--mode` are omitted, the CLI falls back to the `LINEAGE`
+and `MODE` environment variables instead of erroring immediately. This is
+the invocation form the production deployment actually uses: the Compose
+service and its systemd timer set `LINEAGE`/`MODE` in the environment and
+run the wrapper with no flags at all. The two are required together in
+that case -- if either is unset the CLI aborts with "nothing to run"
+rather than guessing; a partial mix of one flag and one env var is not a
+supported combination, since the fallback only triggers when *both* flags
+are absent. `LINEAGE` accepts the same five lineage names as `--lineage`
+(see the table above); `MODE` accepts the same three modes as `--mode`.
+
+```sh
+LINEAGE=cardpool MODE=backfill Rscript inst/scripts/sync.R
+```
+
 Serve the packaged Shiny app against the current release:
 
 ```sh
@@ -129,7 +145,9 @@ make coverage   # covr::package_coverage()
 
 `NRDB_CONTACT` must be set to a real operator contact address for
 `check_config()` to pass outside the test suite; it is used to build the
-outbound User-Agent, as NetrunnerDB requests.
+outbound User-Agent, as NetrunnerDB requests. `check_config()` rejects an
+empty string and obvious placeholders (`changeme`, `you@example.com`,
+`TODO`), not just a missing value.
 
 ## License
 
