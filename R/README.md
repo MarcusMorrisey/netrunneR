@@ -29,9 +29,19 @@ There are three source types, and each has exactly one
 
 | Source type   | Lineages                | Fetch mechanism                                          |
 | ------------- | ----------------------- | -------------------------------------------------------- |
-| `api_poll`    | nrdb, abr               | HTTP with throttle pacing and a hard stop on 5xx          |
+| `api_poll`    | nrdb, abr               | HTTP with throttle pacing; 5xx handling differs by lineage (below) |
 | `git_mirror`  | cardpool, implementation | `gert::git_clone()` plus checkout, no pacing              |
 | `web_archive` | rules                   | Scrape an HTML index, pool PDFs by content hash           |
+
+Within `api_poll`, 5xx handling is not uniform across the two lineages.
+`abr_get()` (`R/fetch-abr.R`) disables httr2's default error handling,
+checks `resp_status(resp) >= 500` explicitly, and aborts immediately
+with a custom `netrunneR_abr_5xx` condition, protecting a volunteer-run
+server from a retry storm. `nrdb_get()` (`R/fetch-nrdb.R`) has no
+equivalent: it only adds `httr2::req_retry(max_tries = 5)` on top of
+httr2's default behavior, which retries transient/429/503 statuses and
+otherwise raises httr2's ordinary generic error on any other non-2xx
+status, including most 5xx.
 
 Git-mirror lineages carry no pacing deliberately: the upstream is GitHub,
 not a volunteer-run community server, so the courtesy throttle that
