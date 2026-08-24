@@ -36,6 +36,22 @@ check_rows_distinct <- function(df, keys) {
 #'
 #' Skipped (status "skip") on a lineage's first release, when there is no
 #' previous row count to compare against.
+#'
+#' @details
+#' A large drop warns rather than blocks because row count is only a proxy
+#' for lineage health, not a direct measure of it: a legitimate upstream
+#' change -- a source pruning stale or superseded entries, a schema or
+#' allowlist change that reshapes which rows survive -- can produce a big,
+#' genuine drop that isn't a build defect. Blocking promotion on every such
+#' drop would stall a lineage indefinitely until a human intervenes anyway,
+#' so the drop is surfaced as a warning for a human to eyeball instead of
+#' failing the build outright.
+#'
+#' This function is currently unused: no `build_lineage.*()` method calls
+#' it. It is standalone infrastructure, presumably intended to be wired
+#' into a future lineage's validate step once a suitable `max_pct_drop`
+#' threshold is chosen for that lineage; until then it provides no actual
+#' protection.
 #' @param current_n Integer. Row count in the current release.
 #' @param previous_n Integer or NULL/NA. Row count in the previous release,
 #'   if any.
