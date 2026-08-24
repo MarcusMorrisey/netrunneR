@@ -4,3 +4,5 @@
 ^\.ci$
 ^Makefile$
 ^docs$
+^R/README\.md$
+CLAUDE\.md$
