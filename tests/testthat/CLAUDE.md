@@ -17,6 +17,8 @@ Test files and shared fixtures. Several files enforce package invariants by stat
 | `test-build-revision.R` | Build revision identical across all five lineages; loud abort on missing inputs | Changing what feeds `build_revision()` |
 | `test-validate.R` | `validate_release()` pass/fail aggregation and two check primitives | Adding a validation rule or changing aggregation |
 | `test-cli.R` | Flag/env-var precedence, mode validation, `--release-id` gating | Adding a CLI flag or changing precedence |
+| `test-app.R` | `require_abr_attribution()`, `require_implementation_license_notice()`, `require_cardpool_disclaimer()`, `require_rules_disclaimer()` guards | Adding or changing an app.R attribution/notice/disclaimer guard |
+| `test-config.R` | `check_config()` startup validation, `LLM_USE_POLICY` and `LLM_USE_POLICY_PRECAUTIONARY` assertions | Adding a required env var or runtime policy constant |
 | `test-fetch-api-poll.R` | Shared api_poll dispatch, pagination derivation, 5xx hard stop, checkpoint resume | Changing shared api-poll fetch behavior |
 | `test-fetch-nrdb.R` | nrdb User-Agent construction, `compare_shape()`, bounded retries | Changing the nrdb fetch helper |
 | `test-fetch-git-mirror.R` | Clone and checkout against a throwaway local repo, default `main` ref | Changing git-mirror fetch or ref defaults |

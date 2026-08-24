@@ -267,9 +267,28 @@ These hold across the package and are not enforced by the compiler.
 - **No LLM indexing of nrdb free text.** Any code path that would do so
   must assert `LLM_USE_POLICY` with `stopifnot()` rather than relying on a
   comment, so the constraint fails loudly if reached.
+- **No LLM indexing of cardpool, implementation, or rules free text
+  (precautionary).** Any code path that would do so must assert
+  `LLM_USE_POLICY_PRECAUTIONARY` with `stopifnot()`. Unlike
+  `LLM_USE_POLICY`, this is a conservative default, not a confirmed
+  per-source requirement.
 - **ABR-sourced views must carry attribution.** Any view rendering ABR
   data must render the `alwaysberunning.net` backlink, guarded by
   `require_abr_attribution()`.
+- **Implementation-sourced views must carry the MIT notice.** Any view
+  rendering mtgred/netrunner-derived data must render its MIT copyright
+  and permission notice, guarded by
+  `require_implementation_license_notice()`.
+- **Cardpool-sourced views must carry a non-affiliation disclaimer.** Any
+  view rendering cardpool data must render a disclaimer that it is not
+  maintained, produced, endorsed, supported, or affiliated with Fantasy
+  Flight Games and/or Wizards of the Coast, guarded by
+  `require_cardpool_disclaimer()`.
+- **Rules-sourced views must carry a non-affiliation disclaimer.** Any
+  view rendering rules data must render a disclaimer that it is not
+  associated with, produced by, or endorsed by Fantasy Flight Games, R.
+  Talsorian Games, or Wizards of the Coast, guarded by
+  `require_rules_disclaimer()`.
 - **Release resolution captures once.** `resolve_release()` derives raw
   and processed paths from a single `fs::path_real()` call, so a promote
   landing mid-read cannot hand one consumer two different releases.

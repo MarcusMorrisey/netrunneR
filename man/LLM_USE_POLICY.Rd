@@ -12,3 +12,10 @@ assert this constant with stopifnot() rather than relying on a comment,
 so the constraint fails loudly if that code path is ever reached before
 the policy is revisited.
 }
+\details{
+This constant is grounded in NetrunnerDB's own stated terms -- it is a
+real, verified, source-specific requirement. Contrast
+LLM_USE_POLICY_PRECAUTIONARY below, which extends the same restriction
+to other sources as a conservative default, not because those sources
+state the same requirement.
+}

@@ -11,6 +11,12 @@ Shiny app served by `run_app()` from the installed package directory. Both entry
 
 Any view sourced from the `abr` lineage must render the `alwaysberunning.net` backlink and call `netrunneR::require_abr_attribution(TRUE)`; see `R/app.R`.
 
+Any view sourced from the `implementation` lineage must render the mtgred/netrunner MIT copyright and permission notice and call `netrunneR::require_implementation_license_notice(TRUE)`; see `R/app.R`.
+
+Any view sourced from the `cardpool` lineage must render a disclaimer that it is not maintained, produced, endorsed, supported, or affiliated with Fantasy Flight Games and/or Wizards of the Coast, and call `netrunneR::require_cardpool_disclaimer(TRUE)`; see `R/app.R`.
+
+Any view sourced from the `rules` lineage must render a disclaimer that it is not associated with, produced by, or endorsed by Fantasy Flight Games, R. Talsorian Games, or Wizards of the Coast, and call `netrunneR::require_rules_disclaimer(TRUE)`; see `R/app.R`.
+
 ## Run
 
 ```sh

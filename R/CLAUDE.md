@@ -17,7 +17,7 @@ Package source: five lineage mirrors sharing one fetch/build/validate/promote pi
 | `validate.R` | `validate_release()` check aggregation into the manifest report | Adding a validation stage, changing pass/warn/fail aggregation |
 | `validate-helpers.R` | Check primitives: set membership, distinctness, row-count delta, deny pattern | Adding a validation rule, tuning row-drop thresholds, editing deny regexes |
 | `capture.R` | `capture_response_body()`, the sole httr2-bytes-to-disk boundary | Adding any fetch path that touches response bytes |
-| `config.R` | `LLM_USE_POLICY`, `check_config()` startup validation | Adding a required env var or runtime policy constant |
+| `config.R` | `LLM_USE_POLICY`, `LLM_USE_POLICY_PRECAUTIONARY`, `check_config()` startup validation | Adding a required env var or runtime policy constant |
 | `cli.R` | `netrunneR_cli()`, `resolve_cli_triple()`, `NETRUNNER_MODES` | Adding a CLI flag, changing flag/env-var precedence or mode validation |
 | `fetch-api-poll.R` | S3 fetch method for api_poll lineages, delegating to abr/nrdb helpers | Changing shared api-poll pacing, user-agent, or delegation |
 | `fetch-abr.R` | ABR tournaments/entries/videos/upcoming fetch, throttling, 5xx hard stop | Debugging ABR fetches, pagination, cookie-jar handling, row-limit caps |
@@ -32,4 +32,4 @@ Package source: five lineage mirrors sharing one fetch/build/validate/promote pi
 | `build-rules.R` | web_archive build dispatch, `check_version_monotonic()`, `check_pdf_hashes()` | Changing rules tables, version-order policy, or PDF hash re-verification |
 | `views-ratings.R` | `compute_identity_ratings()`, `canonical_game_order()`, `run_elo()` | Changing rating parameters, tie-break ordering, or Elo inputs |
 | `views-matchups.R` | `compute_ice_breaker_matchups()`, `build_view_manifest()` | Changing matchup expansion, subtype compatibility, or view cache identity |
-| `app.R` | `run_app()`, `require_abr_attribution()` | Wiring the Shiny app or adding an ABR-sourced view |
+| `app.R` | `run_app()`, `require_abr_attribution()`, `require_implementation_license_notice()`, `require_cardpool_disclaimer()`, `require_rules_disclaimer()` | Wiring the Shiny app or adding an ABR-, implementation-, cardpool-, or rules-sourced view |
