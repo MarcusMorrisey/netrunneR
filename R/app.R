@@ -25,11 +25,12 @@ run_app <- function(...) {
 #'
 #' Every ABR-sourced view must be constructed with has_attribution = TRUE,
 #' asserted with stopifnot() rather than left to a documentation
-#' convention, so the required backlink to alwaysberunning.net cannot be
-#' silently dropped by a future UI change.
+#' convention, so the required backlink to
+#' [alwaysberunning.net](https://alwaysberunning.net) cannot be silently
+#' dropped by a future UI change.
 #'
 #' @param has_attribution Logical. TRUE if the view's UI renders the
-#'   required alwaysberunning.net backlink.
+#'   required [alwaysberunning.net](https://alwaysberunning.net) backlink.
 #'
 #' @export
 require_abr_attribution <- function(has_attribution) {

@@ -273,7 +273,8 @@ These hold across the package and are not enforced by the compiler.
   `LLM_USE_POLICY`, this is a conservative default, not a confirmed
   per-source requirement.
 - **ABR-sourced views must carry attribution.** Any view rendering ABR
-  data must render the `alwaysberunning.net` backlink, guarded by
+  data must render a backlink to
+  [alwaysberunning.net](https://alwaysberunning.net), guarded by
   `require_abr_attribution()`.
 - **Implementation-sourced views must carry the MIT notice.** Any view
   rendering mtgred/netrunner-derived data must render its MIT copyright

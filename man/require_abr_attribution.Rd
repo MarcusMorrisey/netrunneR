@@ -8,11 +8,12 @@ require_abr_attribution(has_attribution)
 }
 \arguments{
 \item{has_attribution}{Logical. TRUE if the view's UI renders the
-required alwaysberunning.net backlink.}
+required \href{https://alwaysberunning.net}{alwaysberunning.net} backlink.}
 }
 \description{
 Every ABR-sourced view must be constructed with has_attribution = TRUE,
 asserted with stopifnot() rather than left to a documentation
-convention, so the required backlink to alwaysberunning.net cannot be
-silently dropped by a future UI change.
+convention, so the required backlink to
+\href{https://alwaysberunning.net}{alwaysberunning.net} cannot be silently
+dropped by a future UI change.
 }

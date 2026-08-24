@@ -10,11 +10,11 @@ app.
 
 | Lineage          | Source type   | Upstream                                     | Mirrored content                        |
 | ---------------- | ------------- | -------------------------------------------- | --------------------------------------- |
-| `nrdb`           | `api_poll`    | NetrunnerDB public API                        | Reviews and rulings                     |
-| `abr`            | `api_poll`    | AlwaysBeRunning API                           | Tournaments, entries, videos, upcoming  |
-| `cardpool`       | `git_mirror`  | Null Signal Games card JSON repository        | Cycles, factions, packs, cards          |
-| `implementation` | `git_mirror`  | The Jinteki implementation repository         | Normalized ice/breaker trait rows       |
-| `rules`          | `web_archive` | The Comprehensive Rules hub                   | Rules PDFs, content-addressed, versioned |
+| `nrdb`           | `api_poll`    | [NetrunnerDB public API](https://netrunnerdb.com)                        | Reviews and rulings                     |
+| `abr`            | `api_poll`    | [AlwaysBeRunning API](https://alwaysberunning.net)                           | Tournaments, entries, videos, upcoming  |
+| `cardpool`       | `git_mirror`  | [Null Signal Games card JSON repository](https://github.com/Null-Signal-Games/netrunner-cards-json)        | Cycles, factions, packs, cards          |
+| `implementation` | `git_mirror`  | [The Jinteki implementation repository](https://github.com/mtgred/netrunner)         | Normalized ice/breaker trait rows       |
+| `rules`          | `web_archive` | [The Comprehensive Rules hub](https://nullsignal.games/rules/comp-rules/)                   | Rules PDFs, content-addressed, versioned |
 
 Only these five are wired up. `new_lineage()` is a public extension point
 for registering others; `cobra` and `assets` are named extension points
@@ -76,8 +76,10 @@ regex scan rejects personal-data-shaped column names before any write.
 Ratings are computed for cards and factions only, never for people.
 
 **ABR attribution is enforced in code.** Any view rendering ABR-sourced
-data must render the `alwaysberunning.net` backlink, guarded by
-`require_abr_attribution()` rather than by documentation alone.
+data must render a backlink to [alwaysberunning.net](https://alwaysberunning.net),
+guarded by `require_abr_attribution()` rather than by documentation alone --
+and per that same requirement, this page itself credits every upstream
+source in the table above.
 
 **Upstream breakage is tombstoned, not papered over.** A persistently
 failing upstream record is retried on a schedule and then excluded
