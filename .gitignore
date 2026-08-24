@@ -11,3 +11,7 @@ inst/pkg-src
 
 # R CMD check output directory
 netrunneR.Rcheck/
+
+# pkgdown-generated site output: rebuilt on demand via pkgdown::build_site(),
+# never committed.
+docs/
