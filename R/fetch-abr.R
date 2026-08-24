@@ -2,11 +2,12 @@
 #'
 #' Fetches the ABR tournaments results pages, per-tournament entries, the
 #' bulk videos endpoint and the upcoming endpoint sequentially with
-#' two-second req_throttle() pacing and a hard stop on any 5xx --
-#' except for the per-tournament entries step, where an isolated 5xx is
-#' tombstoned and retried later rather than aborting the whole crawl (see
-#' run_abr_backfill(), R/abr-backfill.R). Uses a fresh req_options cookie
-#' jar per request deleted immediately after,
+#' req_throttle() pacing derived from the lineage's own pacing policy
+#' (lineage$pacing, via pacing_rate() in R/fetch-api-poll.R) and a hard
+#' stop on any 5xx -- except for the per-tournament entries step, where
+#' an isolated 5xx is tombstoned and retried later rather than aborting
+#' the whole crawl (see run_abr_backfill(), R/abr-backfill.R). Uses a
+#' fresh req_options cookie jar per request deleted immediately after,
 #' sends no conditional headers, derives the page count from
 #' tournament_count on the first element rather than looping until empty,
 #' and enforces the 500-row limit cap with a hard stopifnot().
@@ -50,14 +51,14 @@ fetch_abr <- function(lineage, attempt_dir) {
   # column (mostly NA past row 1), not a scalar: `NA >= 0` is NA, and
   # stopifnot() on a length>1 vector containing an NA both fail in ways
   # that only surface once real (not fixture-shaped) data is fetched.
-  first_page <- abr_get(lineage$base_url, "/tournaments/results", list(limit = page_limit, offset = 0))
+  first_page <- abr_get(lineage, "/tournaments/results", list(limit = page_limit, offset = 0))
   tournament_count <- first_page$tournament_count[1]
   stopifnot(is.numeric(tournament_count), tournament_count >= 0)
 
   pages <- list(first_page)
   offset <- page_limit
   while (offset < tournament_count) {
-    pages[[length(pages) + 1]] <- abr_get(lineage$base_url, "/tournaments/results", list(limit = page_limit, offset = offset))
+    pages[[length(pages) + 1]] <- abr_get(lineage, "/tournaments/results", list(limit = page_limit, offset = offset))
     offset <- offset + page_limit
   }
 
@@ -104,8 +105,8 @@ fetch_abr <- function(lineage, attempt_dir) {
   # /videos is a single bulk call covering every tournament's videos, not
   # a per-tournament endpoint -- fetched once regardless of how many
   # tournaments were returned above.
-  videos <- abr_get(lineage$base_url, "/videos")
-  upcoming <- abr_get(lineage$base_url, "/tournaments/upcoming")
+  videos <- abr_get(lineage, "/videos")
+  upcoming <- abr_get(lineage, "/tournaments/upcoming")
 
   write_json_raw(raw_dir, "tournaments.json", tournaments)
   write_json_raw(raw_dir, "entries.json", entries)
@@ -130,21 +131,31 @@ fetch_abr <- function(lineage, attempt_dir) {
 #' after the request completes, and sends no conditional headers, so no
 #' Set-Cookie or ETag/Last-Modified value from one request can leak into a
 #' later request or onto disk. A hard stop on any 5xx protects a
-#' volunteer-run server from a retry storm during an upstream outage.
+#' volunteer-run server from a retry storm during an upstream outage. The
+#' req_throttle() rate is derived from lineage$pacing via pacing_rate()
+#' (R/fetch-api-poll.R) rather than hardcoded here, so a change to
+#' .LINEAGE_REGISTRY's abr pacing entry (R/lineage.R) actually changes
+#' this request's real pacing.
 #'
 #' Invariant: the response body reaches disk only through
 #' capture_response_body() below -- this helper never calls writeBin(),
 #' writeLines() or jsonlite::write_json() on the httr2 response itself.
 #' (ref: DL-005)
+#'
+#' @param lineage A lineage object (or any list carrying base_url and
+#'   pacing) identifying the request's base_url and pacing policy.
+#' @param path Character. Path appended to lineage$base_url.
+#' @param query Named list. Query parameters.
+#'
 #' @keywords internal
-abr_get <- function(base_url, path, query = list()) {
+abr_get <- function(lineage, path, query = list()) {
   jar <- tempfile(fileext = ".sqlite")
   on.exit(unlink(jar), add = TRUE)
 
-  req <- httr2::request(paste0(base_url, path))
+  req <- httr2::request(paste0(lineage$base_url, path))
   req <- httr2::req_url_query(req, !!!query)
   req <- httr2::req_options(req, cookiejar = jar, cookiefile = jar)
-  req <- httr2::req_throttle(req, rate = 1 / 2)
+  req <- httr2::req_throttle(req, rate = pacing_rate(lineage$pacing))
   # httr2 auto-throws its own httr2_http_* error on any non-2xx status by
   # default, which would bypass the netrunneR_abr_5xx classification below
   # entirely -- disable that so req_perform() always returns a response.

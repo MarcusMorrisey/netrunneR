@@ -67,7 +67,7 @@ test_that("a Set-Cookie sentinel never reaches raw, objects, manifest.json or re
   })
 
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2),
                     schema_version = 1L, build_module_path = "R/build-abr.R")
 
   # A full sync (fetch -> build -> validate -> stage -> promote) populates

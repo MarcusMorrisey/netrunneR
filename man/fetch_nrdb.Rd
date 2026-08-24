@@ -13,8 +13,9 @@ fetch_nrdb(lineage, attempt_dir)
 }
 \description{
 Fetches the NetrunnerDB reviews and rulings resources with a
-req_user_agent() built from NRDB_CONTACT, one-to-two-second
-req_throttle() pacing and req_retry() backoff, running a per-attempt
-shape check against each response's data envelope.
+req_user_agent() built from NRDB_CONTACT, req_throttle() pacing
+derived from the lineage's own pacing policy (lineage$pacing, via
+pacing_rate() in R/fetch-api-poll.R) and req_retry() backoff, running
+a per-attempt shape check against each response's data envelope.
 }
 \keyword{internal}

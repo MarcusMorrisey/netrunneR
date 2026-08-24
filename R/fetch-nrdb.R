@@ -1,9 +1,10 @@
 #' Fetch NetrunnerDB reviews and rulings
 #'
 #' Fetches the NetrunnerDB reviews and rulings resources with a
-#' req_user_agent() built from NRDB_CONTACT, one-to-two-second
-#' req_throttle() pacing and req_retry() backoff, running a per-attempt
-#' shape check against each response's data envelope.
+#' req_user_agent() built from NRDB_CONTACT, req_throttle() pacing
+#' derived from the lineage's own pacing policy (lineage$pacing, via
+#' pacing_rate() in R/fetch-api-poll.R) and req_retry() backoff, running
+#' a per-attempt shape check against each response's data envelope.
 #'
 #' @param lineage A lineage object of class netrunneR_api_poll named "nrdb".
 #' @param attempt_dir Character. Staging directory for this sync attempt.
@@ -13,8 +14,8 @@ fetch_nrdb <- function(lineage, attempt_dir) {
   raw_dir <- file.path(attempt_dir, "raw")
   fs::dir_create(raw_dir)
 
-  reviews <- nrdb_get(lineage$base_url, "/reviews")
-  rulings <- nrdb_get(lineage$base_url, "/rulings")
+  reviews <- nrdb_get(lineage, "/reviews")
+  rulings <- nrdb_get(lineage, "/rulings")
 
   jsonlite::write_json(reviews, file.path(raw_dir, "reviews.json"), auto_unbox = TRUE)
   jsonlite::write_json(rulings, file.path(raw_dir, "rulings.json"), auto_unbox = TRUE)
@@ -54,17 +55,28 @@ fetch_nrdb <- function(lineage, attempt_dir) {
 
 #' Issue a paced NetrunnerDB request identified by NRDB_CONTACT
 #'
+#' The req_throttle() rate is derived from lineage$pacing via
+#' pacing_rate() (R/fetch-api-poll.R) rather than hardcoded here, so a
+#' change to .LINEAGE_REGISTRY's nrdb pacing entry (R/lineage.R) actually
+#' changes this request's real pacing.
+#'
 #' Invariant: the response body reaches disk only through
 #' capture_response_body() below -- this helper never calls writeBin(),
 #' writeLines() or jsonlite::write_json() on the httr2 response itself.
 #' (ref: DL-005)
+#'
+#' @param lineage A lineage object (or any list carrying base_url and
+#'   pacing) identifying the request's base_url and pacing policy.
+#' @param path Character. Path appended to lineage$base_url.
+#' @param query Named list. Query parameters.
+#'
 #' @keywords internal
-nrdb_get <- function(base_url, path, query = list()) {
+nrdb_get <- function(lineage, path, query = list()) {
   contact <- Sys.getenv("NRDB_CONTACT")
-  req <- httr2::request(paste0(base_url, path))
+  req <- httr2::request(paste0(lineage$base_url, path))
   req <- httr2::req_url_query(req, !!!query)
   req <- httr2::req_user_agent(req, sprintf("netrunneR-mirror (%s)", contact))
-  req <- httr2::req_throttle(req, rate = 1 / 1.5)
+  req <- httr2::req_throttle(req, rate = pacing_rate(lineage$pacing))
   req <- httr2::req_retry(req, max_tries = 5)
 
   resp <- httr2::req_perform(req)

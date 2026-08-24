@@ -14,10 +14,14 @@
 \item{...}{Ignored.}
 }
 \description{
-The single S3 method for api-poll lineages: applies the lineage's own
-pacing and user-agent policy, then delegates the request sequence to
-the per-lineage internal helper for abr or nrdb. Every byte it hands
-onward comes from capture_response_body().
+The single S3 method for api-poll lineages: delegates the request
+sequence to the per-lineage internal helper for abr or nrdb. Each of
+those helpers derives its own httr2::req_throttle() rate from the
+lineage's own pacing policy (lineage$pacing) via pacing_rate() below,
+so .LINEAGE_REGISTRY's pacing entry (R/lineage.R) is the real,
+honored source of truth for that lineage's request pacing rather than
+an independently hardcoded rate. Every byte it hands onward comes
+from capture_response_body().
 }
 \details{
 Invariant: capture_response_body() (R/capture.R) is the only function

@@ -17,7 +17,7 @@ test_that("fetch_lineage.netrunneR_api_poll() delegates to the abr helper with t
     httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(), auto_unbox = TRUE)))
   ))
 
-  li <- new_lineage("abr", "api_poll", withr::local_tempdir(), base_url = "https://example.test/api")
+  li <- new_lineage("abr", "api_poll", withr::local_tempdir(), base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2))
   attempt_dir <- withr::local_tempdir()
 
   staged <- fetch_lineage(li, attempt_dir)
@@ -47,7 +47,7 @@ test_that("fetch_abr() derives tournament_count from the first element only, ign
     httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(), auto_unbox = TRUE)))  # upcoming
   ))
 
-  li <- new_lineage("abr", "api_poll", withr::local_tempdir(), base_url = "https://example.test/api")
+  li <- new_lineage("abr", "api_poll", withr::local_tempdir(), base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2))
   attempt_dir <- withr::local_tempdir()
 
   staged <- fetch_lineage(li, attempt_dir)
@@ -58,7 +58,7 @@ test_that("fetch_abr() derives tournament_count from the first element only, ign
 
 test_that("fetch_lineage.netrunneR_api_poll() resumes ABR entries from a pre-existing checkpoint, skipping already-resolved tournaments", {
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api")
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2))
 
   # Pre-seed the pool/checkpoint as if a prior, interrupted attempt had
   # already resolved t1's entries -- fetch_abr() now routes the entries
@@ -103,5 +103,51 @@ test_that("a 5xx response is a hard stop", {
   httr2::local_mocked_responses(list(
     httr2::response(status_code = 503, body = charToRaw("{}"))
   ))
-  expect_error(abr_get("https://example.test/api", "/tournaments/results"), class = "netrunneR_abr_5xx")
+  li <- list(base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2))
+  expect_error(abr_get(li, "/tournaments/results"), class = "netrunneR_abr_5xx")
+})
+
+# httr2::req_throttle() only records a throttle_realm on the request
+# object -- the rate/capacity themselves live in internal per-realm
+# state, not inspectable per-request through a mock. So instead of
+# reaching into httr2 internals, this confirms abr_get() actually
+# derives its throttle rate from the lineage it was called with (not a
+# hardcoded value of its own) by swapping in a spy for pacing_rate()
+# and checking it is called with exactly lineage$pacing.
+test_that("abr_get() derives its req_throttle() rate from lineage$pacing via pacing_rate()", {
+  captured_pacing <- NULL
+  testthat::local_mocked_bindings(
+    pacing_rate = function(pacing) {
+      captured_pacing <<- pacing
+      1 / 2
+    }
+  )
+  httr2::local_mocked_responses(list(
+    httr2::response(status_code = 200, body = charToRaw("{}"))
+  ))
+
+  custom_pacing <- list(min_delay_s = 5, max_delay_s = 9)
+  li <- list(base_url = "https://example.test/api", pacing = custom_pacing)
+  abr_get(li, "/tournaments/results")
+
+  expect_identical(captured_pacing, custom_pacing)
+})
+
+# pacing_rate() (R/fetch-api-poll.R) is the one place a lineage's
+# min_delay_s/max_delay_s pacing policy becomes an actual
+# httr2::req_throttle() rate -- these confirm the conversion itself is
+# correct and that changing the declared range changes the resulting
+# rate, independent of the httr2 request plumbing exercised above.
+test_that("pacing_rate() converts a fixed-delay pacing policy to one request per that delay", {
+  expect_equal(pacing_rate(list(min_delay_s = 2, max_delay_s = 2)), 1 / 2)
+})
+
+test_that("pacing_rate() converts a ranged pacing policy to one request per the mean delay", {
+  expect_equal(pacing_rate(list(min_delay_s = 1, max_delay_s = 2)), 1 / 1.5)
+})
+
+test_that("pacing_rate() reflects a changed registry pacing value, not a hardcoded rate", {
+  narrower <- pacing_rate(list(min_delay_s = 1, max_delay_s = 2))
+  wider <- pacing_rate(list(min_delay_s = 4, max_delay_s = 6))
+  expect_gt(narrower, wider)
 })

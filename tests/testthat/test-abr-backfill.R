@@ -9,7 +9,7 @@ test_that("run_abr_backfill() checkpoints resolved ids and skips them on a re-ru
   })
 
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2),
                     schema_version = 1L, build_module_path = "R/build-abr.R")
 
   result1 <- run_abr_backfill(li, c("t1", "t2"))
@@ -38,7 +38,7 @@ test_that("read_backfill_object() reads back what run_abr_backfill() wrote to th
   })
 
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2),
                     schema_version = 1L, build_module_path = "R/build-abr.R")
 
   run_abr_backfill(li, "t1")
@@ -61,7 +61,7 @@ test_that("run_abr_backfill() accepts integer-typed tournament ids, matching the
   })
 
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2),
                     schema_version = 1L, build_module_path = "R/build-abr.R")
 
   result <- run_abr_backfill(li, c(101L, 102L))
@@ -88,7 +88,7 @@ test_that("run_abr_backfill() tombstones an isolated 5xx and continues past it, 
   })
 
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2),
                     schema_version = 1L, build_module_path = "R/build-abr.R")
 
   result <- run_abr_backfill(li, c("good1", "bad", "good2"))
@@ -116,7 +116,7 @@ test_that("run_abr_backfill() does not re-attempt a tournament already tombstone
   })
 
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2),
                     schema_version = 1L, build_module_path = "R/build-abr.R")
 
   run_abr_backfill(li, "bad")
@@ -135,7 +135,7 @@ test_that("run_abr_backfill() re-raises once consecutive 5xx failures look like 
   })
 
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2),
                     schema_version = 1L, build_module_path = "R/build-abr.R")
 
   expect_error(
@@ -157,7 +157,7 @@ test_that("run_abr_backfill() does not treat a retry batch of already-known-bad 
   })
 
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2),
                     schema_version = 1L, build_module_path = "R/build-abr.R")
 
   bad_ids <- c("5379", "4134", "2182", "1769", "1655")
@@ -194,7 +194,7 @@ test_that("run_abr_backfill() still detects an outage among fresh ids even when 
   })
 
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2),
                     schema_version = 1L, build_module_path = "R/build-abr.R")
 
   checkpoint_path <- file.path(store_root, "backfill-checkpoint.rds")
@@ -223,7 +223,7 @@ test_that("run_abr_backfill() marks a tournament permanent_unavailable once its 
   })
 
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2),
                     schema_version = 1L, build_module_path = "R/build-abr.R")
 
   checkpoint_path <- file.path(store_root, "backfill-checkpoint.rds")
@@ -253,7 +253,7 @@ test_that("run_abr_backfill() migrates a pre-tombstoning checkpoint missing the 
   })
 
   store_root <- withr::local_tempdir()
-  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api",
+  li <- new_lineage("abr", "api_poll", store_root, base_url = "https://example.test/api", pacing = list(min_delay_s = 2, max_delay_s = 2),
                     schema_version = 1L, build_module_path = "R/build-abr.R")
 
   fs::dir_create(store_root)

@@ -4,9 +4,23 @@
 \alias{nrdb_get}
 \title{Issue a paced NetrunnerDB request identified by NRDB_CONTACT}
 \usage{
-nrdb_get(base_url, path, query = list())
+nrdb_get(lineage, path, query = list())
+}
+\arguments{
+\item{lineage}{A lineage object (or any list carrying base_url and
+pacing) identifying the request's base_url and pacing policy.}
+
+\item{path}{Character. Path appended to lineage$base_url.}
+
+\item{query}{Named list. Query parameters.}
 }
 \description{
+The req_throttle() rate is derived from lineage$pacing via
+pacing_rate() (R/fetch-api-poll.R) rather than hardcoded here, so a
+change to .LINEAGE_REGISTRY's nrdb pacing entry (R/lineage.R) actually
+changes this request's real pacing.
+}
+\details{
 Invariant: the response body reaches disk only through
 capture_response_body() below -- this helper never calls writeBin(),
 writeLines() or jsonlite::write_json() on the httr2 response itself.

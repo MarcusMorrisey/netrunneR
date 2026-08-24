@@ -4,14 +4,26 @@
 \alias{abr_get}
 \title{Issue one paced, cookie-isolated GET against the ABR API}
 \usage{
-abr_get(base_url, path, query = list())
+abr_get(lineage, path, query = list())
+}
+\arguments{
+\item{lineage}{A lineage object (or any list carrying base_url and
+pacing) identifying the request's base_url and pacing policy.}
+
+\item{path}{Character. Path appended to lineage$base_url.}
+
+\item{query}{Named list. Query parameters.}
 }
 \description{
 Every request gets a fresh req_options cookie jar deleted immediately
 after the request completes, and sends no conditional headers, so no
 Set-Cookie or ETag/Last-Modified value from one request can leak into a
 later request or onto disk. A hard stop on any 5xx protects a
-volunteer-run server from a retry storm during an upstream outage.
+volunteer-run server from a retry storm during an upstream outage. The
+req_throttle() rate is derived from lineage$pacing via pacing_rate()
+(R/fetch-api-poll.R) rather than hardcoded here, so a change to
+.LINEAGE_REGISTRY's abr pacing entry (R/lineage.R) actually changes
+this request's real pacing.
 }
 \details{
 Invariant: the response body reaches disk only through

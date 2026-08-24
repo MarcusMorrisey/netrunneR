@@ -14,7 +14,7 @@ test_that("the nrdb api-poll fetch helper builds a User-Agent from NRDB_CONTACT 
     httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(data = list()), auto_unbox = TRUE)))
   })
 
-  li <- new_lineage("nrdb", "api_poll", withr::local_tempdir(), base_url = "https://example.test/api")
+  li <- new_lineage("nrdb", "api_poll", withr::local_tempdir(), base_url = "https://example.test/api", pacing = list(min_delay_s = 1, max_delay_s = 2))
   attempt_dir <- withr::local_tempdir()
 
   staged <- fetch_nrdb(li, attempt_dir)
@@ -43,9 +43,37 @@ test_that("nrdb_get() configures req_retry() with a bounded max_tries", {
     httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(data = list()), auto_unbox = TRUE)))
   })
   withr::local_envvar(NRDB_CONTACT = "fixture@example.test")
-  result <- nrdb_get("https://example.test/api", "/reviews")
+  li <- list(base_url = "https://example.test/api", pacing = list(min_delay_s = 1, max_delay_s = 2))
+  result <- nrdb_get(li, "/reviews")
 
   expect_identical(length(result$data), 0L)
   expect_true(is.finite(captured_req$policies$retry_max_tries))
   expect_gt(captured_req$policies$retry_max_tries, 1)
+})
+
+# httr2::req_throttle() only records a throttle_realm on the request
+# object -- the rate/capacity themselves live in internal per-realm
+# state, not inspectable per-request through a mock. So instead of
+# reaching into httr2 internals, this confirms nrdb_get() actually
+# derives its throttle rate from the lineage it was called with (not a
+# hardcoded value of its own) by swapping in a spy for pacing_rate()
+# and checking it is called with exactly lineage$pacing.
+test_that("nrdb_get() derives its req_throttle() rate from lineage$pacing via pacing_rate()", {
+  captured_pacing <- NULL
+  testthat::local_mocked_bindings(
+    pacing_rate = function(pacing) {
+      captured_pacing <<- pacing
+      1 / 1.5
+    }
+  )
+  httr2::local_mocked_responses(function(req) {
+    httr2::response(status_code = 200, body = charToRaw(jsonlite::toJSON(list(data = list()), auto_unbox = TRUE)))
+  })
+  withr::local_envvar(NRDB_CONTACT = "fixture@example.test")
+
+  custom_pacing <- list(min_delay_s = 3, max_delay_s = 7)
+  li <- list(base_url = "https://example.test/api", pacing = custom_pacing)
+  nrdb_get(li, "/reviews")
+
+  expect_identical(captured_pacing, custom_pacing)
 })

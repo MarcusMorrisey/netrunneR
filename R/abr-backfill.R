@@ -117,7 +117,7 @@ run_abr_backfill <- function(lineage, tournament_ids) {
     is_retry_of_known_failure <- id %in% known_failing_ids
 
     result <- tryCatch(
-      list(ok = TRUE, entries = abr_get(lineage$base_url, "/entries", list(id = id))),
+      list(ok = TRUE, entries = abr_get(lineage, "/entries", list(id = id))),
       netrunneR_abr_5xx = function(e) list(ok = FALSE)
     )
 
