@@ -27,6 +27,12 @@
 #' provenance data that has not yet passed the two-layer allowlist and
 #' deny-pattern check in build_abr(). (ref: DL-002)
 #'
+#' @return A list including `tournament_count` (the raw upstream count from
+#'   the first page) and `permanent_ids` (ids excluded from `tournaments`
+#'   because run_abr_backfill() marked them permanent_unavailable) --
+#'   build_abr()'s tournament_id_cardinality check uses both together to
+#'   confirm that `tournaments`' row count is fully accounted for.
+#'
 #' @keywords internal
 fetch_abr <- function(lineage, attempt_dir) {
   raw_dir <- file.path(attempt_dir, "raw")
@@ -113,6 +119,7 @@ fetch_abr <- function(lineage, attempt_dir) {
     entries = entries,
     videos = videos,
     upcoming = upcoming,
+    permanent_ids = backfill_result$permanent_ids,
     content_identity = digest::digest(list(tournaments$id, tournament_count), algo = "sha256")
   )
 }

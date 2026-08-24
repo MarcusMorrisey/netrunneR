@@ -49,10 +49,23 @@ build_abr <- function(lineage, staged_raw) {
   tournaments <- dplyr::select(staged_raw$tournaments, dplyr::all_of(ABR_TOURNAMENT_ALLOWLIST))
   tournaments <- dplyr::distinct(tournaments, .data$id, .keep_all = TRUE)
 
+  # staged_raw$tournament_count is the raw upstream count and does not
+  # reflect ids that run_abr_backfill() marked permanent_unavailable and
+  # fetch_abr() therefore already excluded from `tournaments` -- that
+  # exclusion is the intended tombstone design (see R/abr-backfill.R,
+  # R/fetch-abr.R), not data loss. Subtracting permanent_ids' count keeps
+  # this check protective against any other cause of a cardinality
+  # mismatch (duplicate ids, a pagination bug, real data loss) while no
+  # longer flagging the expected, designed exclusion as a failure.
+  permanent_count <- length(staged_raw$permanent_ids %||% character(0))
+  expected_count <- staged_raw$tournament_count - permanent_count
   id_count_check <- list(
     check = "tournament_id_cardinality",
-    status = if (nrow(tournaments) == staged_raw$tournament_count) "pass" else "fail",
-    message = sprintf("id set cardinality=%d tournament_count=%d", nrow(tournaments), staged_raw$tournament_count)
+    status = if (nrow(tournaments) == expected_count) "pass" else "fail",
+    message = sprintf(
+      "id set cardinality=%d tournament_count=%d (%d permanently unavailable, expected %d)",
+      nrow(tournaments), staged_raw$tournament_count, permanent_count, expected_count
+    )
   )
 
   unknown_keys <- setdiff(names(staged_raw$tournaments), ABR_TOURNAMENT_ALLOWLIST)

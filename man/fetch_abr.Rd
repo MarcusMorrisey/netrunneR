@@ -15,6 +15,13 @@ raw_dir is created 0700 (owner-only): it holds unprocessed ABR
 provenance data that has not yet passed the two-layer allowlist and
 deny-pattern check in build_abr(). (ref: DL-002)}
 }
+\value{
+A list including \code{tournament_count} (the raw upstream count from
+the first page) and \code{permanent_ids} (ids excluded from \code{tournaments}
+because run_abr_backfill() marked them permanent_unavailable) --
+build_abr()'s tournament_id_cardinality check uses both together to
+confirm that \code{tournaments}' row count is fully accounted for.
+}
 \description{
 Fetches the ABR tournaments results pages, per-tournament entries, the
 bulk videos endpoint and the upcoming endpoint sequentially with
