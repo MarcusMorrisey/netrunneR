@@ -24,7 +24,6 @@ R package maintaining an offline, versioned mirror of five Netrunner data source
 | `tests/` | testthat entry point and the full test suite | Adding tests, debugging failures, checking enforced invariants |
 | `inst/` | Installed assets: CLI wrapper, Shiny app, SQL schemas | Changing the container entry point, the app, or a lineage's DDL |
 | `.ci/` | Rscript entry points for check, test, document, coverage, renv restore | Changing what CI runs or how dependencies are restored |
-| `docs/` | Working session notes, excluded from the build tarball | Resuming an in-flight work session |
 | `man/` | Generated roxygen2 `.Rd` documentation (89 files) | Never edit directly; regenerate via `make document` after editing roxygen comments in `R/*.R` |
 
 ## Build
