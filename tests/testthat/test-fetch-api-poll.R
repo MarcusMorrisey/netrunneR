@@ -1,6 +1,6 @@
 # Covers the shared netrunneR_api_poll S3 dispatch in R/fetch-api-poll.R,
-# not abr-specific pagination detail, which belongs to test-fetch-abr
-# fixtures.
+# including abr-specific pagination detail (tournament_count derivation),
+# since R/fetch-abr.R has no dedicated test file of its own.
 test_that("fetch_lineage.netrunneR_api_poll() delegates to the abr helper with tournament_count-derived pagination", {
   # Mirrors the real alwaysberunning.net/api/tournaments/results shape
   # (confirmed live): the response body is a bare JSON array of
