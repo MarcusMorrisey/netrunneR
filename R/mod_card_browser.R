@@ -53,7 +53,7 @@ mod_card_browser_server <- function(id, cards, selected_code) {
       safe_render(function() {
         d <- filtered()
         if (nrow(d) == 0) {
-          return(tags$div(class = "alert alert-info", "No cards match the current filters."))
+          return(alert_box("No cards match the current filters.", "info"))
         }
         tagList(lapply(seq_len(nrow(d)), function(i) {
           code <- d$code[i]
@@ -61,10 +61,7 @@ mod_card_browser_server <- function(id, cards, selected_code) {
             src = card_image_url(code),
             style = "width: 150px; margin: 4px; cursor: pointer;",
             loading = "lazy",
-            onclick = sprintf(
-              "Shiny.setInputValue('%s', '%s', {priority: 'event'})",
-              session$ns("card_clicked"), code
-            )
+            onclick = click_sets_input(session, "card_clicked", code)
           )
         }))
       })

@@ -27,14 +27,32 @@ test_that("selected_code can be driven through several codes in one session with
   })
 })
 
-test_that("the Close button clears selected_code()", {
+test_that("the Close button does not error (removeModal() has no server-testable effect)", {
   cards <- mini_pool_cardpool()
   selected_code <- reactiveVal(NULL)
 
   shiny::testServer(mod_card_detail_server, args = list(selected_code = selected_code, cards = cards), {
     selected_code("ice01")
     session$flushReact()
-    session$setInputs(close = 1)
+    expect_no_error(session$setInputs(close = 1))
+  })
+})
+
+test_that("any dismissal (backdrop click, Escape, or Close) clears selected_code() via the hidden.bs.modal bridge", {
+  # The actual dismissal signal is client-side JS (Bootstrap's
+  # hidden.bs.modal event, wired in mod_card_detail_server's showModal()
+  # call) setting input$dismissed -- shiny::testServer() has no real DOM,
+  # so this simulates that bridge firing rather than exercising the JS
+  # itself. This is what replaced easyClose = FALSE: a real
+  # click-outside/Escape dismissal now clears selected_code() too, not
+  # just the Close button.
+  cards <- mini_pool_cardpool()
+  selected_code <- reactiveVal(NULL)
+
+  shiny::testServer(mod_card_detail_server, args = list(selected_code = selected_code, cards = cards), {
+    selected_code("ice01")
+    session$flushReact()
+    session$setInputs(dismissed = 1)
     expect_null(selected_code())
   })
 })

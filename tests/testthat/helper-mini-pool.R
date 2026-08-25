@@ -29,13 +29,13 @@ mini_pool_cardpool <- function() {
 
 mini_pool_ice_breaker_traits <- function() {
   tibble::tribble(
-    ~code,   ~subtypes,    ~base_strength, ~break_cost,
-    "ice01", "Barrier",    1L,             NA_integer_,
-    "ice02", "Code Gate",  3L,             NA_integer_,
-    "ice03", "Sentry",     2L,             NA_integer_,
-    "brk01", "Barrier",    1L,             NA_integer_,
-    "brk02", "Code Gate",  3L,             NA_integer_,
-    "brk03", "Sentry",     2L,             NA_integer_
+    ~code,   ~subtypes,    ~base_strength,
+    "ice01", "Barrier",    1L,
+    "ice02", "Code Gate",  3L,
+    "ice03", "Sentry",     2L,
+    "brk01", "Barrier",    1L,
+    "brk02", "Code Gate",  3L,
+    "brk03", "Sentry",     2L
   )
 }
 

@@ -96,12 +96,7 @@ cross_check_cardpool_codes <- function(implementation_codes, cardpool_codes) {
 #' @return A character vector of card codes.
 #' @keywords internal
 cardpool_codes <- function() {
-  li <- lineage("cardpool")
-  active <- tryCatch(resolve_release(li), error = function(e) NULL)
-  if (is.null(active)) return(character(0))
-  db_path <- file.path(active$processed_dir, "cardpool.sqlite")
-  if (!fs::file_exists(db_path)) return(character(0))
-  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
-  on.exit(DBI::dbDisconnect(con), add = TRUE)
-  DBI::dbGetQuery(con, "SELECT code FROM card")$code
+  result <- query_active_release("cardpool", "cardpool.sqlite", "SELECT code FROM card")
+  if (is.null(result)) return(character(0))
+  result$data$code
 }

@@ -65,7 +65,7 @@ compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_o
   pairs <- dplyr::left_join(pairs, dplyr::select(ice, ice_code = "code", ice_rez_cost = "cost"), by = "ice_code")
 
   pairs$cost_to_break <- compute_cost_to_break_formula(pairs$ice_code, pairs$breaker_code, ice_breaker_traits)
-  pairs$source <- ifelse(is.na(pairs$cost_to_break), "not_computable", "formula")
+  pairs$source <- dplyr::if_else(is.na(pairs$cost_to_break), "not_computable", "formula")
 
   override_lookup <- dplyr::transmute(
     matchup_overrides,
@@ -75,9 +75,8 @@ compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_o
   matchups <- dplyr::left_join(pairs, override_lookup, by = c("ice_code", "breaker_code"))
   matchups <- dplyr::mutate(
     matchups,
-    has_override = !is.na(.data$override_cost),
-    source = dplyr::if_else(.data$has_override, "override", .data$source),
-    cost_to_break = dplyr::if_else(.data$has_override, .data$override_cost, .data$cost_to_break),
+    source = dplyr::if_else(!is.na(.data$override_cost), "override", .data$source),
+    cost_to_break = dplyr::if_else(!is.na(.data$override_cost), .data$override_cost, .data$cost_to_break),
     credit_differential = dplyr::if_else(
       .data$source == "not_computable", NA_integer_, .data$ice_rez_cost - .data$cost_to_break
     )

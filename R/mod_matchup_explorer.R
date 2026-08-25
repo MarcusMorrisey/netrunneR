@@ -65,7 +65,7 @@ mod_matchup_explorer_server <- function(id, cards, matchup, selected_code) {
       safe_render(function() {
         d <- display()
         if (nrow(d) == 0) {
-          return(tags$div(class = "alert alert-info", "No matchups for the current selection."))
+          return(alert_box("No matchups for the current selection.", "info"))
         }
 
         # A row represents a PAIR, so clicking the row itself is
@@ -76,10 +76,7 @@ mod_matchup_explorer_server <- function(id, cards, matchup, selected_code) {
             code <- d[[code_column]][index]
             htmltools::tags$span(
               value, style = "cursor: pointer; text-decoration: underline;",
-              onclick = sprintf(
-                "Shiny.setInputValue('%s', '%s', {priority: 'event'})",
-                session$ns("row_card_clicked"), code
-              )
+              onclick = click_sets_input(session, "row_card_clicked", code)
             )
           }
         }

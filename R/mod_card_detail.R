@@ -24,23 +24,37 @@ mod_card_detail_server <- function(id, selected_code, cards) {
   moduleServer(id, function(input, output, session) {
     observeEvent(selected_code(), {
       req(selected_code())
-      # easyClose = FALSE deliberately: base Shiny has no server-side
-      # event for a click-outside/Escape dismissal, so an easyClose modal
-      # could close visually while selected_code() stays set -- reopening
-      # the SAME card right after would then no-op, since the observer
-      # above only fires on a *change*. The Close button below is the
-      # only dismissal path, and it clears selected_code() explicitly.
       showModal(modalDialog(
         uiOutput(session$ns("detail")),
-        size = "l", easyClose = FALSE,
+        # Bootstrap's own `hidden.bs.modal` event fires on EVERY
+        # dismissal path -- the Close button, the backdrop click, or
+        # Escape -- so selected_code() is cleared uniformly below rather
+        # than only on the Close button, which is what forced
+        # easyClose = FALSE in an earlier draft (a click-outside/Escape
+        # dismissal would close the modal visually while selected_code()
+        # stayed set, so reopening the SAME card right after would no-op,
+        # since the observer above only fires on a *change*). The
+        # `.dcDetail`-namespaced `.off().on()` pair keeps this idempotent
+        # across repeated opens, since this script tag re-runs every time
+        # the modal reopens.
+        tags$script(HTML(sprintf(
+          "$(document).off('hidden.bs.modal.dcDetail').on('hidden.bs.modal.dcDetail', '#shiny-modal', function() {
+            Shiny.setInputValue('%s', Math.random(), {priority: 'event'});
+          });",
+          session$ns("dismissed")
+        ))),
+        size = "l", easyClose = TRUE,
         footer = actionButton(session$ns("close"), "Close")
       ))
     })
 
     observeEvent(input$close, {
       removeModal()
-      selected_code(NULL)
     })
+
+    observeEvent(input$dismissed, {
+      selected_code(NULL)
+    }, ignoreInit = TRUE)
 
     output$detail <- renderUI({
       req(selected_code())
