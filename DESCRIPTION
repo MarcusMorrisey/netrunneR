@@ -35,6 +35,10 @@ Imports:
     lubridate,
     readr,
     shiny,
+    shinyWidgets,
+    reactable,
+    bslib,
+    htmltools,
     stats,
     tools,
     utils
@@ -47,7 +51,8 @@ Suggests:
     renv,
     devtools,
     covr,
-    rcmdcheck
+    rcmdcheck,
+    shinytest2
 Config/testthat/edition: 3
 Config/renv.lock.md5: 00000000000000000000000000000000
 Config/roxygen2/version: 8.1.0

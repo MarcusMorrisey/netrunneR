@@ -1,12 +1,14 @@
-#' Shiny UI entry point (stub)
+#' Shiny UI entry point
 #'
-#' Full UI implementation is out of scope for this pass; this stub
-#' establishes the entry point for the app's UI, rendering a placeholder
-#' heading. Any view sourced from the abr lineage must render the
-#' alwaysberunning.net backlink guarded by
-#' netrunneR::require_abr_attribution() in R/app.R.
+#' Deliberately minimal and fully server-driven: app_ui() runs once at app
+#' definition time (app.R's shinyApp(ui = app_ui(), ...) call), before any
+#' session exists, so it cannot know yet whether cardpool/implementation
+#' have active releases -- it only lays down a single server-rendered
+#' slot. app_server() decides, per session, what fills it (the real tabs,
+#' or the missing-release error screen).
 app_ui <- function() {
-  shiny::fluidPage(
-    shiny::h1("netrunneR")
+  bslib::page_fluid(
+    theme = bslib::bs_theme(),
+    shiny::uiOutput("main")
   )
 }
