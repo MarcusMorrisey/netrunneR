@@ -12,4 +12,12 @@ if (!dir.exists("inst/pkg-src")) {
   file.copy("renv.lock", "inst/pkg-src/renv.lock")
 }
 
-rcmdcheck::rcmdcheck(args = c("--no-manual"), error_on = "warning")
+# roxygen2/pkgdown/devtools/covr/shinytest2 are dev-only Suggests (package
+# maintainer tooling, never loaded by netrunneR itself or needed by its
+# users) that renv.lock does not carry -- document.R installs roxygen2 ad
+# hoc for that reason. Rather than installing all five into the check
+# container just to satisfy R CMD check's default "every Suggests must be
+# installed" rule, force the standard opt-out: a package with dev-only
+# Suggests that aren't installed should still check cleanly.
+rcmdcheck::rcmdcheck(args = c("--no-manual"), error_on = "warning",
+                      env = c("_R_CHECK_FORCE_SUGGESTS_" = "false"))
