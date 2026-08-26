@@ -59,7 +59,12 @@ MWL_FORMAT_PREFIXES <- c(standard = "standard", startup = "startup", sunset = "s
 #' @keywords internal
 mwl_format_of <- function(code) {
   prefix <- tolower(sub("[-_].*$", "", code))
-  unname(MWL_FORMAT_PREFIXES[prefix] %||% "unknown")
+  # Membership test, not `[` + %||%: subsetting a named vector by an
+  # absent name yields NA rather than NULL, so %||% would never fire and
+  # an unrecognised prefix would silently become NA instead of the
+  # "unknown" the build check looks for.
+  if (!prefix %in% names(MWL_FORMAT_PREFIXES)) return("unknown")
+  unname(MWL_FORMAT_PREFIXES[[prefix]])
 }
 
 #' Flatten rotations.json into rotation / rotation_cycle tables
@@ -122,13 +127,18 @@ read_mwl <- function(path) {
         is_restricted = integer(0), universal_faction_cost = integer(0), global_penalty = integer(0)
       ))
     }
+    # unname(): `cards` is a JSON object, so vapply() over it returns a
+    # vector NAMED by card code, which would otherwise ride into the
+    # column as stray names.
+    pluck_int <- function(key) unname(vapply(cards, function(v) int_or_na(v[[key]]), integer(1)))
+
     tibble::tibble(
       mwl_code = as.character(m$code),
       card_code = names(cards),
-      deck_limit = vapply(cards, function(v) int_or_na(v$deck_limit), integer(1)),
-      is_restricted = vapply(cards, function(v) int_or_na(v$is_restricted), integer(1)),
-      universal_faction_cost = vapply(cards, function(v) int_or_na(v$universal_faction_cost), integer(1)),
-      global_penalty = vapply(cards, function(v) int_or_na(v$global_penalty), integer(1))
+      deck_limit = pluck_int("deck_limit"),
+      is_restricted = pluck_int("is_restricted"),
+      universal_faction_cost = pluck_int("universal_faction_cost"),
+      global_penalty = pluck_int("global_penalty")
     )
   })
 
