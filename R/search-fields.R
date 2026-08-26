@@ -98,7 +98,21 @@ resolve_search_field <- function(name, fields) {
 #' @return A field registry for use with [search_parse()] / [search_match()].
 #' @export
 cardpool_search_fields <- function() {
-  search_field_registry(
+  do.call(search_field_registry, c(cardpool_search_field_specs(), list(default_field = "title")))
+}
+
+#' The card-table field specs, before assembly into a registry
+#'
+#' Separated from [cardpool_search_fields()] so another registry can
+#' extend these rather than restate them -- [browser_search_fields()]
+#' merges them with [legality_search_fields()]. An assembled registry
+#' cannot be re-fed to [search_field_registry()], since it already has
+#' every alias expanded into its own entry and a `default_field`
+#' attribute attached; the specs are what compose.
+#' @return A named list of [new_search_field()] specs.
+#' @export
+cardpool_search_field_specs <- function() {
+  list(
     title        = new_search_field("title", "string", aliases = c("_")),
     text         = new_search_field("text", "string", aliases = c("x")),
     card_type    = new_search_field("type_code", "string", aliases = c("t", "type")),
@@ -108,7 +122,6 @@ cardpool_search_fields <- function() {
     card_set     = new_search_field("pack_code", "string", aliases = c("e", "set")),
     card_id      = new_search_field("code", "string", aliases = c("code")),
     cost         = new_search_field("cost", "integer", aliases = c("o")),
-    strength     = new_search_field("strength", "integer", aliases = c("p")),
-    default_field = "title"
+    strength     = new_search_field("strength", "integer", aliases = c("p"))
   )
 }

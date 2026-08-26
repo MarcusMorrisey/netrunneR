@@ -77,3 +77,24 @@ test_that("a promoted release with no processed database still counts as missing
                             "processed", "implementation.sqlite"))
   expect_equal(load_ice_breaker_app_data()$missing_lineages, "implementation")
 })
+
+test_that("a release with no legality tables degrades instead of failing", {
+  # The fixture store writes only the `card` table, which is exactly the
+  # shape of a release promoted before the format/card-pool schema
+  # landed. Every legality table must come back NULL, and the app data
+  # must still load -- read_active_release_tables() treats an absent
+  # table as NULL rather than letting dbReadTable() error.
+  local_store_fixture()
+  app_data <- load_ice_breaker_app_data()
+
+  expect_null(app_data$missing_lineages)
+  expect_named(app_data$legality, CARDPOOL_LEGALITY_TABLES)
+  expect_true(all(vapply(app_data$legality, is.null, logical(1))))
+})
+
+test_that("read_active_release_tables() returns the tables a release does have", {
+  local_store_fixture()
+  out <- read_active_release_tables("cardpool", "cardpool.sqlite", c("card", "format"))
+  expect_equal(sort(out$tables$card$code), sort(mini_pool_cardpool()$code))
+  expect_null(out$tables$format)
+})

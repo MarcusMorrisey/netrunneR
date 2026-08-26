@@ -85,6 +85,52 @@ query_active_release <- function(lineage_name, db_filename, sql) {
   list(release = active, data = DBI::dbGetQuery(con, sql))
 }
 
+#' Read whole tables from a lineage's active release in one connection
+#'
+#' The multi-table counterpart to [query_active_release()]: the card
+#' browser needs the card table plus six legality tables from the same
+#' cardpool database, and opening one connection per table would resolve
+#' `active` repeatedly, which [resolve_release()] exists specifically to
+#' avoid (a promote() landing mid-read would otherwise be observed as two
+#' different releases).
+#'
+#' A table absent from the database yields NULL rather than an error. A
+#' release promoted before the format/card-pool schema landed genuinely
+#' has no `format_snapshot` table, and the app must degrade to "no
+#' legality data" instead of failing to start -- that state persists
+#' until the next sync rebuilds the lineage.
+#'
+#' @param lineage_name Character. One of `BUILTIN_LINEAGES`.
+#' @param db_filename Character. SQLite filename under `processed_dir`.
+#' @param tables Character vector of table names to read.
+#' @return A list with `release` and `tables` (named, NULL per absent
+#'   table), or NULL if there is no active release or no database file.
+#' @keywords internal
+read_active_release_tables <- function(lineage_name, db_filename, tables) {
+  active <- resolve_active_release(lineage_name)
+  if (is.null(active)) return(NULL)
+  db_path <- file.path(active$processed_dir, db_filename)
+  if (!fs::file_exists(db_path)) return(NULL)
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  read_one <- function(table_name) {
+    if (!DBI::dbExistsTable(con, table_name)) return(NULL)
+    DBI::dbReadTable(con, table_name)
+  }
+  list(release = active, tables = stats::setNames(lapply(tables, read_one), tables))
+}
+
+#' The cardpool tables the browser needs beyond `card`
+#'
+#' Everything [annotate_format_legality()] and the format selector read.
+#' Kept as one constant so the loader, its tests and any future caller
+#' cannot drift over which tables "the legality data" means.
+#' @keywords internal
+CARDPOOL_LEGALITY_TABLES <- c(
+  "format", "format_snapshot", "card_pool_set", "restriction_card",
+  "printing", "card_set"
+)
+
 #' Read the curated matchup overrides with declared column types
 #'
 #' Types are declared, never guessed. `inst/extdata/matchup_overrides.csv`
@@ -133,14 +179,23 @@ read_matchup_overrides <- function(path = system.file("extdata", "matchup_overri
 #' one pair of SQLite reads rather than each session independently
 #' reopening both databases and rerunning the ice x breaker cross-join --
 #' cardpool/implementation data is static for the life of the R process.
-#' @return A list with `cards` and `matchup`, or `missing_lineages`
-#'   (character vector, non-NULL) if either required release is
-#'   unavailable -- callers branch on `missing_lineages` before touching
-#'   `cards`/`matchup`.
+#' @return A list with `cards`, `legality` (the CARDPOOL_LEGALITY_TABLES,
+#'   each NULL when the release predates that schema) and `matchup`, or
+#'   `missing_lineages` (character vector, non-NULL) if either required
+#'   release is unavailable -- callers branch on `missing_lineages`
+#'   before touching the rest.
 #' @export
 load_ice_breaker_app_data <- function() {
-  cardpool_result <- query_active_release("cardpool", "cardpool.sqlite", "SELECT * FROM card")
+  cardpool_result <- read_active_release_tables(
+    "cardpool", "cardpool.sqlite", c("card", CARDPOOL_LEGALITY_TABLES)
+  )
   implementation_result <- query_active_release("implementation", "implementation.sqlite", "SELECT * FROM ice_breaker_traits")
+
+  # A cardpool release with no `card` table is as unusable as no release
+  # at all, and reads as missing rather than erroring later on a NULL.
+  if (!is.null(cardpool_result) && is.null(cardpool_result$tables$card)) {
+    cardpool_result <- NULL
+  }
 
   if (is.null(cardpool_result) || is.null(implementation_result)) {
     return(list(missing_lineages = c(
@@ -149,13 +204,21 @@ load_ice_breaker_app_data <- function() {
     )))
   }
 
+  cards <- cardpool_result$tables$card
+  legality <- cardpool_result$tables[CARDPOOL_LEGALITY_TABLES]
+
   matchup_overrides <- read_matchup_overrides()
 
   matchup_result <- compute_ice_breaker_matchups(
-    implementation_result$data, cardpool_result$data, matchup_overrides,
+    implementation_result$data, cards, matchup_overrides,
     cardpool_release_id = basename(cardpool_result$release$release_dir),
     implementation_release_id = basename(implementation_result$release$release_dir)
   )
 
-  list(cards = cardpool_result$data, matchup = matchup_result$matchups, missing_lineages = NULL)
+  list(
+    cards = cards,
+    legality = legality,
+    matchup = matchup_result$matchups,
+    missing_lineages = NULL
+  )
 }
