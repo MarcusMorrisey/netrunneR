@@ -5,10 +5,17 @@
 #' `shiny::shinyAppDir()` separately from the package's own namespace, so
 #' anything they call must be reachable via `netrunneR::`, not a bare
 #' name.
+#'
+#' shiny is referenced with explicit `shiny::` prefixes throughout this
+#' file (rather than an `@import shiny`), matching how every other
+#' package in this codebase's Imports is used -- only rlang's `abort` and
+#' `.data` are imported by name, in R/netrunneR-package.R.
+#'
+#' @param id Module id.
 #' @export
 mod_card_detail_ui <- function(id) {
-  ns <- NS(id)
-  uiOutput(ns("detail"))
+  ns <- shiny::NS(id)
+  shiny::uiOutput(ns("detail"))
 }
 
 #' Card detail modal module server
@@ -23,11 +30,11 @@ mod_card_detail_ui <- function(id) {
 #' @param cards The active cardpool's `card` data frame.
 #' @export
 mod_card_detail_server <- function(id, selected_code, cards) {
-  moduleServer(id, function(input, output, session) {
-    observeEvent(selected_code(), {
-      req(selected_code())
-      showModal(modalDialog(
-        uiOutput(session$ns("detail")),
+  shiny::moduleServer(id, function(input, output, session) {
+    shiny::observeEvent(selected_code(), {
+      shiny::req(selected_code())
+      shiny::showModal(shiny::modalDialog(
+        shiny::uiOutput(session$ns("detail")),
         # Bootstrap's own `hidden.bs.modal` event fires on EVERY
         # dismissal path -- the Close button, the backdrop click, or
         # Escape -- so selected_code() is cleared uniformly below rather
@@ -39,27 +46,27 @@ mod_card_detail_server <- function(id, selected_code, cards) {
         # `.dcDetail`-namespaced `.off().on()` pair keeps this idempotent
         # across repeated opens, since this script tag re-runs every time
         # the modal reopens.
-        tags$script(HTML(sprintf(
+        shiny::tags$script(shiny::HTML(sprintf(
           "$(document).off('hidden.bs.modal.dcDetail').on('hidden.bs.modal.dcDetail', '#shiny-modal', function() {
             Shiny.setInputValue('%s', Math.random(), {priority: 'event'});
           });",
           session$ns("dismissed")
         ))),
         size = "l", easyClose = TRUE,
-        footer = actionButton(session$ns("close"), "Close")
+        footer = shiny::actionButton(session$ns("close"), "Close")
       ))
     })
 
-    observeEvent(input$close, {
-      removeModal()
+    shiny::observeEvent(input$close, {
+      shiny::removeModal()
     })
 
-    observeEvent(input$dismissed, {
+    shiny::observeEvent(input$dismissed, {
       selected_code(NULL)
     }, ignoreInit = TRUE)
 
-    output$detail <- renderUI({
-      req(selected_code())
+    output$detail <- shiny::renderUI({
+      shiny::req(selected_code())
       card <- cards[cards$code == selected_code(), ]
       if (nrow(card) == 0) return(NULL)
 
@@ -75,18 +82,23 @@ mod_card_detail_server <- function(id, selected_code, cards) {
       # tagList() as if it were a tag.
       require_cardpool_disclaimer(TRUE)
 
-      tagList(
-        div(class = "d-flex gap-3",
-          tags$img(src = card_image_url(card$code),
-                   style = "max-width: 300px;", loading = "lazy"),
-          div(
-            h4(card$title),
-            p(strong(card$faction_code), " · ", card$type_code,
-              if (!is.na(card$keywords)) paste("·", card$keywords)),
-            tags$pre(card$text)
+      # Middle dot as a \u escape, not the literal character: R CMD check
+      # warns on any non-ASCII byte in R source outside comments.
+      separator <- "\u00b7"
+
+      shiny::tagList(
+        shiny::div(class = "d-flex gap-3",
+          shiny::tags$img(src = card_image_url(card$code),
+                          style = "max-width: 300px;", loading = "lazy"),
+          shiny::div(
+            shiny::h4(card$title),
+            shiny::p(shiny::strong(card$faction_code),
+                     paste0(" ", separator, " "), card$type_code,
+                     if (!is.na(card$keywords)) paste(separator, card$keywords)),
+            shiny::tags$pre(card$text)
           )
         ),
-        tags$p(class = "text-muted small",
+        shiny::tags$p(class = "text-muted small",
           "Not maintained, produced, endorsed, supported, or affiliated with Fantasy Flight Games and/or Wizards of the Coast."
         )
       )

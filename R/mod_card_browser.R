@@ -3,22 +3,25 @@
 #' `card.title` is not used as an identity key anywhere below -- only
 #' `card.code` (the schema's actual primary key) -- since titles are not
 #' unique-safe across reprints. Exported for the same cross-namespace
-#' reason as mod_card_detail_ui() (see its docs).
+#' reason as mod_card_detail_ui() (see its docs), and uses explicit
+#' `shiny::` prefixes for the same reason given there.
+#'
+#' @param id Module id.
 #' @export
 mod_card_browser_ui <- function(id) {
-  ns <- NS(id)
-  sidebarLayout(
-    sidebarPanel(
+  ns <- shiny::NS(id)
+  shiny::sidebarLayout(
+    shiny::sidebarPanel(
       shinyWidgets::pickerInput(ns("side"), "Side", choices = c("corp", "runner"), multiple = TRUE),
       shinyWidgets::pickerInput(ns("faction"), "Faction", choices = NULL, multiple = TRUE, options = list(`live-search` = TRUE)),
       shinyWidgets::pickerInput(ns("type"), "Type", choices = NULL, multiple = TRUE),
       shinyWidgets::pickerInput(ns("subtype"), "Subtype", choices = NULL, multiple = TRUE, options = list(`live-search` = TRUE))
     ),
-    mainPanel(
-      tags$p(class = "text-muted small",
+    shiny::mainPanel(
+      shiny::tags$p(class = "text-muted small",
         "Not maintained, produced, endorsed, supported, or affiliated with Fantasy Flight Games and/or Wizards of the Coast."
       ),
-      uiOutput(ns("card_grid"))
+      shiny::uiOutput(ns("card_grid"))
     )
   )
 }
@@ -33,18 +36,18 @@ mod_card_browser_ui <- function(id) {
 #'   moduleServer() itself.
 #' @export
 mod_card_browser_server <- function(id, cards, selected_code) {
-  moduleServer(id, function(input, output, session) {
+  shiny::moduleServer(id, function(input, output, session) {
 
     require_cardpool_disclaimer(TRUE)
 
-    observe({
+    shiny::observe({
       shinyWidgets::updatePickerInput(session, "faction", choices = sort(unique(cards$faction_code)))
       shinyWidgets::updatePickerInput(session, "type", choices = sort(unique(cards$type_code)))
       shinyWidgets::updatePickerInput(session, "subtype",
-        choices = sort(unique(unlist(strsplit(na.omit(cards$keywords), " - ")))))
+        choices = sort(unique(unlist(strsplit(stats::na.omit(cards$keywords), " - ")))))
     })
 
-    filtered <- reactive({
+    filtered <- shiny::reactive({
       d <- cards
       if (length(input$side))    d <- d[d$side_code %in% input$side, ]
       if (length(input$faction)) d <- d[d$faction_code %in% input$faction, ]
@@ -53,15 +56,15 @@ mod_card_browser_server <- function(id, cards, selected_code) {
       d
     })
 
-    output$card_grid <- renderUI({
+    output$card_grid <- shiny::renderUI({
       safe_render(function() {
         d <- filtered()
         if (nrow(d) == 0) {
           return(alert_box("No cards match the current filters.", "info"))
         }
-        tagList(lapply(seq_len(nrow(d)), function(i) {
+        shiny::tagList(lapply(seq_len(nrow(d)), function(i) {
           code <- d$code[i]
-          tags$img(
+          shiny::tags$img(
             src = card_image_url(code),
             style = "width: 150px; margin: 4px; cursor: pointer;",
             loading = "lazy",
@@ -74,7 +77,7 @@ mod_card_browser_server <- function(id, cards, selected_code) {
     # Single shared input, set via onclick JS above, rather than one
     # actionLink/observer per card -- keeps this from growing linearly
     # with pool size (400+ cards).
-    observeEvent(input$card_clicked, {
+    shiny::observeEvent(input$card_clicked, {
       selected_code(input$card_clicked)
     })
   })
