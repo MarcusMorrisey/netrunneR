@@ -2,6 +2,34 @@
 
 R package maintaining an offline, versioned mirror of five Netrunner data sources with atomic release promotion, plus derived ratings and matchup views.
 
+## Working tree on mediaServer
+
+The canonical checkout is **`/home/marcus/src/netrunneR`**, a sibling of
+`/home/marcus/src/homelab` (ref: DL-008 in the homelab repo's
+`docs/netrunneR/netrunneR-implementation-plan.md`). Work there. Do not
+clone a second copy elsewhere in `$HOME`, and check for this path before
+cloning at all.
+
+Three homelab services bind-mount that exact path, so a checkout
+anywhere else is invisible to all of them:
+
+| Service | Mount |
+| --- | --- |
+| `netrunner-pkgdown` | `/home/marcus/src/netrunneR/docs` -> nginx web root (port 8090) |
+| `netrunner-pkgdown-build.service` | builds pkgdown INTO that `docs/` |
+| `rstudio-server` | `/home/marcus/src/netrunneR` -> `/projects/netrunneR` |
+
+This is not hypothetical. A second clone at `/home/marcus/netrunneR`
+once took 28 commits of work while `~/src/netrunneR` sat at an older
+HEAD, so the published package site served a stale reference and the
+RStudio project opened the wrong tree. Resolving it needed a hard reset
+of the canonical checkout.
+
+The lineage stores are a separate matter and live under
+`/srv/netrunner-mirror/data/<lineage>` on the host, bind-mounted to
+`/data/<lineage>` in the container (ref: DL-009) -- never inside either
+repo.
+
 ## Files
 
 | File | What | When to read |
@@ -29,6 +57,13 @@ R package maintaining an offline, versioned mirror of five Netrunner data source
 ## Build
 
 All targets run inside a `rocker/r-ver:4.3.2` container against the bind-mounted working tree.
+
+The container runs as root, because `apt-get` does. Each target therefore
+chowns the tree back to the invoking user afterwards -- without that,
+roxygen output lands root-owned and a later `git pull` or `rm` fails on
+it. The renv cache persists in `$(RENV_CACHE)` (default
+`~/.cache/netrunneR-renv`); the first run populates it, later runs skip
+reinstalling all ~98 lockfile packages.
 
 ```sh
 make check      # R CMD check via rcmdcheck, error_on = "warning"
