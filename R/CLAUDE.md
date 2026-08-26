@@ -8,7 +8,7 @@ Package source: five lineage mirrors sharing one fetch/build/validate/promote pi
 | --- | --- | --- |
 | `README.md` | Architecture, design decisions, invariants | Before changing pipeline shape, dispatch, or any fail-closed defense |
 | `netrunneR-package.R` | Package doc block, `fetch_lineage()`/`build_lineage()` S3 generics, imports | Adding a generic, changing dispatch contract, adding an `@importFrom` |
-| `lineage.R` | `.LINEAGE_REGISTRY`, `new_lineage()`, `lineage()`, `BUILTIN_LINEAGES` | Adding a lineage, changing `store_root`/`repo_url`/`hub_url`/schedule config |
+| `lineage.R` | `.LINEAGE_REGISTRY`, `new_lineage()`, `lineage()`, `BUILTIN_LINEAGES`, `store_base()`/`STORE_BASE_ENV` (the `NETRUNNER_STORE_BASE` override; `/data` unless set, which only tests and local development should do) | Adding a lineage, changing `store_root`/`repo_url`/`hub_url`/schedule config, pointing a test at a temporary store |
 | `sync.R` | `run_sync()` eight-step pipeline, `no_op_change()`, manifest write, `prune_releases()` | Changing pipeline order, no-op short-circuit logic, retention, sync logging |
 | `promote.R` | `acquire_lock()`, `promote()`, `swap_active()`, `rollback()` | Debugging atomicity, lock contention, active-symlink swaps, rollbacks |
 | `release.R` | `resolve_release()`, `release_entropy_suffix()` | Debugging release resolution races or release_id suffix collisions |

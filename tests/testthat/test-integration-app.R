@@ -1,12 +1,60 @@
-# [integration] -- requires shinytest2 (added to DESCRIPTION Suggests)
-# and a temporary store root with promoted cardpool/implementation
-# releases for inst/shiny-app/app.R's shinyApp() to resolve against.
-# Sketched as the assertions this suite must make; wiring a temporary
-# store root is left as a follow-up, since it depends on details of the
-# container/store path setup (`/data/<name>`, per R/lineage.R) this
-# change does not otherwise touch.
+# [integration] -- drives inst/shiny-app/app.R against a temporary
+# promoted store built by local_store_fixture()
+# (tests/testthat/helper-store-fixture.R).
+#
+# This suite was stubbed with an unconditional skip() until the store
+# root became reachable: app.R calls netrunneR::load_ice_breaker_app_data(),
+# which resolves through lineage(), which had "/data" hardcoded. The
+# NETRUNNER_STORE_BASE seam (store_base(), R/lineage.R) is what allows a
+# test to point the app at a temporary directory instead.
+#
+# shinytest2 launches the app in a background R process. That process
+# inherits this one's environment, which is how NETRUNNER_STORE_BASE
+# reaches it -- so the fixture must be created BEFORE the AppDriver.
+#
+# The app directory is taken from system.file() rather than a source
+# path: these tests run against the installed package, where inst/ has
+# been flattened into the package root.
+
+app_dir <- function() system.file("shiny-app", package = "netrunneR")
 
 test_that("no active release renders the startup error and never the real tabs", {
   skip_if_not_installed("shinytest2")
-  skip("TODO: promote no releases into a temporary store root, drive inst/shiny-app/app.R with shinytest2::AppDriver, assert the error text renders and browse/matchup tab markup does not")
+
+  local_store_fixture(character(0))
+  driver <- shinytest2::AppDriver$new(app_dir(), name = "no-release")
+  withr::defer(driver$stop())
+
+  html <- driver$get_html("body")
+  # Exact text from startup_error_ui() (inst/shiny-app/app_server.R),
+  # which names every missing lineage.
+  expect_match(html, "No active release for: cardpool, implementation", fixed = TRUE)
+  expect_false(grepl("ICE vs Breakers", html, fixed = TRUE))
+})
+
+test_that("one missing lineage is named on its own", {
+  skip_if_not_installed("shinytest2")
+
+  local_store_fixture("cardpool")
+  driver <- shinytest2::AppDriver$new(app_dir(), name = "partial-release")
+  withr::defer(driver$stop())
+
+  html <- driver$get_html("body")
+  expect_match(html, "No active release for: implementation", fixed = TRUE)
+  expect_false(grepl("cardpool", html, fixed = TRUE))
+})
+
+test_that("a fully promoted store renders the real tabs and no error", {
+  skip_if_not_installed("shinytest2")
+
+  local_store_fixture()
+  driver <- shinytest2::AppDriver$new(app_dir(), name = "promoted-release")
+  withr::defer(driver$stop())
+
+  html <- driver$get_html("body")
+  # Title and nav_panel labels from app_server()'s page_navbar().
+  expect_match(html, "ICE vs Breakers", fixed = TRUE)
+  expect_match(html, "Browse", fixed = TRUE)
+  expect_match(html, "Matchup", fixed = TRUE)
+  expect_false(grepl("No active release for", html, fixed = TRUE))
 })
