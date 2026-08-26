@@ -38,7 +38,7 @@ Test files and shared fixtures. Several files enforce package invariants by stat
 | `test-mod-card-detail.R` | `mod_card_detail_server()`'s single-instantiation-per-session discipline and Close-button state clearing | Changing the detail modal's selection-state contract |
 | `test-mod-matchup-explorer.R` | `mod_matchup_explorer_server()`'s not-computable rendering, empty-result rendering, and row-click binding | Changing the matchup table or its click wiring |
 | `test-operations.R` | `safe_render()`'s error-fallback and pass-through behavior | Changing render-error handling |
-| `test-integration-app.R` | `[integration]`-level assertions driving `inst/shiny-app/app.R` with `shinytest2::AppDriver` against `local_store_fixture()`: the missing-release error screen (none and one lineage promoted) and the real tabs. Skips only when `shinytest2` is not installed | Changing what the app renders at startup, or the missing-release error text |
+| `test-integration-app.R` | `[integration]`-level assertions driving `inst/shiny-app/app.R` with `shinytest2::AppDriver` against `local_store_fixture()`: the missing-release error screen (none and one lineage promoted) and the real tabs. Skips on every run by design -- `shinytest2` is deliberately absent from `renv.lock`; see the cost note at the top of the file before adding it | Changing what the app renders at startup, or the missing-release error text |
 
 ## Test
 
