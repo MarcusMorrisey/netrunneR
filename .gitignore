@@ -12,6 +12,10 @@ inst/pkg-src
 # R CMD check output directory
 netrunneR.Rcheck/
 
+# testthat's per-failure reproduction scripts, written next to the tests
+# whenever a test fails. Local debugging aids, regenerated on demand.
+tests/testthat/_problems/
+
 # pkgdown-generated site output: rebuilt on demand via pkgdown::build_site(),
 # never committed.
 docs/
