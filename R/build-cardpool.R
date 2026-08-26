@@ -44,6 +44,100 @@ CARDPOOL_CARD_ALLOWLIST <- c(
   "text", "cost", "strength", "keywords"
 )
 
+#' Code prefixes that identify an MWL entry's play format
+#'
+#' mwl.json carries no `format` field, so it is derived from each entry's
+#' code prefix: the 41 upstream entries use exactly `standard-*`,
+#' `startup-*`, `sunset-*` and `NAPD_MWL_*`. A prefix outside this set
+#' becomes "unknown" and is surfaced by the build check rather than
+#' silently bucketed, since a new upstream naming convention is the kind
+#' of change that should be noticed, not absorbed.
+#' @keywords internal
+MWL_FORMAT_PREFIXES <- c(standard = "standard", startup = "startup", sunset = "sunset", napd = "napd")
+
+#' Derive an MWL entry's format from its code
+#' @keywords internal
+mwl_format_of <- function(code) {
+  prefix <- tolower(sub("[-_].*$", "", code))
+  unname(MWL_FORMAT_PREFIXES[prefix] %||% "unknown")
+}
+
+#' Flatten rotations.json into rotation / rotation_cycle tables
+#'
+#' Upstream shape: `[{code, name, date_start, rotated: [cycle_code, ...]}]`.
+#' The `rotated` array becomes one row per (rotation, cycle) rather than a
+#' list-column.
+#' @param path Character. Path to rotations.json.
+#' @return A list with `rotation` and `rotation_cycle` tibbles.
+#' @keywords internal
+read_rotations <- function(path) {
+  parsed <- jsonlite::fromJSON(path, simplifyVector = FALSE)
+
+  rotation <- tibble::tibble(
+    code = vapply(parsed, function(r) as.character(r$code), character(1)),
+    name = vapply(parsed, function(r) as.character(r$name), character(1)),
+    date_start = vapply(parsed, function(r) as.character(r$date_start), character(1))
+  )
+
+  rotation_cycle <- purrr::map_dfr(parsed, function(r) {
+    rotated <- unlist(r$rotated %||% list(), use.names = FALSE)
+    if (!length(rotated)) return(tibble::tibble(rotation_code = character(0), cycle_code = character(0)))
+    tibble::tibble(rotation_code = as.character(r$code), cycle_code = as.character(rotated))
+  })
+
+  list(
+    rotation = dplyr::arrange(rotation, .data$code),
+    rotation_cycle = dplyr::arrange(rotation_cycle, .data$rotation_code, .data$cycle_code)
+  )
+}
+
+#' Flatten mwl.json into mwl / mwl_card tables
+#'
+#' Upstream shape: `[{code, name, date_start, cards: {card_code: {key: value}}}]`
+#' where each card object carries exactly ONE of `deck_limit`,
+#' `is_restricted`, `universal_faction_cost` or `global_penalty`. The
+#' `cards` object is keyed by card code, so it must be walked by name --
+#' `jsonlite`'s data-frame simplification would otherwise produce one
+#' COLUMN per card code.
+#' @param path Character. Path to mwl.json.
+#' @return A list with `mwl` and `mwl_card` tibbles.
+#' @keywords internal
+read_mwl <- function(path) {
+  parsed <- jsonlite::fromJSON(path, simplifyVector = FALSE)
+
+  mwl <- tibble::tibble(
+    code = vapply(parsed, function(m) as.character(m$code), character(1)),
+    name = vapply(parsed, function(m) as.character(m$name), character(1)),
+    format = vapply(parsed, function(m) mwl_format_of(as.character(m$code)), character(1)),
+    date_start = vapply(parsed, function(m) as.character(m$date_start), character(1))
+  )
+
+  int_or_na <- function(x) if (is.null(x)) NA_integer_ else as.integer(x)
+
+  mwl_card <- purrr::map_dfr(parsed, function(m) {
+    cards <- m$cards %||% list()
+    if (!length(cards)) {
+      return(tibble::tibble(
+        mwl_code = character(0), card_code = character(0), deck_limit = integer(0),
+        is_restricted = integer(0), universal_faction_cost = integer(0), global_penalty = integer(0)
+      ))
+    }
+    tibble::tibble(
+      mwl_code = as.character(m$code),
+      card_code = names(cards),
+      deck_limit = vapply(cards, function(v) int_or_na(v$deck_limit), integer(1)),
+      is_restricted = vapply(cards, function(v) int_or_na(v$is_restricted), integer(1)),
+      universal_faction_cost = vapply(cards, function(v) int_or_na(v$universal_faction_cost), integer(1)),
+      global_penalty = vapply(cards, function(v) int_or_na(v$global_penalty), integer(1))
+    )
+  })
+
+  list(
+    mwl = dplyr::arrange(mwl, .data$code),
+    mwl_card = dplyr::arrange(mwl_card, .data$mwl_code, .data$card_code)
+  )
+}
+
 #' Select a table's allowlisted columns and report any dropped upstream keys
 #'
 #' Uses any_of() rather than ABR's all_of(), and backfills any allowlisted
@@ -130,6 +224,36 @@ build_cardpool <- function(lineage, staged_raw) {
     message = if (length(unknown_keys) == 0) "ok" else sprintf("Unrecognized upstream keys dropped: %s", paste(unknown_keys, collapse = ", "))
   )
 
+  # Legality data. Both files sit at the repo root alongside cycles.json;
+  # absent files are tolerated (an older mirrored commit predates them)
+  # rather than aborting the whole cardpool build over a secondary table.
+  rotations_path <- file.path(raw_dir, "rotations.json")
+  mwl_path <- file.path(raw_dir, "mwl.json")
+  rotations <- if (fs::file_exists(rotations_path)) {
+    read_rotations(rotations_path)
+  } else {
+    list(rotation = tibble::tibble(code = character(0), name = character(0), date_start = character(0)),
+         rotation_cycle = tibble::tibble(rotation_code = character(0), cycle_code = character(0)))
+  }
+  mwls <- if (fs::file_exists(mwl_path)) {
+    read_mwl(mwl_path)
+  } else {
+    list(mwl = tibble::tibble(code = character(0), name = character(0), format = character(0), date_start = character(0)),
+         mwl_card = tibble::tibble(mwl_code = character(0), card_code = character(0), deck_limit = integer(0),
+                                    is_restricted = integer(0), universal_faction_cost = integer(0), global_penalty = integer(0)))
+  }
+
+  unknown_formats <- sort(unique(mwls$mwl$code[mwls$mwl$format == "unknown"]))
+  legality_check <- list(
+    check = "mwl_format_derivation",
+    status = if (length(unknown_formats) == 0) "pass" else "warn",
+    message = if (length(unknown_formats) == 0) {
+      sprintf("%d rotations, %d ban lists", nrow(rotations$rotation), nrow(mwls$mwl))
+    } else {
+      sprintf("MWL entries with an unrecognized code prefix: %s", paste(unknown_formats, collapse = ", "))
+    }
+  )
+
   db_path <- file.path(dirname(raw_dir), "processed", "cardpool.sqlite")
   fs::dir_create(dirname(db_path))
   con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
@@ -142,6 +266,10 @@ build_cardpool <- function(lineage, staged_raw) {
     DBI::dbWriteTable(con, "faction", factions, append = TRUE)
     DBI::dbWriteTable(con, "pack", packs, append = TRUE)
     DBI::dbWriteTable(con, "card", cards, append = TRUE)
+    DBI::dbWriteTable(con, "rotation", rotations$rotation, append = TRUE)
+    DBI::dbWriteTable(con, "rotation_cycle", rotations$rotation_cycle, append = TRUE)
+    DBI::dbWriteTable(con, "mwl", mwls$mwl, append = TRUE)
+    DBI::dbWriteTable(con, "mwl_card", mwls$mwl_card, append = TRUE)
   })
 
   br <- build_revision(lineage, build_module_path = "R/build-cardpool.R")
@@ -154,7 +282,7 @@ build_cardpool <- function(lineage, staged_raw) {
     # release identity must track the exact git commit fetched, since the
     # underlying repo can advance between two builds of the same content.
     release_id = sprintf("%s-b%s", staged_raw$source_revision, substr(br, 1, 12)),
-    checks = list(unknown_key_check)
+    checks = list(unknown_key_check, legality_check)
   )
 }
 
