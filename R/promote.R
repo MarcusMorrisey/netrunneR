@@ -58,7 +58,30 @@ swap_active <- function(store_root, target_release_dir) {
   tmp_link <- file.path(store_root, sprintf(".active.tmp.%s", basename(tempfile())))
 
   fs::link_create(target_release_dir, tmp_link, symbolic = TRUE)
-  fs::file_move(tmp_link, active_link)
+
+  # base file.rename(), NOT fs::file_move(). fs::file_move() moves INTO
+  # new_path when new_path is a directory, and `active` is a symlink TO a
+  # directory, which fs resolves -- so instead of replacing the symlink
+  # it deposited the temp link inside the release `active` still pointed
+  # at, leaving `active` untouched.
+  #
+  # This ran undetected in production for four days: every promote after
+  # the very first one (which worked only because `active` did not exist
+  # yet, so there was nothing to resolve) recorded a "promoted" ledger
+  # entry while the mirror kept serving the first release. The old
+  # release directory accumulated one orphaned .active.tmp.* symlink per
+  # promote.
+  #
+  # file.rename() is raw rename(2): it replaces the destination path
+  # entry and does not follow a symlink there. That is also exactly the
+  # primitive DL-009's same-filesystem atomicity argument assumes.
+  if (!file.rename(tmp_link, active_link)) {
+    fs::file_delete(tmp_link)
+    rlang::abort(
+      sprintf("Could not re-point %s at %s", active_link, target_release_dir),
+      class = "netrunneR_swap_active_failed"
+    )
+  }
 
   invisible(active_link)
 }
