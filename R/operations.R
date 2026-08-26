@@ -85,6 +85,47 @@ query_active_release <- function(lineage_name, db_filename, sql) {
   list(release = active, data = DBI::dbGetQuery(con, sql))
 }
 
+#' Read the curated matchup overrides with declared column types
+#'
+#' Types are declared, never guessed. `inst/extdata/matchup_overrides.csv`
+#' ships as a header-only template awaiting real hand-verified data, and
+#' readr types every column of a zero-row file as character -- which made
+#' `cost_to_break` a character column, so
+#' `compute_ice_breaker_matchups()` aborted inside `dplyr::if_else()`
+#' ("Can't combine `true` <character> and `false` <integer>") the moment
+#' it tried to fold an override into the integer cost column.
+#'
+#' That crashed `load_ice_breaker_app_data()` for every caller, meaning
+#' the app could not start against ANY real promoted release. It went
+#' unnoticed because the matchup tests pass the fixture tribble from
+#' helper-mini-pool.R, whose cost_to_break is already an integer;
+#' nothing exercised this file until a test drove the app end to end.
+#'
+#' Declaring types also fixes the subtler version of the same bug: with
+#' rows present readr would guess integer and appear to work, so the
+#' failure depended on whether anyone had populated the template yet.
+#'
+#' @param path Character. Defaults to the packaged template.
+#' @return A tibble with one row per hand-verified (ice, breaker) pair.
+#' @keywords internal
+read_matchup_overrides <- function(path = system.file("extdata", "matchup_overrides.csv",
+                                                      package = "netrunneR")) {
+  readr::read_csv(
+    path,
+    col_types = readr::cols(
+      ice_code = readr::col_character(),
+      breaker_code = readr::col_character(),
+      cost_to_break = readr::col_integer(),
+      reason = readr::col_character(),
+      verified_by = readr::col_character(),
+      # Kept character rather than parsed to a timestamp: it is provenance
+      # metadata that is only ever displayed and hashed, and parsing would
+      # invite a timezone to change the manifest's content hash.
+      verified_at = readr::col_character()
+    )
+  )
+}
+
 #' Load the data the ice/breaker Shiny app needs, once per process
 #'
 #' Hoisted out of `app_server()` (called once from `inst/shiny-app/app.R`,
@@ -108,10 +149,7 @@ load_ice_breaker_app_data <- function() {
     )))
   }
 
-  matchup_overrides <- readr::read_csv(
-    system.file("extdata", "matchup_overrides.csv", package = "netrunneR"),
-    show_col_types = FALSE
-  )
+  matchup_overrides <- read_matchup_overrides()
 
   matchup_result <- compute_ice_breaker_matchups(
     implementation_result$data, cardpool_result$data, matchup_overrides,

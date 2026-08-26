@@ -15,3 +15,7 @@ netrunneR.Rcheck/
 # pkgdown-generated site output: rebuilt on demand via pkgdown::build_site(),
 # never committed.
 docs/
+
+# testthat writes a reproduction script here for each failing test; it is
+# a debugging artifact of one run, never something to commit.
+tests/testthat/_problems/

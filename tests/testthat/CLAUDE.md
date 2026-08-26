@@ -7,6 +7,7 @@ Test files and shared fixtures. Several files enforce package invariants by stat
 | File | What | When to read |
 | --- | --- | --- |
 | `setup.R` | Sets a non-placeholder `NRDB_CONTACT` for the whole suite | Adding a shared fixture or required env var for tests |
+| `test-store-fixture.R` | `store_base()` default/override/empty/trailing-slash behavior, that `local_store_fixture()` promotes releases `resolve_release()` resolves, and `load_ice_breaker_app_data()` across fully/partially/un-promoted stores | Changing store-path resolution or what the app treats as a missing release |
 | `test-lineage.R` | Registry `store_root` resolution, S3 class tagging, staging containment, and the static scan asserting no `/srv` literal in `R/` | Adding a lineage, changing `store_root`, debugging the host-path scan |
 | `test-capture-boundary.R` | Static AST scan plus Set-Cookie sentinel run enforcing the single byte-capture boundary | Adding a fetch path that touches response bytes |
 | `test-sync.R` | `run_sync()` mode dispatch and the scheduled/backfill no-op short-circuit | Changing pipeline modes or no-op logic |
@@ -31,12 +32,13 @@ Test files and shared fixtures. Several files enforce package invariants by stat
 | `test-build-rules.R` | Rules table writing, version-monotonic warning behavior, PDF hash checks | Changing rules build or version-order policy |
 | `test-views.R` | Elo identity/faction ratings and deterministic canonical game ordering | Changing rating parameters or tie-break ordering |
 | `test-views-matchups.R` | `compute_ice_breaker_matchups()`'s required `matchup_overrides` input, override precedence, `source`/`credit_differential` NA-agreement, subtype-compatibility preservation, manifest cache identity | Changing matchup expansion, override merge, or view cache identity |
+| `helper-store-fixture.R` | `local_store_fixture()` -- promotes a real release per lineage into a temp store via the package's own `promote()`, scoped with `withr` and reached through the `NETRUNNER_STORE_BASE` seam. Pass a subset of lineages (or `character(0)`) to exercise the missing-release paths | Writing a test that needs `resolve_release()`, `load_ice_breaker_app_data()`, or the Shiny app to find promoted data |
 | `helper-mini-pool.R` | Canonical fixture (`mini_pool_cardpool()`, `mini_pool_ice_breaker_traits()`, `mini_pool_matchup_overrides()`, `PAIR_RUNNER_FAVORED`/`PAIR_CORP_FAVORED`) shared by every matchup/module test rather than each inventing its own sample | Adding a matchup or module test that needs cardpool/implementation/overrides sample data |
 | `test-mod-card-browser.R` | `mod_card_browser_server()`'s empty-filter-result state and click-to-`selected_code` binding | Changing card-browser filters or click wiring |
 | `test-mod-card-detail.R` | `mod_card_detail_server()`'s single-instantiation-per-session discipline and Close-button state clearing | Changing the detail modal's selection-state contract |
 | `test-mod-matchup-explorer.R` | `mod_matchup_explorer_server()`'s not-computable rendering, empty-result rendering, and row-click binding | Changing the matchup table or its click wiring |
 | `test-operations.R` | `safe_render()`'s error-fallback and pass-through behavior | Changing render-error handling |
-| `test-integration-app.R` | `[integration]`-level assertions for `inst/shiny-app/app.R`, currently `skip()`-stubbed pending a temporary fixture store root | Wiring shinytest2 integration coverage for the Shiny app |
+| `test-integration-app.R` | `[integration]`-level assertions driving `inst/shiny-app/app.R` with `shinytest2::AppDriver` against `local_store_fixture()`: the missing-release error screen (none and one lineage promoted) and the real tabs. Skips on every run by design -- `shinytest2` is deliberately absent from `renv.lock`; see the cost note at the top of the file before adding it | Changing what the app renders at startup, or the missing-release error text |
 
 ## Test
 

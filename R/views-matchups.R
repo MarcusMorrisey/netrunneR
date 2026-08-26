@@ -48,7 +48,14 @@
 #' @param matchup_overrides A tibble of manually-curated corrections, one
 #'   row per (ice_code, breaker_code) pair, with at least `ice_code`,
 #'   `breaker_code`, `cost_to_break` columns -- see
-#'   `inst/extdata/matchup_overrides.csv`. REQUIRED, not optional: an
+#'   `inst/extdata/matchup_overrides.csv`. `cost_to_break` must be an
+#'   INTEGER column: it is folded into this function's own integer cost
+#'   column, and a character one aborts inside dplyr::if_else() with a
+#'   message that names neither this argument nor the file it came from.
+#'   Read the packaged file with read_matchup_overrides()
+#'   (`R/operations.R`), which declares the types rather than letting
+#'   readr guess them from however many rows happen to be present.
+#'   REQUIRED, not optional: an
 #'   earlier draft of this function's documentation described merging
 #'   overrides without the signature ever accepting them as an input --
 #'   fixed here so the declared contract matches the documented behavior.

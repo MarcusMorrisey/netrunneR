@@ -20,6 +20,39 @@ new_lineage <- function(name, source_type, store_root, ...) {
     class = c(paste0("netrunneR_", source_type), "netrunneR_lineage")
   )
 }
+#' Environment variable that overrides the store base path
+#'
+#' Named without a netrunneR prefix to match the bare NRDB_CONTACT /
+#' LINEAGE / MODE convention the rest of the package already reads.
+#' @keywords internal
+STORE_BASE_ENV <- "NETRUNNER_STORE_BASE"
+
+#' The base directory every lineage's store_root sits under
+#'
+#' Defaults to "/data", unchanged and byte-identical to what compose.yaml
+#' bind-mounts (ref: DL-009) -- so a container that sets nothing behaves
+#' exactly as before this seam existed.
+#'
+#' The override exists because store_root was otherwise unreachable: a
+#' test could construct its own lineage via new_lineage(), but anything
+#' going through lineage() -- which is everything the Shiny app touches,
+#' via resolve_active_release() -- was pinned to /data and could not be
+#' pointed at a temporary directory. That is what kept
+#' tests/testthat/test-integration-app.R stubbed.
+#'
+#' Intended for tests and local development. A deployment should leave it
+#' unset and rely on the bind mount.
+#' @return Character. The base path, with no trailing separator.
+#' @keywords internal
+store_base <- function() {
+  base <- Sys.getenv(STORE_BASE_ENV, unset = "")
+  if (!nzchar(base)) return("/data")
+  # A trailing separator would make file.path() produce "base//cardpool",
+  # which resolves the same but is not byte-identical to the path the
+  # ledger and the resolved-store_root log line report.
+  sub("[/\\]+$", "", base)
+}
+
 #' The built-in lineage registry
 #'
 #' The single source of truth for the five built-in lineage names and
@@ -56,10 +89,11 @@ BUILTIN_LINEAGES <- names(.LINEAGE_REGISTRY)
 
 #' Resolve one of the five built-in lineages by name
 #'
-#' Each entry's store_root is file.path("/data", name) with no case
+#' Each entry's store_root is file.path(store_base(), name) with no case
 #' transform on the lowercase name, so the path R opens is byte-identical
 #' to the container path compose.yaml bind-mounts for that lineage.
-#' (ref: DL-009)
+#' (ref: DL-009) store_base() is "/data" unless NETRUNNER_STORE_BASE is
+#' set, which only tests and local development should do.
 #'
 #' @param name Character. One of BUILTIN_LINEAGES.
 #'
@@ -81,7 +115,7 @@ lineage <- function(name) {
   do.call(new_lineage, c(list(
     name = name,
     source_type = entry$source_type,
-    store_root = file.path("/data", name),
+    store_root = file.path(store_base(), name),
     schedule = entry$schedule,
     schema_version = entry$schema_version,
     pacing = entry$pacing,

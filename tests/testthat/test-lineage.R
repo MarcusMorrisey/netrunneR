@@ -2,6 +2,11 @@
 # tagging, staging containment under a fixture root, and the /srv literal
 # sentinel that guards against a host-path leaking into R/ source.
 test_that("every built-in lineage resolves store_root to literal lowercase /data/<name>", {
+  # Pinned against the environment now that NETRUNNER_STORE_BASE exists
+  # (store_base(), R/lineage.R): a developer with it exported in their
+  # shell would otherwise see this fail for a reason the assertion does
+  # not mention. The default itself is what DL-009 constrains.
+  withr::local_envvar(c(NETRUNNER_STORE_BASE = NA))
   for (nm in BUILTIN_LINEAGES) {
     li <- lineage(nm)
     expect_identical(li$store_root, file.path("/data", nm))
