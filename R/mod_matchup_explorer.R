@@ -26,6 +26,11 @@ mod_matchup_explorer_ui <- function(id) {
   )
 }
 
+#' Matchup explorer module server
+#'
+#' @param id Module id.
+#' @param cards The active cardpool's `card` data frame.
+#' @param matchup The tibble compute_ice_breaker_matchups() returns.
 #' @param selected_code Same shared reactiveVal as mod_card_browser_server()
 #'   receives -- both callers set it; only mod_card_detail_server() reads it.
 #' @export

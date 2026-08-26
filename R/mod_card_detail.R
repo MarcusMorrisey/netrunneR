@@ -11,6 +11,8 @@ mod_card_detail_ui <- function(id) {
   uiOutput(ns("detail"))
 }
 
+#' Card detail modal module server
+#'
 #' @param id Module id.
 #' @param selected_code A `reactiveVal` OWNED BY THE CALLER (app_server(),
 #'   not this module) holding the currently selected card code, or NULL.

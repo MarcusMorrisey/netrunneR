@@ -23,6 +23,10 @@ mod_card_browser_ui <- function(id) {
   )
 }
 
+#' Card browser module server
+#'
+#' @param id Module id.
+#' @param cards The active cardpool's `card` data frame.
 #' @param selected_code The shared `reactiveVal` owned by app_server() and
 #'   read by the single mod_card_detail_server() instance -- this module
 #'   only ever calls `selected_code(code)`, never showModal()/
