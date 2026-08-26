@@ -7,7 +7,7 @@ test_that("a filter combination matching zero cards renders an explicit empty st
     {
       session$setInputs(side = "corp", faction = character(0), type = "program", subtype = character(0))
       session$flushReact()
-      rendered <- as.character(output$card_grid)
+      rendered <- as.character(output$card_grid$html)
       expect_match(rendered, "No cards match")
     }
   )

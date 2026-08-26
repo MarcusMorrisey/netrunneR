@@ -5,7 +5,7 @@ test_that("mod_card_detail_server renders the selected card's detail", {
   shiny::testServer(mod_card_detail_server, args = list(selected_code = selected_code, cards = cards), {
     selected_code("ice01")
     session$flushReact()
-    expect_match(as.character(output$detail), "Cheap Wall")
+    expect_match(as.character(output$detail$html), "Cheap Wall")
   })
 })
 
