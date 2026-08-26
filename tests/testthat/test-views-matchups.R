@@ -81,3 +81,44 @@ test_that("manifest cache_identity changes with cardpool/implementation release 
   ids <- c(base$manifest$cache_identity, diff_cardpool_id$manifest$cache_identity, diff_overrides$manifest$cache_identity)
   expect_equal(length(unique(ids)), 3)
 })
+
+# ---- the packaged overrides file ---------------------------------------
+
+test_that("read_matchup_overrides() types the packaged template, empty as it is", {
+  # Regression: the file ships header-only, and readr types every column
+  # of a zero-row CSV as character. That made cost_to_break character,
+  # which aborted compute_ice_breaker_matchups() inside dplyr::if_else()
+  # and so crashed load_ice_breaker_app_data() for every caller -- the
+  # app could not start against any real promoted release. Guessed types
+  # are the defect, so the assertion is on the declared type, not on the
+  # row count that happens to trigger it.
+  overrides <- read_matchup_overrides()
+  expect_type(overrides$cost_to_break, "integer")
+  expect_type(overrides$ice_code, "character")
+})
+
+test_that("compute_ice_breaker_matchups() survives the packaged empty overrides", {
+  matchups <- compute_ice_breaker_matchups(
+    mini_pool_ice_breaker_traits(), mini_pool_cardpool(), read_matchup_overrides()
+  )$matchups
+
+  expect_true(nrow(matchups) > 0)
+  expect_type(matchups$cost_to_break, "integer")
+  # With no override rows, nothing can report source "override".
+  expect_false(any(matchups$source == "override"))
+})
+
+test_that("a populated overrides file still types cost_to_break as integer", {
+  # The complement: with rows present readr would have guessed integer
+  # and appeared to work, which is why the empty case was the one that
+  # bit. Both paths must land on the same declared type.
+  path <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c(
+    "ice_code,breaker_code,cost_to_break,reason,verified_by,verified_at",
+    "ice01,brk01,4,fixture,fixture-author,2026-01-01T00:00:00Z"
+  ), path)
+
+  overrides <- read_matchup_overrides(path)
+  expect_type(overrides$cost_to_break, "integer")
+  expect_equal(overrides$cost_to_break, 4L)
+})
