@@ -48,7 +48,11 @@ test_that("an empty result set renders an explicit empty state", {
     {
       session$setInputs(mode = "all", breaker_code = "brk01", ice_code = "ice01")
       session$flushReact()
-      rendered <- as.character(output$matchup_table)
+      # The empty-state message lives in its own renderUI() output, not
+      # inside the reactable slot -- reactableOutput() is htmlwidget-typed
+      # and can't display an arbitrary shiny.tag, only a reactable widget
+      # (or nothing, via NULL).
+      rendered <- as.character(output$matchup_status$html)
       expect_match(rendered, "No matchups")
     }
   )

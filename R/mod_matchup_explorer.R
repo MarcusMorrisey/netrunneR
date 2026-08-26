@@ -22,6 +22,13 @@ mod_matchup_explorer_ui <- function(id) {
       column(4, selectInput(ns("breaker_code"), "Breaker", choices = NULL)),
       column(4, selectInput(ns("ice_code"), "Ice", choices = NULL))
     ),
+    # A separate slot for the empty-selection message: reactableOutput()
+    # is htmlwidget-typed, and an earlier draft tried to return a plain
+    # alert_box() shiny.tag from inside renderReactable() for this case --
+    # renderReactable() has no way to treat a non-widget value as
+    # something to display, so it silently produced an empty widget
+    # ("x": null) instead of showing the message.
+    uiOutput(ns("matchup_status")),
     reactable::reactableOutput(ns("matchup_table"))
   )
 }
@@ -66,12 +73,16 @@ mod_matchup_explorer_server <- function(id, cards, matchup, selected_code) {
       d[order(d$cost_to_break, na.last = TRUE), ]
     })
 
+    output$matchup_status <- renderUI({
+      safe_render(function() {
+        if (nrow(display()) == 0) alert_box("No matchups for the current selection.", "info") else NULL
+      })
+    })
+
     output$matchup_table <- reactable::renderReactable({
       safe_render(function() {
         d <- display()
-        if (nrow(d) == 0) {
-          return(alert_box("No matchups for the current selection.", "info"))
-        }
+        if (nrow(d) == 0) return(NULL)
 
         # A row represents a PAIR, so clicking the row itself is
         # ambiguous about which card to open; clicking the specific
