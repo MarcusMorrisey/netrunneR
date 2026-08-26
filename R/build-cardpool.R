@@ -44,29 +44,6 @@ CARDPOOL_CARD_ALLOWLIST <- c(
   "text", "cost", "strength", "keywords"
 )
 
-#' Code prefixes that identify an MWL entry's play format
-#'
-#' mwl.json carries no `format` field, so it is derived from each entry's
-#' code prefix: the 41 upstream entries use exactly `standard-*`,
-#' `startup-*`, `sunset-*` and `NAPD_MWL_*`. A prefix outside this set
-#' becomes "unknown" and is surfaced by the build check rather than
-#' silently bucketed, since a new upstream naming convention is the kind
-#' of change that should be noticed, not absorbed.
-#' @keywords internal
-MWL_FORMAT_PREFIXES <- c(standard = "standard", startup = "startup", sunset = "sunset", napd = "napd")
-
-#' Derive an MWL entry's format from its code
-#' @keywords internal
-mwl_format_of <- function(code) {
-  prefix <- tolower(sub("[-_].*$", "", code))
-  # Membership test, not `[` + %||%: subsetting a named vector by an
-  # absent name yields NA rather than NULL, so %||% would never fire and
-  # an unrecognised prefix would silently become NA instead of the
-  # "unknown" the build check looks for.
-  if (!prefix %in% names(MWL_FORMAT_PREFIXES)) return("unknown")
-  unname(MWL_FORMAT_PREFIXES[[prefix]])
-}
-
 #' Flatten rotations.json into rotation / rotation_cycle tables
 #'
 #' Upstream shape: `[{code, name, date_start, rotated: [cycle_code, ...]}]`.
@@ -105,15 +82,18 @@ read_rotations <- function(path) {
 #' `jsonlite`'s data-frame simplification would otherwise produce one
 #' COLUMN per card code.
 #' @param path Character. Path to mwl.json.
-#' @return A list with `mwl` and `mwl_card` tibbles.
+#' @return A list with `mwl` (no `format` column -- see below) and
+#'   `mwl_card` tibbles.
 #' @keywords internal
 read_mwl <- function(path) {
   parsed <- jsonlite::fromJSON(path, simplifyVector = FALSE)
 
+  # No `format` column here: mwl.json has no such field and it is no
+  # longer guessed from the code prefix. build_cardpool() attaches it by
+  # joining to the v2 restriction table via mwl_v2_format().
   mwl <- tibble::tibble(
     code = vapply(parsed, function(m) as.character(m$code), character(1)),
     name = vapply(parsed, function(m) as.character(m$name), character(1)),
-    format = vapply(parsed, function(m) mwl_format_of(as.character(m$code)), character(1)),
     date_start = vapply(parsed, function(m) as.character(m$date_start), character(1))
   )
 
@@ -248,19 +228,70 @@ build_cardpool <- function(lineage, staged_raw) {
   mwls <- if (fs::file_exists(mwl_path)) {
     read_mwl(mwl_path)
   } else {
-    list(mwl = tibble::tibble(code = character(0), name = character(0), format = character(0), date_start = character(0)),
+    list(mwl = tibble::tibble(code = character(0), name = character(0), date_start = character(0)),
          mwl_card = tibble::tibble(mwl_code = character(0), card_code = character(0), deck_limit = integer(0),
                                     is_restricted = integer(0), universal_faction_cost = integer(0), global_penalty = integer(0)))
   }
 
-  unknown_formats <- sort(unique(mwls$mwl$code[mwls$mwl$format == "unknown"]))
+  # The authoritative v2 tree. Tolerated as absent on the same reasoning
+  # as the legacy files above -- an older mirrored commit predates it --
+  # in which case every table below is empty and mwl$format is NA, which
+  # the join check then reports.
+  v2_dir <- file.path(raw_dir, "v2")
+  formats <- read_formats(file.path(v2_dir, "formats"))
+  pools <- read_card_pools(file.path(v2_dir, "card_pools"))
+  restrictions <- read_restrictions(file.path(v2_dir, "restrictions"))
+  card_sets_path <- file.path(v2_dir, "card_sets.json")
+  card_sets <- if (fs::file_exists(card_sets_path)) {
+    read_card_sets(card_sets_path)
+  } else {
+    tibble::tibble(id = character(0), name = character(0), legacy_code = character(0),
+                   card_cycle_id = character(0), date_release = character(0),
+                   position = integer(0))
+  }
+  printings <- read_printings(file.path(v2_dir, "printings"))
+
+  # The legacy mwl table's format column, resolved rather than guessed.
+  mwls$mwl$format <- mwl_v2_format(mwls$mwl$code, restrictions$restriction)
+  mwls$mwl <- dplyr::relocate(mwls$mwl, "format", .after = "name")
+
+  unmatched <- sort(mwls$mwl$code[is.na(mwls$mwl$format)])
   legality_check <- list(
-    check = "mwl_format_derivation",
-    status = if (length(unknown_formats) == 0) "pass" else "warn",
-    message = if (length(unknown_formats) == 0) {
-      sprintf("%d rotations, %d ban lists", nrow(rotations$rotation), nrow(mwls$mwl))
+    check = "mwl_v2_format_join",
+    status = if (length(unmatched) == 0) "pass" else "warn",
+    message = if (length(unmatched) == 0) {
+      sprintf("%d rotations, %d ban lists, %d formats, %d restrictions",
+              nrow(rotations$rotation), nrow(mwls$mwl),
+              nrow(formats$format), nrow(restrictions$restriction))
     } else {
-      sprintf("MWL entries with an unrecognized code prefix: %s", paste(unknown_formats, collapse = ", "))
+      sprintf("mwl.json codes with no matching v2 restriction: %s",
+              paste(unmatched, collapse = ", "))
+    }
+  )
+
+  # Upstream's own `active` flag against the date-derived answer. They
+  # disagree whenever a snapshot has started but the flag has not been
+  # moved, which is a maintenance lag in the source, not a bug here --
+  # hence a note-shaped warn rather than an abort, and hence
+  # active_snapshot() going by date.
+  flagged <- formats$format_snapshot$id[formats$format_snapshot$is_active == 1L]
+  by_date <- unlist(lapply(
+    split(formats$format_snapshot, formats$format_snapshot$format_id),
+    function(snaps) {
+      started <- snaps[as.Date(snaps$date_start) <= Sys.Date(), , drop = FALSE]
+      if (!nrow(started)) return(NULL)
+      started$id[which.max(as.Date(started$date_start))]
+    }
+  ), use.names = FALSE)
+  stale_flags <- sort(setdiff(by_date, flagged))
+  active_flag_check <- list(
+    check = "snapshot_active_flag",
+    status = if (length(stale_flags) == 0) "pass" else "warn",
+    message = if (length(stale_flags) == 0) {
+      sprintf("%d snapshots, upstream active flag agrees with date", nrow(formats$format_snapshot))
+    } else {
+      sprintf("Snapshots in force by date but not flagged active upstream: %s",
+              paste(stale_flags, collapse = ", "))
     }
   )
 
@@ -280,6 +311,17 @@ build_cardpool <- function(lineage, staged_raw) {
     DBI::dbWriteTable(con, "rotation_cycle", rotations$rotation_cycle, append = TRUE)
     DBI::dbWriteTable(con, "mwl", mwls$mwl, append = TRUE)
     DBI::dbWriteTable(con, "mwl_card", mwls$mwl_card, append = TRUE)
+    DBI::dbWriteTable(con, "format", formats$format, append = TRUE)
+    DBI::dbWriteTable(con, "card_set", card_sets, append = TRUE)
+    DBI::dbWriteTable(con, "printing", printings, append = TRUE)
+    DBI::dbWriteTable(con, "card_pool", pools$card_pool, append = TRUE)
+    DBI::dbWriteTable(con, "card_pool_set", pools$card_pool_set, append = TRUE)
+    DBI::dbWriteTable(con, "card_pool_cycle", pools$card_pool_cycle, append = TRUE)
+    DBI::dbWriteTable(con, "restriction", restrictions$restriction, append = TRUE)
+    DBI::dbWriteTable(con, "restriction_card", restrictions$restriction_card, append = TRUE)
+    DBI::dbWriteTable(con, "restriction_subtype", restrictions$restriction_subtype, append = TRUE)
+    # After restriction, which format_snapshot.restriction_id references.
+    DBI::dbWriteTable(con, "format_snapshot", formats$format_snapshot, append = TRUE)
   })
 
   br <- build_revision(lineage, build_module_path = "R/build-cardpool.R")
@@ -292,7 +334,7 @@ build_cardpool <- function(lineage, staged_raw) {
     # release identity must track the exact git commit fetched, since the
     # underlying repo can advance between two builds of the same content.
     release_id = sprintf("%s-b%s", staged_raw$source_revision, substr(br, 1, 12)),
-    checks = list(unknown_key_check, legality_check)
+    checks = list(unknown_key_check, legality_check, active_flag_check)
   )
 }
 
@@ -326,4 +368,297 @@ apply_schema <- function(con, lineage_name) {
     if (nzchar(stmt)) DBI::dbExecute(con, stmt)
   }
   invisible(TRUE)
+}
+
+# ---- v2 formats / card pools / restrictions ----------------------------
+#
+# The mirrored repo carries two parallel descriptions of legality. The
+# top-level mwl.json / rotations.json read above are the legacy pair; the
+# v2/ tree below is the authoritative one, and is what these readers
+# flatten. See the header comment in inst/sql/schema/cardpool.sql for why
+# the prefix heuristic these replace was wrong.
+#
+# All of them walk objects by name rather than letting jsonlite simplify:
+# a restriction's `points` / `universal_faction_cost` / `global_penalty`
+# are JSON OBJECTS keyed by the numeric value, exactly the nested shape
+# that mangles into one column per key (the same hazard read_mwl()
+# documents for `cards`).
+
+#' Read one JSON file, unsimplified
+#' @keywords internal
+read_json_raw <- function(path) {
+  jsonlite::fromJSON(path, simplifyVector = FALSE)
+}
+
+#' Every .json file inside a v2 subdirectory, in sorted order
+#'
+#' Sorted so a directory listing's order can never leak into the built
+#' database, the same guarantee build_cardpool() makes for pack files.
+#' @keywords internal
+v2_files <- function(dir, recurse = FALSE) {
+  if (!fs::dir_exists(dir)) return(character(0))
+  sort(as.character(fs::dir_ls(dir, recurse = recurse, glob = "*.json", type = "file")))
+}
+
+#' Flatten v2/formats into format / format_snapshot tables
+#'
+#' Upstream shape: one file per format, `{id, name, snapshots: [{id,
+#' date_start, card_pool_id, restriction_id?, active?}]}`. A snapshot
+#' without `restriction_id` is a real state, not missing data -- core,
+#' system_gateway and ram define a card pool and no ban list.
+#' @param dir Character. Path to the v2/formats directory.
+#' @return A list with `format` and `format_snapshot` tibbles.
+#' @keywords internal
+read_formats <- function(dir) {
+  files <- v2_files(dir)
+  formats <- purrr::map_dfr(files, function(path) {
+    f <- read_json_raw(path)
+    tibble::tibble(id = as.character(f$id), name = as.character(f$name))
+  })
+  snapshots <- purrr::map_dfr(files, function(path) {
+    f <- read_json_raw(path)
+    snaps <- f$snapshots %||% list()
+    if (!length(snaps)) return(NULL)
+    tibble::tibble(
+      id = vapply(snaps, function(s) as.character(s$id), character(1)),
+      format_id = as.character(f$id),
+      date_start = vapply(snaps, function(s) as.character(s$date_start), character(1)),
+      card_pool_id = vapply(snaps, function(s) as.character(s$card_pool_id), character(1)),
+      restriction_id = vapply(snaps, function(s) s$restriction_id %||% NA_character_, character(1)),
+      is_active = vapply(snaps, function(s) as.integer(isTRUE(s$active)), integer(1))
+    )
+  })
+  if (!nrow(formats)) formats <- tibble::tibble(id = character(0), name = character(0))
+  if (!nrow(snapshots)) {
+    snapshots <- tibble::tibble(
+      id = character(0), format_id = character(0), date_start = character(0),
+      card_pool_id = character(0), restriction_id = character(0), is_active = integer(0)
+    )
+  }
+  list(
+    format = dplyr::arrange(formats, .data$id),
+    format_snapshot = dplyr::arrange(snapshots, .data$format_id, .data$date_start, .data$id)
+  )
+}
+
+#' Flatten v2/card_pools into card_pool / card_pool_set / card_pool_cycle
+#'
+#' Upstream shape: one file per format holding an ARRAY of pools,
+#' `{id, name, format_id, card_set_ids: [...], card_cycle_ids: [...]}`.
+#' @param dir Character. Path to the v2/card_pools directory.
+#' @return A list with `card_pool`, `card_pool_set` and `card_pool_cycle`
+#'   tibbles.
+#' @keywords internal
+read_card_pools <- function(dir) {
+  pools <- unlist(lapply(v2_files(dir), read_json_raw), recursive = FALSE)
+
+  card_pool <- if (!length(pools)) {
+    tibble::tibble(id = character(0), format_id = character(0), name = character(0))
+  } else {
+    tibble::tibble(
+      id = vapply(pools, function(p) as.character(p$id), character(1)),
+      format_id = vapply(pools, function(p) as.character(p$format_id), character(1)),
+      name = vapply(pools, function(p) as.character(p$name), character(1))
+    )
+  }
+
+  long <- function(field, out_name) {
+    rows <- purrr::map_dfr(pools, function(p) {
+      values <- unlist(p[[field]] %||% list(), use.names = FALSE)
+      if (!length(values)) return(NULL)
+      tibble::tibble(card_pool_id = as.character(p$id), value = as.character(values))
+    })
+    if (!nrow(rows)) rows <- tibble::tibble(card_pool_id = character(0), value = character(0))
+    names(rows)[names(rows) == "value"] <- out_name
+    dplyr::arrange(rows, .data$card_pool_id, .data[[out_name]])
+  }
+
+  list(
+    card_pool = dplyr::arrange(card_pool, .data$id),
+    card_pool_set = long("card_set_ids", "card_set_id"),
+    card_pool_cycle = long("card_cycle_ids", "card_cycle_id")
+  )
+}
+
+#' Flatten v2/restrictions into restriction / restriction_card / restriction_subtype
+#'
+#' Upstream shape: `v2/restrictions/<format>/<id>.json`, each
+#' `{id, name, format_id, date_start, banned?: [card_id], restricted?:
+#' [card_id], universal_faction_cost?/global_penalty?/points?:
+#' {value: [card_id]}, subtypes?: {kind: [subtype_id]}, point_limit?,
+#' max_3_point_agendas?}`.
+#'
+#' The directory a file sits in is NOT the format: several files under
+#' `standard/` declare `format_id: "standard"` while carrying a
+#' `startup_`-prefixed name. The declared field wins; the directory is
+#' ignored entirely.
+#' @param dir Character. Path to the v2/restrictions directory.
+#' @return A list with `restriction`, `restriction_card` and
+#'   `restriction_subtype` tibbles.
+#' @keywords internal
+read_restrictions <- function(dir) {
+  files <- v2_files(dir, recurse = TRUE)
+  parsed <- lapply(files, read_json_raw)
+
+  int_or_na <- function(x) if (is.null(x)) NA_integer_ else as.integer(x)
+
+  restriction <- if (!length(parsed)) {
+    tibble::tibble(id = character(0), name = character(0), format_id = character(0),
+                   date_start = character(0), point_limit = integer(0),
+                   max_3_point_agendas = integer(0))
+  } else {
+    tibble::tibble(
+      id = vapply(parsed, function(r) as.character(r$id), character(1)),
+      name = vapply(parsed, function(r) as.character(r$name), character(1)),
+      format_id = vapply(parsed, function(r) as.character(r$format_id), character(1)),
+      date_start = vapply(parsed, function(r) as.character(r$date_start), character(1)),
+      point_limit = vapply(parsed, function(r) int_or_na(r$point_limit), integer(1)),
+      max_3_point_agendas = vapply(parsed, function(r) int_or_na(r$max_3_point_agendas), integer(1))
+    )
+  }
+
+  # Array fields: a flat list of card ids, one implied value.
+  flag_rows <- function(r, field, column) {
+    ids <- unlist(r[[field]] %||% list(), use.names = FALSE)
+    if (!length(ids)) return(NULL)
+    out <- tibble::tibble(restriction_id = as.character(r$id), card_id = as.character(ids))
+    out[[column]] <- 1L
+    out
+  }
+
+  # Object fields: keyed BY the numeric value, each holding the card ids
+  # carrying it. names() is the value, not a card id -- inverting this
+  # is the whole reason these cannot be read with simplifyVector.
+  value_rows <- function(r, field, column) {
+    groups <- r[[field]] %||% list()
+    if (!length(groups)) return(NULL)
+    purrr::imap_dfr(groups, function(ids, value) {
+      ids <- unlist(ids, use.names = FALSE)
+      if (!length(ids)) return(NULL)
+      out <- tibble::tibble(restriction_id = as.character(r$id), card_id = as.character(ids))
+      out[[column]] <- as.integer(value)
+      out
+    })
+  }
+
+  card_rows <- purrr::map(parsed, function(r) {
+    parts <- list(
+      flag_rows(r, "banned", "is_banned"),
+      flag_rows(r, "restricted", "is_restricted"),
+      value_rows(r, "universal_faction_cost", "universal_faction_cost"),
+      value_rows(r, "global_penalty", "global_penalty"),
+      value_rows(r, "points", "points")
+    )
+    parts <- parts[!vapply(parts, is.null, logical(1))]
+    if (!length(parts)) return(NULL)
+    # One card can appear under several fields of the SAME list, so the
+    # parts are joined into one wide row per card rather than stacked --
+    # stacking would break the (restriction_id, card_id) primary key.
+    purrr::reduce(parts, dplyr::full_join, by = c("restriction_id", "card_id"))
+  })
+  card_rows <- card_rows[!vapply(card_rows, is.null, logical(1))]
+
+  restriction_card <- if (!length(card_rows)) {
+    tibble::tibble(restriction_id = character(0), card_id = character(0))
+  } else {
+    dplyr::bind_rows(card_rows)
+  }
+  for (column in c("is_banned", "is_restricted", "universal_faction_cost",
+                   "global_penalty", "points")) {
+    if (is.null(restriction_card[[column]])) restriction_card[[column]] <- NA_integer_
+    restriction_card[[column]] <- as.integer(restriction_card[[column]])
+  }
+  restriction_card <- dplyr::select(
+    restriction_card, "restriction_id", "card_id", "is_banned", "is_restricted",
+    "universal_faction_cost", "global_penalty", "points"
+  )
+
+  restriction_subtype <- purrr::map_dfr(parsed, function(r) {
+    kinds <- r$subtypes %||% list()
+    if (!length(kinds)) return(NULL)
+    purrr::imap_dfr(kinds, function(ids, kind) {
+      ids <- unlist(ids, use.names = FALSE)
+      if (!length(ids)) return(NULL)
+      tibble::tibble(restriction_id = as.character(r$id),
+                     subtype_id = as.character(ids), kind = as.character(kind))
+    })
+  })
+  if (!nrow(restriction_subtype)) {
+    restriction_subtype <- tibble::tibble(restriction_id = character(0),
+                                          subtype_id = character(0), kind = character(0))
+  }
+
+  list(
+    restriction = dplyr::arrange(restriction, .data$id),
+    restriction_card = dplyr::arrange(restriction_card, .data$restriction_id, .data$card_id),
+    restriction_subtype = dplyr::arrange(restriction_subtype, .data$restriction_id,
+                                         .data$kind, .data$subtype_id)
+  )
+}
+
+#' Flatten v2/card_sets.json into the card_set table
+#'
+#' `legacy_code` is the v1 pack code, which is what makes a card pool's
+#' card_set_ids resolvable against the card table.
+#' @param path Character. Path to v2/card_sets.json.
+#' @return A card_set tibble.
+#' @keywords internal
+read_card_sets <- function(path) {
+  parsed <- read_json_raw(path)
+  if (!length(parsed)) {
+    return(tibble::tibble(id = character(0), name = character(0), legacy_code = character(0),
+                          card_cycle_id = character(0), date_release = character(0),
+                          position = integer(0)))
+  }
+  chr <- function(field) vapply(parsed, function(s) s[[field]] %||% NA_character_, character(1))
+  out <- tibble::tibble(
+    id = chr("id"),
+    name = chr("name"),
+    legacy_code = chr("legacy_code"),
+    card_cycle_id = chr("card_cycle_id"),
+    date_release = chr("date_release"),
+    position = vapply(parsed, function(s) if (is.null(s$position)) NA_integer_ else as.integer(s$position), integer(1))
+  )
+  dplyr::arrange(out, .data$id)
+}
+
+#' Flatten v2/printings into the printing table
+#'
+#' Each file is an array of printings for one card set; `id` is the
+#' printing code the card table is keyed by, `card_id` the v2 slug that
+#' restrictions speak.
+#' @param dir Character. Path to the v2/printings directory.
+#' @return A printing tibble.
+#' @keywords internal
+read_printings <- function(dir) {
+  rows <- unlist(lapply(v2_files(dir, recurse = TRUE), read_json_raw), recursive = FALSE)
+  if (!length(rows)) {
+    return(tibble::tibble(code = character(0), card_id = character(0), card_set_id = character(0)))
+  }
+  out <- tibble::tibble(
+    code = vapply(rows, function(p) as.character(p$id), character(1)),
+    card_id = vapply(rows, function(p) as.character(p$card_id), character(1)),
+    card_set_id = vapply(rows, function(p) as.character(p$card_set_id), character(1))
+  )
+  dplyr::arrange(out, .data$code)
+}
+
+#' Resolve each legacy mwl.json code to its v2 restriction's format
+#'
+#' The two id conventions differ only in separators -- `NAPD_MWL_1.0`
+#' against `napd_mwl_1_0`, `standard-ban-list-26-03` against
+#' `standard_ban_list_26_03` -- so normalizing `-` and `.` to `_` and
+#' lowercasing matches all 41 legacy entries against the v2 set.
+#'
+#' Returns NA for an entry with no v2 counterpart rather than falling
+#' back to a guess: an unmatched code means the two trees have diverged,
+#' which the build's mwl_v2_format_join check must surface.
+#' @param code Character vector of legacy mwl codes.
+#' @param restriction The v2 `restriction` tibble.
+#' @return Character vector of format ids, NA where unmatched.
+#' @keywords internal
+mwl_v2_format <- function(code, restriction) {
+  normalize <- function(x) tolower(gsub("[-.]", "_", x))
+  if (!nrow(restriction)) return(rep(NA_character_, length(code)))
+  restriction$format_id[match(normalize(code), normalize(restriction$id))]
 }
