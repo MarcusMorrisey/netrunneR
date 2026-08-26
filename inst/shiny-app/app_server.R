@@ -33,7 +33,10 @@ app_server <- function(input, output, session, app_data) {
     )
   })
 
-  netrunneR::mod_card_browser_server("browser", cards, selected_code)
+  # app_data$legality carries the card-pool/ban-list tables, each NULL
+  # against a release promoted before that schema existed; the module
+  # degrades to no format selector rather than failing.
+  netrunneR::mod_card_browser_server("browser", cards, selected_code, app_data$legality)
   netrunneR::mod_matchup_explorer_server("matchup", cards, matchup, selected_code)
 }
 
