@@ -13,4 +13,17 @@ built_at is recorded for humans but excluded from the cache identity
 digest, so re-running the same inputs at a different time still
 resolves to the same cache identity.
 }
+\details{
+Resolves pkg-src the same way build_revision() (R/build-revision.R)
+does: pkg_root/pkg-src if it exists (an installed package, where R CMD
+INSTALL has stripped R/*.R and renv.lock from pkg_root itself), else
+pkg_root directly (devtools::test(), R CMD check on the source tree,
+where renv.lock is already sitting at pkg_root). An earlier version of
+this function hardcoded file.path(pkg_root, "pkg-src") unconditionally
+-- unlike build_revision()'s own fallback -- so it aborted under
+devtools::test() with no pkg-src staged, which was never a real
+requirement in that context; nothing had called
+compute_ice_breaker_matchups() (the only caller of this function) in a
+test before this branch surfaced it.
+}
 \keyword{internal}

@@ -17,8 +17,9 @@ api_poll lineages, repo_url/ref for git_mirror lineages, hub_url for
 web_archive lineages).
 }
 \description{
-Each entry's store_root is file.path("/data", name) with no case
+Each entry's store_root is file.path(store_base(), name) with no case
 transform on the lowercase name, so the path R opens is byte-identical
 to the container path compose.yaml bind-mounts for that lineage.
-(ref: DL-009)
+(ref: DL-009) store_base() is "/data" unless NETRUNNER_STORE_BASE is
+set, which only tests and local development should do.
 }

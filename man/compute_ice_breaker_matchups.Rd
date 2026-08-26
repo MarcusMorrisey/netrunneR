@@ -4,23 +4,83 @@
 \alias{compute_ice_breaker_matchups}
 \title{Compute ice/breaker matchup pairs}
 \usage{
-compute_ice_breaker_matchups(ice_breaker_traits, cardpool)
+compute_ice_breaker_matchups(
+  ice_breaker_traits,
+  cardpool,
+  matchup_overrides,
+  cardpool_release_id = NA_character_,
+  implementation_release_id = NA_character_
+)
 }
 \arguments{
-\item{ice_breaker_traits}{A tibble from the implementation release.}
+\item{ice_breaker_traits}{A tibble from the active implementation release.}
 
-\item{cardpool}{A tibble of cards from the cardpool release.}
+\item{cardpool}{A tibble of cards from the active cardpool release.}
+
+\item{matchup_overrides}{A tibble of manually-curated corrections, one
+row per (ice_code, breaker_code) pair, with at least \code{ice_code},
+\code{breaker_code}, \code{cost_to_break} columns -- see
+\code{inst/extdata/matchup_overrides.csv}. \code{cost_to_break} must be an
+INTEGER column: it is folded into this function's own integer cost
+column, and a character one aborts inside dplyr::if_else() with a
+message that names neither this argument nor the file it came from.
+Read the packaged file with read_matchup_overrides()
+(\code{R/operations.R}), which declares the types rather than letting
+readr guess them from however many rows happen to be present.
+REQUIRED, not optional: an
+earlier draft of this function's documentation described merging
+overrides without the signature ever accepting them as an input --
+fixed here so the declared contract matches the documented behavior.}
+
+\item{cardpool_release_id, implementation_release_id}{Character. The
+exact release IDs the two inputs above were read from, recorded in
+the manifest for provenance/cache-identity purposes only.}
 }
 \value{
 A list with \code{matchups} (a tibble) and \code{manifest} (a sidecar list).
 }
 \description{
 Joins ice_breaker_traits to cardpool with an inner_join, expands the
-pairwise matrix with tidyr::expand_grid(), filters to subtype-compatible
-pairs and orders output by ice_code then breaker_code. Emits a sidecar
-manifest of the input release-id map, the analysis_revision from a
-clean gert::git_status(), the renv.lock hash, the spec id, the
-parameters and the output hashes, with built_at excluded from cache
-identity so a re-run of the same inputs at a different wall-clock time
-still resolves to the same cache identity.
+pairwise matrix with dplyr::cross_join() over the ice/breaker DATA
+FRAMES (not their individual columns as separate vectors -- an earlier
+version passed \verb{ice_code = ice$code, ice_subtypes = ice$subtypes, ...}
+straight to tidyr::expand_grid(), which treats each argument as an
+independent axis of the cross product rather than columns that must
+travel together from the same source row; that silently produced
+every (ice_subtypes, breaker_subtypes) combination for every
+(ice_code, breaker_code) pair, not just each code's own real subtype,
+and duplicated any pair where more than one such combination happened
+to pass the subtype filter -- caught by this function's first real
+test coverage, not by inspection), filters to subtype-compatible
+pairs and orders output by ice_code then breaker_code. Merges in
+\code{matchup_overrides} (an override for a given pair always replaces the
+formula-derived row for that pair) and stamps a \code{source} column
+(\code{"formula"} / \code{"override"} / \code{"not_computable"}) plus a
+\code{credit_differential} column (\code{ice.rez_cost - cost_to_break}; \code{NA} iff
+\code{source == "not_computable"}) on every row. Emits a sidecar manifest of
+the input release-id map, the analysis_revision from a clean
+gert::git_status(), the renv.lock hash, the spec id, the parameters and
+the output hashes, with built_at excluded from cache identity so a
+re-run of the same inputs at a different wall-clock time still resolves
+to the same cache identity.
+}
+\details{
+NOTE ON SCOPE: \code{cost_to_break} cannot be computed from real per-card
+data yet -- \code{extract_ice_breaker_traits()} (R/build-implementation.R)
+is still a stub that has never parsed real subtype/strength/cost values
+out of a mtgred/netrunner Clojure card definition; it emits one
+placeholder row per \emph{file} (currently one per card \emph{category}, not per
+card). \code{compute_cost_to_break_formula()} below always returns \code{NA}
+until that extraction work lands, so every non-override pair correctly
+reports \code{source == "not_computable"} today -- that is the honest
+current state, not a bug this change introduces.
+
+There is no separate "matchup release": this function is a plain,
+repeatedly-callable computation over already-loaded \code{cardpool} and
+\code{implementation} release data, exactly like \code{compute_identity_ratings()}
+(R/views-ratings.R) -- it is not promoted, versioned, or resolved via
+\code{lineage()}/\code{resolve_release()}, and \code{matchup} is not one of the five
+\code{BUILTIN_LINEAGES}. The \code{cardpool_release_id}/\code{implementation_release_id}
+parameters below exist purely as cache/provenance metadata in the
+sidecar manifest, not as inputs to a promote/rollback mechanism.
 }
