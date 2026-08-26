@@ -134,3 +134,32 @@ require_rules_disclaimer <- function(has_disclaimer) {
   stopifnot(isTRUE(has_disclaimer))
   invisible(TRUE)
 }
+
+#' Build the NetrunnerDB card image URL for a given card code
+#'
+#' Verified live this session against NetrunnerDB's own public API
+#' (`https://netrunnerdb.com/api/2.0/public/card/01001`), which returns an
+#' `imageUrlTemplate` field of exactly this shape
+#' (`https://card-images.netrunnerdb.com/v2/large/{code}.jpg`) alongside
+#' the card data -- constructing an image URL this way is the API's own
+#' documented mechanism for consumers, not a reverse-engineered guess.
+#' NetrunnerDB's API documentation
+#' (<https://netrunnerdb.com/api>) states the API "is provided for use in
+#' deckbuilders, card databases, tournament managers, and other tools that
+#' complement playing Android: Netrunner" -- displaying card images in a
+#' matchup-comparison tool falls squarely within that stated purpose.
+#'
+#' No separate attribution guard exists for image use specifically:
+#' images are cardpool-sourced content under the same "copyrighted by
+#' Fantasy Flight Games and/or Null Signal Games" / non-affiliation terms
+#' as cardpool text, so any view rendering `card_image_url()` output is
+#' already covered by, and must still call,
+#' `require_cardpool_disclaimer(TRUE)` -- do not add a second guard for
+#' this.
+#'
+#' @param code Character. Card code (cardpool `card.code`).
+#' @return Character URL.
+#' @export
+card_image_url <- function(code) {
+  sprintf("https://card-images.netrunnerdb.com/v2/large/%s.jpg", code)
+}

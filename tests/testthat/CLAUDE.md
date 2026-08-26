@@ -30,6 +30,13 @@ Test files and shared fixtures. Several files enforce package invariants by stat
 | `test-build-implementation.R` | Trait extraction and release_id shape against a fixture card-definition file | Changing trait extraction |
 | `test-build-rules.R` | Rules table writing, version-monotonic warning behavior, PDF hash checks | Changing rules build or version-order policy |
 | `test-views.R` | Elo identity/faction ratings and deterministic canonical game ordering | Changing rating parameters or tie-break ordering |
+| `test-views-matchups.R` | `compute_ice_breaker_matchups()`'s required `matchup_overrides` input, override precedence, `source`/`credit_differential` NA-agreement, subtype-compatibility preservation, manifest cache identity | Changing matchup expansion, override merge, or view cache identity |
+| `helper-mini-pool.R` | Canonical fixture (`mini_pool_cardpool()`, `mini_pool_ice_breaker_traits()`, `mini_pool_matchup_overrides()`, `PAIR_RUNNER_FAVORED`/`PAIR_CORP_FAVORED`) shared by every matchup/module test rather than each inventing its own sample | Adding a matchup or module test that needs cardpool/implementation/overrides sample data |
+| `test-mod-card-browser.R` | `mod_card_browser_server()`'s empty-filter-result state and click-to-`selected_code` binding | Changing card-browser filters or click wiring |
+| `test-mod-card-detail.R` | `mod_card_detail_server()`'s single-instantiation-per-session discipline and Close-button state clearing | Changing the detail modal's selection-state contract |
+| `test-mod-matchup-explorer.R` | `mod_matchup_explorer_server()`'s not-computable rendering, empty-result rendering, and row-click binding | Changing the matchup table or its click wiring |
+| `test-operations.R` | `safe_render()`'s error-fallback and pass-through behavior | Changing render-error handling |
+| `test-integration-app.R` | `[integration]`-level assertions for `inst/shiny-app/app.R`, currently `skip()`-stubbed pending a temporary fixture store root | Wiring shinytest2 integration coverage for the Shiny app |
 
 ## Test
 
