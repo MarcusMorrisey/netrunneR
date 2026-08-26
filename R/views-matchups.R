@@ -1,7 +1,17 @@
 #' Compute ice/breaker matchup pairs
 #'
 #' Joins ice_breaker_traits to cardpool with an inner_join, expands the
-#' pairwise matrix with tidyr::expand_grid(), filters to subtype-compatible
+#' pairwise matrix with dplyr::cross_join() over the ice/breaker DATA
+#' FRAMES (not their individual columns as separate vectors -- an earlier
+#' version passed `ice_code = ice$code, ice_subtypes = ice$subtypes, ...`
+#' straight to tidyr::expand_grid(), which treats each argument as an
+#' independent axis of the cross product rather than columns that must
+#' travel together from the same source row; that silently produced
+#' every (ice_subtypes, breaker_subtypes) combination for every
+#' (ice_code, breaker_code) pair, not just each code's own real subtype,
+#' and duplicated any pair where more than one such combination happened
+#' to pass the subtype filter -- caught by this function's first real
+#' test coverage, not by inspection), filters to subtype-compatible
 #' pairs and orders output by ice_code then breaker_code. Merges in
 #' `matchup_overrides` (an override for a given pair always replaces the
 #' formula-derived row for that pair) and stamps a `source` column
@@ -56,13 +66,12 @@ compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_o
   ice <- dplyr::filter(traits, .data$type_code == "ice")
   breakers <- dplyr::filter(traits, .data$type_code == "program")
 
-  pairs <- tidyr::expand_grid(
-    ice_code = ice$code, ice_subtypes = ice$subtypes,
-    breaker_code = breakers$code, breaker_subtypes = breakers$subtypes
+  pairs <- dplyr::cross_join(
+    dplyr::select(ice, ice_code = "code", ice_subtypes = "subtypes", ice_rez_cost = "cost"),
+    dplyr::select(breakers, breaker_code = "code", breaker_subtypes = "subtypes")
   )
 
   pairs <- dplyr::filter(pairs, purrr::map2_lgl(.data$ice_subtypes, .data$breaker_subtypes, subtype_compatible))
-  pairs <- dplyr::left_join(pairs, dplyr::select(ice, ice_code = "code", ice_rez_cost = "cost"), by = "ice_code")
 
   pairs$cost_to_break <- compute_cost_to_break_formula(pairs$ice_code, pairs$breaker_code, ice_breaker_traits)
   pairs$source <- dplyr::if_else(is.na(pairs$cost_to_break), "not_computable", "formula")

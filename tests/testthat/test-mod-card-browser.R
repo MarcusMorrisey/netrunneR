@@ -1,6 +1,6 @@
 test_that("a filter combination matching zero cards renders an explicit empty state", {
   cards <- mini_pool_cardpool()
-  selected_code <- reactiveVal(NULL)
+  selected_code <- shiny::reactiveVal(NULL)
 
   shiny::testServer(
     mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
@@ -15,7 +15,7 @@ test_that("a filter combination matching zero cards renders an explicit empty st
 
 test_that("clicking a card sets the shared selected_code", {
   cards <- mini_pool_cardpool()
-  selected_code <- reactiveVal(NULL)
+  selected_code <- shiny::reactiveVal(NULL)
 
   shiny::testServer(
     mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),

@@ -7,7 +7,7 @@ build_mini_matchup <- function() {
 test_that("a not_computable pair renders 'not yet computable', not a blank/NA cell", {
   cards <- mini_pool_cardpool()
   matchup <- build_mini_matchup()
-  selected_code <- reactiveVal(NULL)
+  selected_code <- shiny::reactiveVal(NULL)
 
   shiny::testServer(
     mod_matchup_explorer_server,
@@ -24,7 +24,7 @@ test_that("a not_computable pair renders 'not yet computable', not a blank/NA ce
 test_that("row click on ice/breaker name sets the shared selected_code", {
   cards <- mini_pool_cardpool()
   matchup <- build_mini_matchup()
-  selected_code <- reactiveVal(NULL)
+  selected_code <- shiny::reactiveVal(NULL)
 
   shiny::testServer(
     mod_matchup_explorer_server,
@@ -40,7 +40,7 @@ test_that("row click on ice/breaker name sets the shared selected_code", {
 test_that("an empty result set renders an explicit empty state", {
   cards <- mini_pool_cardpool()
   matchup <- build_mini_matchup()[0, ]
-  selected_code <- reactiveVal(NULL)
+  selected_code <- shiny::reactiveVal(NULL)
 
   shiny::testServer(
     mod_matchup_explorer_server,

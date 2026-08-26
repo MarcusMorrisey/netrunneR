@@ -1,6 +1,6 @@
 test_that("mod_card_detail_server renders the selected card's detail", {
   cards <- mini_pool_cardpool()
-  selected_code <- reactiveVal(NULL)
+  selected_code <- shiny::reactiveVal(NULL)
 
   shiny::testServer(mod_card_detail_server, args = list(selected_code = selected_code, cards = cards), {
     selected_code("ice01")
@@ -16,7 +16,7 @@ test_that("selected_code can be driven through several codes in one session with
   # code, unlike an earlier draft that called moduleServer() fresh per
   # click and leaked a growing set of observers.
   cards <- mini_pool_cardpool()
-  selected_code <- reactiveVal(NULL)
+  selected_code <- shiny::reactiveVal(NULL)
 
   shiny::testServer(mod_card_detail_server, args = list(selected_code = selected_code, cards = cards), {
     for (code in c("ice01", "brk01", "ice02", "brk02", "ice01")) {
@@ -29,7 +29,7 @@ test_that("selected_code can be driven through several codes in one session with
 
 test_that("the Close button does not error (removeModal() has no server-testable effect)", {
   cards <- mini_pool_cardpool()
-  selected_code <- reactiveVal(NULL)
+  selected_code <- shiny::reactiveVal(NULL)
 
   shiny::testServer(mod_card_detail_server, args = list(selected_code = selected_code, cards = cards), {
     selected_code("ice01")
@@ -47,7 +47,7 @@ test_that("any dismissal (backdrop click, Escape, or Close) clears selected_code
   # click-outside/Escape dismissal now clears selected_code() too, not
   # just the Close button.
   cards <- mini_pool_cardpool()
-  selected_code <- reactiveVal(NULL)
+  selected_code <- shiny::reactiveVal(NULL)
 
   shiny::testServer(mod_card_detail_server, args = list(selected_code = selected_code, cards = cards), {
     selected_code("ice01")
