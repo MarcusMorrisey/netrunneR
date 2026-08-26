@@ -13,7 +13,60 @@ test_that("promote() moves the staged directory and active points at it", {
   expect_identical(basename(fs::path_real(file.path(store_root, "active"))), "release-1")
 })
 
-test_that("swap_active() re-points active atomically with no absent window", {
+test_that("swap_active() re-points active on every call, not just the first", {
+  # The regression test this file did not have. The previous version of
+  # this test mocked fs::file_move() with file.rename() -- to avoid the
+  # mock recursing into itself -- which meant it substituted the CORRECT
+  # primitive for the buggy call and asserted the mock's behaviour rather
+  # than swap_active()'s. Nothing here mocks anything.
+  #
+  # In production the consequence was four days of daily syncs recording
+  # "promoted" in the ledger while `active` never moved off the first
+  # release, because fs::file_move() resolves a symlink-to-a-directory
+  # destination and moves INTO it.
+  store_root <- withr::local_tempdir()
+  old_dir <- file.path(store_root, "releases", "release-1")
+  new_dir <- file.path(store_root, "releases", "release-2")
+  fs::dir_create(old_dir)
+  fs::dir_create(new_dir)
+  active_link <- file.path(store_root, "active")
+
+  # First swap: `active` does not exist yet. This always worked.
+  swap_active(store_root, old_dir)
+  expect_identical(basename(fs::path_real(active_link)), "release-1")
+
+  # Second swap: `active` exists and points at a directory. This is the
+  # case that silently did nothing.
+  swap_active(store_root, new_dir)
+  expect_identical(basename(fs::path_real(active_link)), "release-2")
+
+  # A third, to catch a fix that only handles one replacement.
+  swap_active(store_root, old_dir)
+  expect_identical(basename(fs::path_real(active_link)), "release-1")
+})
+
+test_that("swap_active() leaves no temp symlink behind anywhere in the store", {
+  # The visible symptom in production: one orphaned .active.tmp.* symlink
+  # inside the stale release directory per failed promote, five of them
+  # by the time it was noticed.
+  store_root <- withr::local_tempdir()
+  old_dir <- file.path(store_root, "releases", "release-1")
+  new_dir <- file.path(store_root, "releases", "release-2")
+  fs::dir_create(old_dir)
+  fs::dir_create(new_dir)
+
+  swap_active(store_root, old_dir)
+  swap_active(store_root, new_dir)
+
+  strays <- fs::dir_ls(store_root, all = TRUE, recurse = TRUE, type = "symlink")
+  strays <- strays[grepl("[.]active[.]tmp[.]", basename(strays))]
+  expect_length(strays, 0)
+})
+
+test_that("swap_active() replaces active without ever deleting it first", {
+  # The property the removed test was reaching for: no window in which
+  # `active` is absent. Only fs::file_delete is mocked -- never the
+  # rename under test -- so the swap itself still runs for real.
   store_root <- withr::local_tempdir()
   old_dir <- file.path(store_root, "releases", "release-1")
   new_dir <- file.path(store_root, "releases", "release-2")
@@ -23,8 +76,6 @@ test_that("swap_active() re-points active atomically with no absent window", {
   active_link <- file.path(store_root, "active")
 
   delete_called_on_active <- FALSE
-  rename_calls_to_active <- 0L
-
   testthat::local_mocked_bindings(
     file_delete = function(path, ...) {
       if (any(fs::path_norm(path) == fs::path_norm(active_link))) {
@@ -32,25 +83,26 @@ test_that("swap_active() re-points active atomically with no absent window", {
       }
       NULL
     },
-    file_move = function(path, new_path, ...) {
-      if (identical(fs::path_norm(new_path), fs::path_norm(active_link))) {
-        rename_calls_to_active <<- rename_calls_to_active + 1L
-        expect_identical(basename(fs::path_real(active_link)), "release-1")
-      }
-      # Call the real rename directly rather than fs::file_move(): with
-      # .package = "fs", the mock replaces file_move in fs's own
-      # namespace too, so calling fs::file_move() here would re-enter
-      # this same mock and recurse until the C stack overflows.
-      file.rename(path, new_path)
-    },
     .package = "fs"
   )
 
   swap_active(store_root, new_dir)
 
   expect_false(delete_called_on_active)
-  expect_identical(rename_calls_to_active, 1L)
   expect_identical(basename(fs::path_real(active_link)), "release-2")
+})
+
+test_that("promote() activates each successive release, not just the first", {
+  # promote() -> swap_active(), so the same defect meant a second
+  # promote() moved the release into place and left it inactive.
+  store_root <- withr::local_tempdir()
+  for (id in c("release-1", "release-2")) {
+    staging_dir <- file.path(store_root, "staging", id)
+    fs::dir_create(staging_dir)
+    writeLines(id, file.path(staging_dir, "marker.txt"))
+    promote(store_root, staging_dir, id)
+    expect_identical(basename(fs::path_real(file.path(store_root, "active"))), id)
+  }
 })
 
 test_that("rollback() aborts on a release_id with no directory on disk", {
