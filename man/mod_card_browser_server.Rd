@@ -4,7 +4,7 @@
 \alias{mod_card_browser_server}
 \title{Card browser module server}
 \usage{
-mod_card_browser_server(id, cards, selected_code)
+mod_card_browser_server(id, cards, selected_code, legality = NULL)
 }
 \arguments{
 \item{id}{Module id.}
@@ -15,6 +15,14 @@ mod_card_browser_server(id, cards, selected_code)
 read by the single mod_card_detail_server() instance -- this module
 only ever calls \code{selected_code(code)}, never showModal()/
 moduleServer() itself.}
+
+\item{legality}{The \code{legality} element of
+\code{\link[=load_ice_breaker_app_data]{load_ice_breaker_app_data()}}: the card-pool and ban-list tables, any
+of which may be NULL against a release promoted before that schema
+existed. NULL disables the format selector entirely and leaves every
+card in pool, which is the honest rendering of "this release carries
+no legality data" rather than silently showing an unfiltered pool as
+though a format had been applied.}
 }
 \description{
 Card browser module server
