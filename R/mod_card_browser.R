@@ -21,6 +21,15 @@ mod_card_browser_ui <- function(id) {
   ns <- shiny::NS(id)
   shiny::sidebarLayout(
     shiny::sidebarPanel(
+      # actions-box renders Select All and Deselect All as a pair, but
+      # "select every type" is identical to "filter by no type" -- a
+      # control that looks like it does something and does nothing. Only
+      # the deselect half is meaningful, so the other is hidden and this
+      # one is given the full width.
+      shiny::tags$style(shiny::HTML(
+        ".bs-actionsbox .bs-select-all { display: none; }
+         .bs-actionsbox .bs-deselect-all { width: 100%; }"
+      )),
       shiny::textInput(ns("query"), "Search",
         placeholder = "e.g. t:ice cost<4 s:barrier"),
       # The parsed query echoed back in words, via search_explain(): a

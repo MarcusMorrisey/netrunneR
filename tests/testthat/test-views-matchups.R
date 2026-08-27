@@ -122,3 +122,68 @@ test_that("a populated overrides file still types cost_to_break as integer", {
   expect_type(overrides$cost_to_break, "integer")
   expect_equal(overrides$cost_to_break, 4L)
 })
+
+# ---- the app's card pool -----------------------------------------------
+
+pool_fixture <- function() {
+  tibble::tribble(
+    ~code,   ~title,          ~type_code, ~keywords,
+    "ice01", "Some ICE",      "ice",      "Barrier",
+    "brk01", "A Breaker",     "program",  "Icebreaker - Fracter",
+    "brk02", "AI Breaker",    "program",  "Icebreaker - AI",
+    "prg01", "Datasucker-ish","program",  "Virus",
+    "prg02", "No Subtypes",   "program",  NA_character_,
+    "hw01",  "Boomerang-ish", "hardware", "Trash",
+    "res01", "A Resource",    "resource", "Connection"
+  )
+}
+
+test_that("ice_breaker_pool() keeps ICE and icebreaker programs only", {
+  kept <- ice_breaker_pool(pool_fixture())
+  expect_equal(sort(kept$code), c("brk01", "brk02", "ice01"))
+})
+
+test_that("ice_breaker_pool() drops programs that are not icebreakers", {
+  # The initial-release scope decision: every card that breaks, bypasses
+  # or interacts with ICE is the eventual intent, but a non-breaker
+  # program is not comparable on the cost-to-break axis.
+  kept <- ice_breaker_pool(pool_fixture())
+  expect_false("prg01" %in% kept$code)
+  expect_false("prg02" %in% kept$code)
+  expect_false("hw01" %in% kept$code)
+})
+
+test_that("has_card_subtype() matches whole tokens, not substrings", {
+  expect_true(has_card_subtype("Icebreaker - Fracter", "Icebreaker"))
+  expect_true(has_card_subtype("AI - Icebreaker", "Icebreaker"))
+  expect_false(has_card_subtype("Icebreaker Support", "Icebreaker"))
+  expect_false(has_card_subtype(NA_character_, "Icebreaker"))
+  expect_identical(
+    has_card_subtype(c("Barrier", "Icebreaker - AI", NA), "Icebreaker"),
+    c(FALSE, TRUE, FALSE)
+  )
+})
+
+test_that("compute_ice_breaker_matchups() pairs ICE with icebreakers only", {
+  # Previously every program entered the cross-join, so a piece of ICE was
+  # paired with Datasucker and friends.
+  traits <- tibble::tribble(
+    ~code,   ~subtypes,  ~base_strength,
+    "ice01", "Barrier",  1L,
+    "brk01", "Barrier",  1L,
+    "prg01", "Barrier",  1L
+  )
+  cardpool <- tibble::tribble(
+    ~code,   ~title,      ~type_code, ~keywords,             ~cost,
+    "ice01", "Some ICE",  "ice",      "Barrier",             2L,
+    "brk01", "A Breaker", "program",  "Icebreaker - Fracter", 1L,
+    "prg01", "A Virus",   "program",  "Virus",                1L
+  )
+
+  matchups <- compute_ice_breaker_matchups(
+    traits, cardpool, mini_pool_matchup_overrides()
+  )$matchups
+
+  expect_true(all(matchups$breaker_code == "brk01"))
+  expect_false("prg01" %in% matchups$breaker_code)
+})
