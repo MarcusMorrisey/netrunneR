@@ -200,3 +200,53 @@ test_that("no legality data leaves every card in pool and no format applied", {
     }
   )
 })
+
+test_that("emptying a filter restores the full grid rather than matching nothing", {
+  # The contract "Clear all filters" depends on: updatePickerInput()
+  # sets each picker to character(0), and length(input$x) == 0 must read
+  # as "this filter is off". If an empty selection filtered to zero rows
+  # instead, clearing would blank the browser.
+  cards <- mini_pool_cardpool()
+  selected_code <- shiny::reactiveVal(NULL)
+
+  shiny::testServer(
+    mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
+    {
+      session$setInputs(type = "program")
+      session$flushReact()
+      narrowed <- as.character(output$card_grid$html)
+      expect_false(grepl("ice01", narrowed, fixed = TRUE))
+
+      session$setInputs(type = character(0))
+      session$flushReact()
+      restored <- as.character(output$card_grid$html)
+      expect_match(restored, "ice01", fixed = TRUE)
+      expect_match(restored, "brk01", fixed = TRUE)
+    }
+  )
+})
+
+test_that("an empty query is no filter, not a failed parse", {
+  cards <- mini_pool_cardpool()
+  selected_code <- shiny::reactiveVal(NULL)
+
+  shiny::testServer(
+    mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
+    {
+      session$setInputs(query = "t:ice")
+      session$flushReact()
+      expect_false(grepl("brk01", as.character(output$card_grid$html), fixed = TRUE))
+
+      session$setInputs(query = "")
+      session$flushReact()
+      restored <- as.character(output$card_grid$html)
+      expect_match(restored, "brk01", fixed = TRUE)
+      # And no leftover "Reading as:" line describing a query that is
+      # gone. Compared as text rather than expect_null(): renderUI()
+      # returning NULL can surface as NULL or as an empty list, and the
+      # assertion is about what the user sees either way.
+      feedback <- paste(as.character(output$query_feedback$html), collapse = "")
+      expect_false(grepl("Reading as", feedback, fixed = TRUE))
+    }
+  )
+})

@@ -1,3 +1,12 @@
+#' Shared options for the browser's multi-select pickers
+#'
+#' `actions-box` is what makes a chosen filter removable: a
+#' shinyWidgets multi-picker without it has no deselect-all control, so
+#' a user who picks one faction can only swap it for another and the
+#' filter appears permanent once set.
+#' @keywords internal
+MULTI_PICKER_OPTIONS <- list(`actions-box` = TRUE, `none-selected-text` = "Any")
+
 #' Pool browsing: faction/type/subtype/side filters, image grid, code-keyed.
 #'
 #' `card.title` is not used as an identity key anywhere below -- only
@@ -19,10 +28,21 @@ mod_card_browser_ui <- function(id) {
       # than as an empty grid with no explanation.
       shiny::uiOutput(ns("query_feedback")),
       shinyWidgets::pickerInput(ns("format"), "Format", choices = NULL),
-      shinyWidgets::pickerInput(ns("side"), "Side", choices = c("corp", "runner"), multiple = TRUE),
-      shinyWidgets::pickerInput(ns("faction"), "Faction", choices = NULL, multiple = TRUE, options = list(`live-search` = TRUE)),
-      shinyWidgets::pickerInput(ns("type"), "Type", choices = NULL, multiple = TRUE),
-      shinyWidgets::pickerInput(ns("subtype"), "Subtype", choices = NULL, multiple = TRUE, options = list(`live-search` = TRUE))
+      # `actions-box` adds the Select All / Deselect All controls. Without
+      # it a multi-select picker offers no way back to an empty selection
+      # once anything is chosen -- you can only swap one value for
+      # another, which reads as "this filter cannot be turned off".
+      # `none-selected-text` then says what an empty selection MEANS,
+      # since a blank box and "no filter applied" look identical.
+      shinyWidgets::pickerInput(ns("side"), "Side", choices = c("corp", "runner"),
+        multiple = TRUE, options = MULTI_PICKER_OPTIONS),
+      shinyWidgets::pickerInput(ns("faction"), "Faction", choices = NULL,
+        multiple = TRUE, options = c(MULTI_PICKER_OPTIONS, list(`live-search` = TRUE))),
+      shinyWidgets::pickerInput(ns("type"), "Type", choices = NULL,
+        multiple = TRUE, options = MULTI_PICKER_OPTIONS),
+      shinyWidgets::pickerInput(ns("subtype"), "Subtype", choices = NULL,
+        multiple = TRUE, options = c(MULTI_PICKER_OPTIONS, list(`live-search` = TRUE))),
+      shiny::actionButton(ns("clear"), "Clear all filters", class = "btn-sm btn-outline-secondary")
     ),
     shiny::mainPanel(
       shiny::tags$p(class = "text-muted small",
@@ -170,6 +190,23 @@ mod_card_browser_server <- function(id, cards, selected_code, legality = NULL) {
           }
         )
       })
+    })
+
+    # One control that empties every filter at once. Clearing them
+    # individually means five separate deselect-alls plus emptying the
+    # search box, which is enough friction that a user is more likely to
+    # reload the page -- losing the selected card and any scroll position
+    # with it.
+    #
+    # Format resets to "Any format", not to Standard: "clear all filters"
+    # that leaves a format applied is not clearing all filters. Standard
+    # remains the default on FIRST load, which is a different question.
+    shiny::observeEvent(input$clear, {
+      shiny::updateTextInput(session, "query", value = "")
+      shinyWidgets::updatePickerInput(session, "format", selected = "")
+      for (filter_id in c("side", "faction", "type", "subtype")) {
+        shinyWidgets::updatePickerInput(session, filter_id, selected = character(0))
+      }
     })
 
     # Single shared input, set via onclick JS above, rather than one
