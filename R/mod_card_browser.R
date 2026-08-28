@@ -54,9 +54,7 @@ mod_card_browser_ui <- function(id) {
       shiny::actionButton(ns("clear"), "Clear all filters", class = "btn-sm btn-outline-secondary")
     ),
     shiny::mainPanel(
-      shiny::tags$p(class = "text-muted small",
-        "Not maintained, produced, endorsed, supported, or affiliated with Fantasy Flight Games and/or Wizards of the Coast."
-      ),
+      cardpool_disclaimer_ui(),
       shiny::uiOutput(ns("card_grid"))
     )
   )

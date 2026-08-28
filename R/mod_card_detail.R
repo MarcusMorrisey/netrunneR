@@ -99,9 +99,7 @@ mod_card_detail_server <- function(id, selected_code, cards) {
             shiny::tags$pre(card$text)
           )
         ),
-        shiny::tags$p(class = "text-muted small",
-          "Not maintained, produced, endorsed, supported, or affiliated with Fantasy Flight Games and/or Wizards of the Coast."
-        )
+        cardpool_disclaimer_ui()
       )
     })
   })

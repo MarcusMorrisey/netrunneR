@@ -45,3 +45,41 @@ test_that("no guard call site passes a literal TRUE", {
   )
   expect_equal(basename(offenders), character(0))
 })
+
+squish <- function(tag) {
+  gsub("[[:space:]]+", " ", paste(as.character(tag), collapse = " "))
+}
+
+# A guard asserts "this view renders the notice". Nothing verified the
+# second half of that sentence, so the app could satisfy every guard
+# while rendering no notice at all -- and did: the matchup explorer named
+# the MIT licence without reproducing it.
+
+test_that("the cardpool disclaimer carries both COPYRIGHT.md clauses", {
+  # Collapse whitespace: htmltools indents tag bodies, so a literal
+  # match would be asserting the renderer's formatting, not the text.
+  txt <- squish(cardpool_disclaimer_ui())
+  expect_match(txt, "copyrighted by Fantasy Flight Games and/or Wizards of the Coast")
+  expect_match(txt, "Not maintained, produced, endorsed, supported, or affiliated")
+})
+
+test_that("the implementation notice is an MIT notice, not the licence's name", {
+  txt <- squish(implementation_mit_notice_ui())
+  # The permission grant and the warranty disclaimer are the two parts
+  # MIT actually requires to travel with the software. "MIT licensed" as
+  # a bare phrase satisfies neither.
+  expect_match(txt, "Permission is hereby granted, free of charge")
+  expect_match(txt, "included in all copies or substantial portions")
+  expect_match(txt, "THE SOFTWARE IS PROVIDED")
+})
+
+test_that("every guarded view actually renders the notice it asserts", {
+  browser_ui  <- squish(mod_card_browser_ui("b"))
+  matchup_ui  <- squish(mod_matchup_explorer_ui("m"))
+
+  expect_match(browser_ui, "copyrighted by Fantasy Flight Games")
+  expect_match(matchup_ui, "copyrighted by Fantasy Flight Games")
+  # The matchup explorer is the implementation-sourced view, so it is the
+  # one that must carry MIT.
+  expect_match(matchup_ui, "Permission is hereby granted, free of charge")
+})
