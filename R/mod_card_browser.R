@@ -179,7 +179,23 @@ mod_card_browser_server <- function(id, cards, selected_code, legality = NULL) {
       side <- input$side %||% ""
       if (nzchar(side))          d <- d[d$side_code == side, ]
       if (length(input$faction)) d <- d[d$faction_code %in% input$faction, ]
-      if (length(input$subtype)) d <- d[!is.na(d$keywords) & grepl(paste(input$subtype, collapse = "|"), d$keywords), ]
+      # has_card_subtype() (R/views-matchups.R), not grepl(): keywords is
+      # a " - "-delimited string, so a substring match makes a subtype
+      # that is a prefix of another silently pull the other one in.
+      # Against the live pool that is two real collisions -- picking
+      # "Corp" also returned Corporation cards, picking "Security" also
+      # returned Security Protocol -- while the query box's own
+      # `s:Security` tokenises correctly. Two paths for one question
+      # should not give two answers.
+      #
+      # It also stopped building a regex out of user-selected values.
+      # Nothing in the current pool carries a metacharacter, so that was
+      # latent rather than live, but the picker's choices are upstream
+      # data and nothing guarantees they stay that way.
+      if (length(input$subtype)) {
+        keep <- Reduce(`|`, lapply(input$subtype, function(st) has_card_subtype(d$keywords, st)))
+        d <- d[keep, , drop = FALSE]
+      }
 
       p <- parsed()
       # A query that does not parse filters nothing: the message above
