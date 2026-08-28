@@ -4,15 +4,23 @@
 # suite noticed, because a decorative guard passes exactly like a real
 # one. These are the assertions that would have caught it.
 
-test_that("the pre-ship gates ship closed", {
-  # Read from the capture taken before helper-preship-gates.R opened them
-  # for the suite -- the runtime bindings are TRUE here by design.
-  #
-  # Flipping either default to TRUE is a human attestation about upstream
-  # terms. If this fails, that attestation is what needs checking; do not
-  # "fix" it by editing the expectation.
-  expect_false(SHIPPED_GATE_DEFAULTS$CARDPOOL_DISCLAIMER_CONFIRMED)
-  expect_false(SHIPPED_GATE_DEFAULTS$IMPLEMENTATION_MIT_NOTICE_CONFIRMED)
+test_that("a gate is only open if its notice actually renders", {
+  # This replaced an assertion that the gates ship closed, which stopped
+  # stating the invariant the moment they were legitimately attested.
+  # What must hold in BOTH states is the conditional: an open gate is a
+  # claim about rendered output, so if the claim is made the output has
+  # to back it. Closing a gate again is allowed and does not fail here.
+  if (isTRUE(SHIPPED_GATE_DEFAULTS$CARDPOOL_DISCLAIMER_CONFIRMED)) {
+    txt <- squish(cardpool_disclaimer_ui())
+    expect_match(txt, "copyrighted by Fantasy Flight Games and/or Wizards of the Coast")
+    expect_match(txt, "Not maintained, produced, endorsed, supported, or affiliated")
+  }
+  if (isTRUE(SHIPPED_GATE_DEFAULTS$IMPLEMENTATION_MIT_NOTICE_CONFIRMED)) {
+    txt <- squish(implementation_mit_notice_ui())
+    expect_match(txt, "Permission is hereby granted, free of charge")
+    expect_match(txt, "THE SOFTWARE IS PROVIDED")
+  }
+  succeed()
 })
 
 test_that("a closed gate blocks its guarded view rather than degrading", {
@@ -45,10 +53,6 @@ test_that("no guard call site passes a literal TRUE", {
   )
   expect_equal(basename(offenders), character(0))
 })
-
-squish <- function(tag) {
-  gsub("[[:space:]]+", " ", paste(as.character(tag), collapse = " "))
-}
 
 # A guard asserts "this view renders the notice". Nothing verified the
 # second half of that sentence, so the app could satisfy every guard

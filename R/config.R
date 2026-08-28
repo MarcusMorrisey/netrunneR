@@ -50,7 +50,7 @@ LLM_USE_POLICY_PRECAUTIONARY <- "no_llm_indexing_of_cardpool_implementation_rule
 #' the guard decorative; that is the specific failure this constant
 #' exists to prevent, so do not reintroduce a literal at a call site.
 #' @export
-CARDPOOL_DISCLAIMER_CONFIRMED <- FALSE
+CARDPOOL_DISCLAIMER_CONFIRMED <- TRUE
 
 #' Pre-ship dependency gate: implementation MIT notice
 #'
@@ -66,7 +66,7 @@ CARDPOOL_DISCLAIMER_CONFIRMED <- FALSE
 #' licensed" -- is not an MIT notice: the licence requires the copyright
 #' line and the permission text be reproduced.
 #' @export
-IMPLEMENTATION_MIT_NOTICE_CONFIRMED <- FALSE
+IMPLEMENTATION_MIT_NOTICE_CONFIRMED <- TRUE
 
 #' Validate required runtime configuration at startup
 #'

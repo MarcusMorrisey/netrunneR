@@ -23,3 +23,9 @@ local({
     lockBinding(gate, ns)
   }
 })
+
+# Tag output is indented by htmltools, so notice assertions would otherwise
+# be matching the renderer's formatting rather than the text.
+squish <- function(tag) {
+  gsub("[[:space:]]+", " ", paste(as.character(tag), collapse = " "))
+}
