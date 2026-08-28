@@ -360,3 +360,79 @@ test_that("filters are cumulative across controls", {
     }
   )
 })
+
+test_that("the Subtype picker matches whole tokens, like the query box does", {
+  # keywords is " - "-delimited, so a substring match pulls in any
+  # subtype that merely CONTAINS the selected one. Against the live pool
+  # that was two real collisions: picking "Corp" also returned
+  # Corporation cards, picking "Security" also returned Security
+  # Protocol. The query box's `s:Corp` was already correct, so the two
+  # paths disagreed about the same question.
+  cards <- tibble::tribble(
+    ~code,   ~title,      ~pack_code, ~faction_code,  ~type_code, ~side_code, ~text, ~cost, ~strength, ~keywords,
+    "has01", "Real Corp", "core",     "neutral-corp", "ice",      "corp",     "",    2L,    1L,        "Corp",
+    "sub01", "Not A Corp","core",     "neutral-corp", "ice",      "corp",     "",    2L,    1L,        "Corporation",
+    "mid01", "Middle",    "core",     "neutral-corp", "ice",      "corp",     "",    2L,    1L,        "Barrier - Corp - AP"
+  )
+  selected_code <- shiny::reactiveVal(NULL)
+
+  shiny::testServer(
+    mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
+    {
+      session$setInputs(subtype = "Corp")
+      session$flushReact()
+      html <- as.character(output$card_grid$html)
+
+      expect_match(html, "has01", fixed = TRUE)
+      # A token in the middle of the list still counts.
+      expect_match(html, "mid01", fixed = TRUE)
+      # The whole point: Corporation is not Corp.
+      expect_false(grepl("sub01", html, fixed = TRUE))
+    }
+  )
+})
+
+test_that("selecting several subtypes is an OR, and none is no filter", {
+  cards <- mini_pool_cardpool()
+  selected_code <- shiny::reactiveVal(NULL)
+
+  shiny::testServer(
+    mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
+    {
+      session$setInputs(side = "", subtype = c("Barrier", "Icebreaker"))
+      session$flushReact()
+      either <- as.character(output$card_grid$html)
+      expect_match(either, "ice01", fixed = TRUE)   # Barrier
+      expect_match(either, "brk01", fixed = TRUE)   # Icebreaker
+      expect_false(grepl("ice02", either, fixed = TRUE))  # Code Gate, neither
+
+      session$setInputs(subtype = character(0))
+      session$flushReact()
+      expect_match(as.character(output$card_grid$html), "ice02", fixed = TRUE)
+    }
+  )
+})
+
+test_that("a subtype containing a regex metacharacter is matched literally", {
+  # No current subtype carries one, so this is a guard against upstream
+  # rather than a live bug -- the picker's choices come from mirrored
+  # data, and the old code interpolated them straight into a pattern.
+  cards <- tibble::tribble(
+    ~code,   ~title,   ~pack_code, ~faction_code,  ~type_code, ~side_code, ~text, ~cost, ~strength, ~keywords,
+    "meta01","Literal","core",     "neutral-corp", "ice",      "corp",     "",    1L,    1L,        "G.mod",
+    "meta02","Decoy",  "core",     "neutral-corp", "ice",      "corp",     "",    1L,    1L,        "GXmod"
+  )
+  selected_code <- shiny::reactiveVal(NULL)
+
+  shiny::testServer(
+    mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
+    {
+      session$setInputs(subtype = "G.mod")
+      session$flushReact()
+      html <- as.character(output$card_grid$html)
+      expect_match(html, "meta01", fixed = TRUE)
+      # "." must not have matched the X.
+      expect_false(grepl("meta02", html, fixed = TRUE))
+    }
+  )
+})
