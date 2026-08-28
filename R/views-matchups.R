@@ -1,3 +1,46 @@
+#' Does a card carry a given cardpool subtype?
+#'
+#' Matches whole tokens, not substrings: `keywords` is a single
+#' `" - "`-delimited string, so grepl("Icebreaker") would also match a
+#' hypothetical "Icebreaker Support" subtype. NA keywords are simply no
+#' subtypes, not an error.
+#' @param keywords Character vector of `card.keywords` values.
+#' @param subtype Character scalar to look for.
+#' @return Logical vector.
+#' @keywords internal
+has_card_subtype <- function(keywords, subtype) {
+  # Indexing rather than ifelse(): ifelse() collapses a zero-length input
+  # to logical(0), which strsplit() then rejects as a non-character
+  # argument. An empty card set is a legitimate input, not an error.
+  keywords <- as.character(keywords)
+  keywords[is.na(keywords)] <- ""
+  tokens <- strsplit(keywords, " - ", fixed = TRUE)
+  vapply(tokens, function(x) subtype %in% trimws(x), logical(1))
+}
+
+#' The card pool this app is about
+#'
+#' ICE, plus the programs that break it. For the initial release "breaks
+#' it" means the `Icebreaker` subtype specifically.
+#'
+#' That is deliberately narrower than the eventual intent, which is every
+#' card that breaks, bypasses or otherwise interacts with ICE -- Boomerang
+#' (Hardware), Inside Job, Ghost Runner and so on. Those are excluded for
+#' now rather than half-supported: they are not comparable on the
+#' cost-to-break axis this app's matchup table is built around, and
+#' several would need their own treatment in the UI. Widening the pool
+#' means deciding what a "matchup" means for a card that bypasses rather
+#' than breaks, which is a design question, not a filter change.
+#'
+#' @param cards A data frame with `type_code` and `keywords` columns.
+#' @return `cards`, filtered.
+#' @export
+ice_breaker_pool <- function(cards) {
+  keep <- cards$type_code == "ice" |
+    (cards$type_code == "program" & has_card_subtype(cards$keywords, "Icebreaker"))
+  cards[keep, , drop = FALSE]
+}
+
 #' Compute ice/breaker matchup pairs
 #'
 #' Joins ice_breaker_traits to cardpool with an inner_join, expands the
@@ -71,7 +114,14 @@ compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_o
   traits <- dplyr::inner_join(ice_breaker_traits, cardpool, by = "code")
 
   ice <- dplyr::filter(traits, .data$type_code == "ice")
-  breakers <- dplyr::filter(traits, .data$type_code == "program")
+  # Icebreakers only, not every program (see ice_breaker_pool()). This
+  # previously took ALL programs, so the cross-join paired every piece of
+  # ICE with Datasucker, Self-modifying Code and every other non-breaker
+  # in the pool.
+  breakers <- dplyr::filter(
+    traits,
+    .data$type_code == "program" & has_card_subtype(.data$keywords, "Icebreaker")
+  )
 
   pairs <- dplyr::cross_join(
     dplyr::select(ice, ice_code = "code", ice_subtypes = "subtypes", ice_rez_cost = "cost"),

@@ -204,7 +204,9 @@ load_ice_breaker_app_data <- function() {
     )))
   }
 
-  cards <- cardpool_result$tables$card
+  # Restricted once, here, so the browser and the matchup table cannot
+  # disagree about what the app's pool is (see ice_breaker_pool()).
+  cards <- ice_breaker_pool(cardpool_result$tables$card)
   legality <- cardpool_result$tables[CARDPOOL_LEGALITY_TABLES]
 
   matchup_overrides <- read_matchup_overrides()
