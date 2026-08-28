@@ -154,8 +154,11 @@ require_rules_disclaimer <- function(has_disclaimer) {
 #' Fantasy Flight Games and/or Null Signal Games" / non-affiliation terms
 #' as cardpool text, so any view rendering `card_image_url()` output is
 #' already covered by, and must still call,
-#' `require_cardpool_disclaimer(TRUE)` -- do not add a second guard for
-#' this.
+#' `require_cardpool_disclaimer(CARDPOOL_DISCLAIMER_CONFIRMED)` -- do not
+#' add a second guard for this. The design doc lists an
+#' `IMAGE_HOTLINK_TERMS_CONFIRMED` gate; the research that gate called
+#' for is the paragraph above, so it is closed here rather than opened
+#' as a third constant.
 #'
 #' @param code Character. Card code (cardpool `card.code`).
 #' @return Character URL.

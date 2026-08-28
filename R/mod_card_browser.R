@@ -99,7 +99,7 @@ browser_search_fields <- function() {
 mod_card_browser_server <- function(id, cards, selected_code, legality = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
 
-    require_cardpool_disclaimer(TRUE)
+    require_cardpool_disclaimer(CARDPOOL_DISCLAIMER_CONFIRMED)
 
     has_legality <- !is.null(legality) &&
       !is.null(legality$format_snapshot) && nrow(legality$format_snapshot) > 0

@@ -47,8 +47,8 @@ mod_matchup_explorer_ui <- function(id) {
 mod_matchup_explorer_server <- function(id, cards, matchup, selected_code) {
   shiny::moduleServer(id, function(input, output, session) {
 
-    require_cardpool_disclaimer(TRUE)
-    require_implementation_license_notice(TRUE)
+    require_cardpool_disclaimer(CARDPOOL_DISCLAIMER_CONFIRMED)
+    require_implementation_license_notice(IMPLEMENTATION_MIT_NOTICE_CONFIRMED)
 
     breakers <- cards[cards$type_code == "program" & cards$side_code == "runner", ]
     ice      <- cards[cards$type_code == "ice", ]
