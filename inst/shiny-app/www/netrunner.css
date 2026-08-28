@@ -1,0 +1,186 @@
+/* ICE::BREAKER visual identity.
+ *
+ * Values measured from jinteki.net and netrunnerdb.com; see
+ * homelab/docs/netrunneR/design-references/jinteki-netrunnerdb-visual-style.md.
+ * Anything expressible as a Bootstrap variable lives in R/theme.R
+ * instead -- this file is only for what needs a selector.
+ */
+
+:root {
+  --nr-ground:      #000000;
+  --nr-panel:       rgba(40, 57, 77, 0.8);
+  --nr-panel-solid: #28394d;
+  --nr-panel-edge:  rgba(120, 146, 178, 0.28);
+  --nr-accent:      #ffa600;
+  --nr-accent-dim:  rgba(255, 166, 0, 0.16);
+  --nr-ink:         #c8c2bc;
+  --nr-ink-bright:  #ffffff;
+  --nr-ink-quiet:   #8a8580;
+  --nr-radius:      4px;
+}
+
+/* ---- panels ---------------------------------------------------------
+ * sidebarPanel() renders a .well. This is jinteki's .blue-shade: a
+ * translucent slate panel on the black ground, not a lighter grey box.
+ */
+.well {
+  background: var(--nr-panel);
+  border: 1px solid var(--nr-panel-edge);
+  border-radius: var(--nr-radius);
+}
+
+/* ---- typography ----------------------------------------------------- */
+h1, h2, h3, h4, h5 { color: var(--nr-ink-bright); }
+.text-muted { color: var(--nr-ink-quiet) !important; }
+
+/* ---- form controls --------------------------------------------------
+ * Deliberately LIGHT on the dark page. Both reference sites do this:
+ * anything you type into keeps a white field and black text. It reads as
+ * a decision rather than an oversight, so it is preserved here rather
+ * than "fixed" while darkening everything else.
+ */
+.form-control,
+.form-select,
+.bootstrap-select > .btn.dropdown-toggle {
+  background-color: #ffffff;
+  color: #212529;
+  border: 1px solid var(--nr-panel-edge);
+  border-radius: var(--nr-radius);
+}
+.form-control::placeholder { color: #6c757d; }
+
+.form-control:focus,
+.bootstrap-select > .btn.dropdown-toggle:focus {
+  /* jinteki focuses inputs with a 2px accent border. */
+  border-color: var(--nr-accent);
+  box-shadow: 0 0 0 1px var(--nr-accent);
+  outline: none;
+}
+
+/* The picker's menu belongs to the field, so it stays light too. */
+.bootstrap-select .dropdown-menu {
+  background: #ffffff;
+  color: #212529;
+  border-radius: var(--nr-radius);
+}
+.bootstrap-select .dropdown-menu .dropdown-item:hover,
+.bootstrap-select .dropdown-menu .dropdown-item.active {
+  background: var(--nr-accent-dim);
+  color: #212529;
+}
+
+/* "Select all" is meaningless when selecting every value equals filtering
+ * by none; only the deselect half does anything. Moved here from an
+ * inline <style> in mod_card_browser.R -- see that module for why. */
+.bs-actionsbox .bs-select-all { display: none; }
+.bs-actionsbox .bs-deselect-all { width: 100%; }
+
+/* ---- buttons -------------------------------------------------------- */
+.btn-outline-secondary {
+  color: var(--nr-accent);
+  border-color: var(--nr-accent);
+  background: transparent;
+}
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+  background: var(--nr-accent-dim);
+  color: var(--nr-accent);
+  border-color: var(--nr-accent);
+}
+
+/* ---- tabs ----------------------------------------------------------- */
+.nav-tabs { border-bottom: 1px solid var(--nr-panel-edge); }
+.nav-tabs .nav-link { color: var(--nr-ink-quiet); border: none; }
+.nav-tabs .nav-link:hover { color: var(--nr-ink); }
+.nav-tabs .nav-link.active {
+  background: transparent;
+  color: var(--nr-accent);
+  border-bottom: 2px solid var(--nr-accent);
+}
+
+/* ---- card grid ------------------------------------------------------
+ * Flex with a gap rather than per-image margins: the grid is a sibling
+ * group, so spacing belongs to the container.
+ */
+.nr-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+.nr-card {
+  width: 150px;
+  border-radius: var(--nr-radius);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.nr-card:hover,
+.nr-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 1px var(--nr-accent), 0 6px 14px rgba(0, 0, 0, 0.6);
+  outline: none;
+}
+/* Banned cards are dimmed rather than dropped, matching
+ * annotate_format_legality()'s choice to annotate instead of filter. */
+.nr-card--banned { opacity: 0.35; filter: grayscale(1); }
+.nr-card--banned:hover { opacity: 0.6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nr-card { transition: none; }
+  .nr-card:hover, .nr-card:focus-visible { transform: none; }
+}
+
+/* ---- the out-of-pool disclosure ------------------------------------- */
+details > summary {
+  cursor: pointer;
+  color: var(--nr-ink-quiet);
+  padding: 6px 0;
+}
+details > summary:hover { color: var(--nr-accent); }
+
+/* ---- matchup table --------------------------------------------------
+ * reactable ships its own light defaults, so the dark ground has to be
+ * asserted rather than inherited.
+ */
+.Reactable {
+  background: transparent;
+  color: var(--nr-ink);
+}
+.rt-th {
+  background: var(--nr-panel-solid);
+  color: var(--nr-ink-bright);
+  border-bottom: 1px solid var(--nr-panel-edge) !important;
+}
+.rt-td {
+  border-bottom: 1px solid var(--nr-panel-edge) !important;
+  /* Costs and credit differentials are columns of digits. */
+  font-variant-numeric: tabular-nums;
+}
+.rt-tr:hover .rt-td { background: var(--nr-accent-dim); }
+
+/* ---- modal ----------------------------------------------------------
+ * The card detail modal sits on the black ground; Bootstrap's default
+ * white panel would read as a different application.
+ */
+.modal-content {
+  background: var(--nr-panel-solid);
+  color: var(--nr-ink);
+  border: 1px solid var(--nr-panel-edge);
+  border-radius: var(--nr-radius);
+}
+.modal-content pre {
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--nr-ink);
+  border: 1px solid var(--nr-panel-edge);
+  border-radius: var(--nr-radius);
+  padding: 8px;
+  white-space: pre-wrap;
+}
+
+/* ---- focus visibility ----------------------------------------------- */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--nr-accent);
+  outline-offset: 2px;
+}

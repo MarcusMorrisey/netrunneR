@@ -24,12 +24,10 @@ mod_card_browser_ui <- function(id) {
       # actions-box renders Select All and Deselect All as a pair, but
       # "select every type" is identical to "filter by no type" -- a
       # control that looks like it does something and does nothing. Only
-      # the deselect half is meaningful, so the other is hidden and this
-      # one is given the full width.
-      shiny::tags$style(shiny::HTML(
-        ".bs-actionsbox .bs-select-all { display: none; }
-         .bs-actionsbox .bs-deselect-all { width: 100%; }"
-      )),
+      # the deselect half is meaningful, so the other is hidden. The rule
+      # itself is in inst/shiny-app/www/netrunner.css with the rest of
+      # the theme, rather than as an inline <style> only this module
+      # knows about.
       shiny::textInput(ns("query"), "Search",
         placeholder = "e.g. t:ice cost<4 s:barrier"),
       # The parsed query echoed back in words, via search_explain(): a
@@ -239,7 +237,7 @@ mod_card_browser_server <- function(id, cards, selected_code, legality = NULL) {
 #' @return A shiny tagList.
 #' @keywords internal
 card_grid_tags <- function(session, d) {
-  shiny::tagList(lapply(seq_len(nrow(d)), function(i) {
+  shiny::tags$div(class = "nr-grid", lapply(seq_len(nrow(d)), function(i) {
     code <- d$code[i]
     banned <- isTRUE(d$is_banned[i])
     restricted <- isTRUE(d$is_restricted[i])
@@ -247,8 +245,11 @@ card_grid_tags <- function(session, d) {
     shiny::tags$img(
       src = card_image_url(code),
       title = note,
-      style = sprintf("width: 150px; margin: 4px; cursor: pointer;%s",
-                      if (banned) " opacity: 0.35; filter: grayscale(1);" else ""),
+      # Classes, not inline style: the grid is themed in
+      # inst/shiny-app/www/netrunner.css, and a size or a dimming rule
+      # that only exists here cannot be changed with the rest of the
+      # visual identity.
+      class = paste("nr-card", if (banned) "nr-card--banned"),
       loading = "lazy",
       onclick = click_sets_input(session, "card_clicked", code)
     )
