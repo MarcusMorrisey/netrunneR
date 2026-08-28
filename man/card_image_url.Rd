@@ -31,6 +31,9 @@ images are cardpool-sourced content under the same "copyrighted by
 Fantasy Flight Games and/or Null Signal Games" / non-affiliation terms
 as cardpool text, so any view rendering \code{card_image_url()} output is
 already covered by, and must still call,
-\code{require_cardpool_disclaimer(TRUE)} -- do not add a second guard for
-this.
+\code{require_cardpool_disclaimer(CARDPOOL_DISCLAIMER_CONFIRMED)} -- do not
+add a second guard for this. The design doc lists an
+\code{IMAGE_HOTLINK_TERMS_CONFIRMED} gate; the research that gate called
+for is the paragraph above, so it is closed here rather than opened
+as a third constant.
 }

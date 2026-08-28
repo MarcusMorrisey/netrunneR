@@ -76,11 +76,12 @@ mod_card_detail_server <- function(id, selected_code, cards) {
       # belongs to the matchup table only (see mod_matchup_explorer.R).
       #
       # This view renders cardpool data (title/text/image), so it must
-      # call require_cardpool_disclaimer(TRUE) AND actually render the
+      # call require_cardpool_disclaimer(CARDPOOL_DISCLAIMER_CONFIRMED)
+      # AND actually render the
       # disclaimer text below -- the guard is a side-effecting assertion,
       # not a UI element, so it is called here rather than placed inside
       # tagList() as if it were a tag.
-      require_cardpool_disclaimer(TRUE)
+      require_cardpool_disclaimer(CARDPOOL_DISCLAIMER_CONFIRMED)
 
       # Middle dot as a \u escape, not the literal character: R CMD check
       # warns on any non-ASCII byte in R source outside comments.
@@ -98,9 +99,7 @@ mod_card_detail_server <- function(id, selected_code, cards) {
             shiny::tags$pre(card$text)
           )
         ),
-        shiny::tags$p(class = "text-muted small",
-          "Not maintained, produced, endorsed, supported, or affiliated with Fantasy Flight Games and/or Wizards of the Coast."
-        )
+        cardpool_disclaimer_ui()
       )
     })
   })

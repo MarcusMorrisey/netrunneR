@@ -38,6 +38,94 @@ require_abr_attribution <- function(has_attribution) {
   invisible(TRUE)
 }
 
+#' The cardpool non-affiliation and copyright disclaimer, as UI
+#'
+#' One definition, rendered by every cardpool-sourced view. The wording
+#' was previously hand-copied into three modules, so a correction to one
+#' silently left the other two stale -- the exact drift
+#' require_cardpool_disclaimer() exists to prevent, reintroduced one
+#' level up in the string itself.
+#'
+#' Both clauses of Null-Signal-Games/netrunner-cards-json's COPYRIGHT.md
+#' are reproduced. Earlier renders carried only the non-affiliation half;
+#' the copyright attribution is the other thing that file asks for, and
+#' omitting it is what kept CARDPOOL_DISCLAIMER_CONFIRMED from being
+#' attestable.
+#'
+#' @return A shiny tag.
+#' @export
+cardpool_disclaimer_ui <- function() {
+  shiny::tags$p(
+    class = "text-muted small",
+    paste0(
+      "Card data is copyrighted by Fantasy Flight Games and/or Wizards of ",
+      "the Coast. Not maintained, produced, endorsed, supported, or ",
+      "affiliated with Fantasy Flight Games and/or Wizards of the Coast."
+    )
+  )
+}
+
+#' The mtgred/netrunner MIT notice, as UI
+#'
+#' MIT requires the permission notice be included with "substantial
+#' portions of the Software" -- naming the licence does not satisfy it,
+#' and naming it is all the app used to do. The text below is verbatim
+#' from that repo's LICENSE.txt, which carries no separate "Copyright
+#' (c) ..." line above it (see require_implementation_license_notice()),
+#' so this notice-and-permission text is the whole of what must travel
+#' with the derived data.
+#'
+#' Rendered inside <details> rather than as a wall of text: the notice is
+#' unconditionally present in the document, which is what the licence
+#' asks for, without displacing the view it accompanies.
+#'
+#' @return A shiny tag.
+#' @export
+implementation_mit_notice_ui <- function() {
+  shiny::tags$details(
+    class = "small text-muted",
+    shiny::tags$summary(
+      paste0(
+        "Ice/breaker interaction logic derived from the mtgred/netrunner ",
+        "implementation, used under the MIT License."
+      )
+    ),
+    shiny::tags$p("MIT License"),
+    shiny::tags$p(
+      paste0(
+      "Permission is hereby granted, free of charge, to any person ",
+      "obtaining a copy of this software and associated documentation ",
+      "files (the \"Software\"), to deal in the Software without ",
+      "restriction, including without limitation the rights to use, copy, ",
+      "modify, merge, publish, distribute, sublicense, and/or sell copies ",
+      "of the Software, and to permit persons to whom the Software is ",
+      "furnished to do so, subject to the following conditions:"
+    
+      )
+    ),
+    shiny::tags$p(
+      paste0(
+      "The above copyright notice and this permission notice shall be ",
+      "included in all copies or substantial portions of the Software."
+    
+      )
+    ),
+    shiny::tags$p(
+      paste0(
+      "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, ",
+      "EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF ",
+      "MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND ",
+      "NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT ",
+      "HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, ",
+      "WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, ",
+      "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER ",
+      "DEALINGS IN THE SOFTWARE."
+    
+      )
+    )
+  )
+}
+
 #' Guard an implementation-sourced view with a required MIT notice flag
 #'
 #' The mtgred/netrunner implementation is MIT licensed. Its LICENSE.txt
@@ -154,8 +242,11 @@ require_rules_disclaimer <- function(has_disclaimer) {
 #' Fantasy Flight Games and/or Null Signal Games" / non-affiliation terms
 #' as cardpool text, so any view rendering `card_image_url()` output is
 #' already covered by, and must still call,
-#' `require_cardpool_disclaimer(TRUE)` -- do not add a second guard for
-#' this.
+#' `require_cardpool_disclaimer(CARDPOOL_DISCLAIMER_CONFIRMED)` -- do not
+#' add a second guard for this. The design doc lists an
+#' `IMAGE_HOTLINK_TERMS_CONFIRMED` gate; the research that gate called
+#' for is the paragraph above, so it is closed here rather than opened
+#' as a third constant.
 #'
 #' @param code Character. Card code (cardpool `card.code`).
 #' @return Character URL.

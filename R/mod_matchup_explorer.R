@@ -13,10 +13,8 @@
 mod_matchup_explorer_ui <- function(id) {
   ns <- shiny::NS(id)
   shiny::fluidPage(
-    shiny::tags$p(class = "text-muted small",
-      "Card data: not maintained, produced, endorsed, supported, or affiliated with Fantasy Flight Games and/or Wizards of the Coast. ",
-      "Ice/breaker interaction logic derived from the mtgred/netrunner implementation (MIT licensed)."
-    ),
+    cardpool_disclaimer_ui(),
+    implementation_mit_notice_ui(),
     shiny::fluidRow(
       shiny::column(4, shiny::radioButtons(ns("mode"), "Compare",
                choices = c("One breaker vs all ice" = "breaker_vs_all",
@@ -47,8 +45,8 @@ mod_matchup_explorer_ui <- function(id) {
 mod_matchup_explorer_server <- function(id, cards, matchup, selected_code) {
   shiny::moduleServer(id, function(input, output, session) {
 
-    require_cardpool_disclaimer(TRUE)
-    require_implementation_license_notice(TRUE)
+    require_cardpool_disclaimer(CARDPOOL_DISCLAIMER_CONFIRMED)
+    require_implementation_license_notice(IMPLEMENTATION_MIT_NOTICE_CONFIRMED)
 
     breakers <- cards[cards$type_code == "program" & cards$side_code == "runner", ]
     ice      <- cards[cards$type_code == "ice", ]
