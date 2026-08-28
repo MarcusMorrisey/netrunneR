@@ -69,7 +69,7 @@ store_base <- function() {
              pacing = list(min_delay_s = 2, max_delay_s = 2),
              build_module_path = "R/build-abr.R",
              base_url = "https://alwaysberunning.net/api"),
-  cardpool = list(source_type = "git_mirror", schedule = "daily", schema_version = 1L,
+  cardpool = list(source_type = "git_mirror", schedule = "daily", schema_version = 2L,
                   pacing = NULL, build_module_path = "R/build-cardpool.R",
                   repo_url = "https://github.com/Null-Signal-Games/netrunner-cards-json.git"),
   rules = list(source_type = "web_archive", schedule = "monthly", schema_version = 1L,

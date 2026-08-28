@@ -89,3 +89,96 @@ test_that("build_cardpool() drops unrecognized upstream keys instead of erroring
   )
   expect_identical(DBI::dbGetQuery(con, "SELECT side FROM faction WHERE code = 'anarch'")$side, "runner")
 })
+
+# ---- card_cycle -------------------------------------------------------
+
+test_that("read_card_cycles() takes legacy_code from upstream, not from the id", {
+  # The four oldest cycles are renames, not separator swaps. Deriving
+  # legacy_code by replacing "_" with "-" would produce "core-set",
+  # "revised-core-set", "napd-multiplayer" and "system-core-2019" -- none
+  # of which is a cycle code -- so these four are the whole reason the
+  # field is read rather than computed.
+  path <- withr::local_tempfile(fileext = ".json")
+  writeLines('[
+    {"id":"core_set","legacy_code":"core","name":"Core Set","position":1,"released_by":"ffg"},
+    {"id":"revised_core_set","legacy_code":"core2","name":"Revised Core","position":2,"released_by":"nsg"},
+    {"id":"red_sand","legacy_code":"red-sand","name":"Red Sand","position":3,"released_by":"ffg"}
+  ]', path)
+
+  out <- read_card_cycles(path)
+
+  expect_equal(nrow(out), 3L)
+  expect_equal(out$legacy_code[out$id == "core_set"], "core")
+  expect_equal(out$legacy_code[out$id == "revised_core_set"], "core2")
+  expect_equal(out$legacy_code[out$id == "red_sand"], "red-sand")
+  expect_false(any(grepl("_", out$legacy_code)))
+})
+
+test_that("read_card_cycles() returns the empty shape for an absent v2 tree", {
+  # An older mirrored commit predates v2/card_cycles.json; the build
+  # tolerates that rather than failing, exactly as it does for card_sets.
+  path <- withr::local_tempfile(fileext = ".json")
+  writeLines("[]", path)
+  out <- read_card_cycles(path)
+  expect_equal(nrow(out), 0L)
+  expect_named(out, c("id", "legacy_code", "name", "position", "released_by"))
+  expect_identical(names(out), names(empty_card_cycle()))
+})
+
+test_that("the cardpool schema gives both card_cycle_id columns a target", {
+  # These two were the only cross-entity columns in the schema without a
+  # REFERENCES clause, because the entity they named was not ingested.
+  sql <- paste(
+    readLines(system.file("sql/schema/cardpool.sql", package = "netrunneR"), warn = FALSE),
+    collapse = "\n"
+  )
+  skip_if(!nzchar(sql), "schema not resolvable from installed package")
+
+  expect_match(sql, "CREATE TABLE card_cycle")
+  expect_match(sql, "legacy_code TEXT NOT NULL REFERENCES cycle[(]code[)]")
+  # Both referencing columns, not just one.
+  expect_equal(
+    length(gregexpr("card_cycle_id TEXT NOT NULL REFERENCES card_cycle[(]id[)]", sql)[[1]]),
+    2L
+  )
+})
+
+test_that("card_cycle_ref_check() passes when every reference resolves", {
+  cc <- tibble::tibble(id = c("core_set", "red_sand"), legacy_code = c("core", "red-sand"))
+  sets <- tibble::tibble(card_cycle_id = c("core_set", "red_sand"))
+  pool <- tibble::tibble(card_cycle_id = "core_set")
+  cyc <- tibble::tibble(code = c("core", "red-sand"))
+
+  out <- card_cycle_ref_check(cc, sets, pool, cyc)
+
+  expect_equal(out$status, "pass")
+  expect_match(out$message, "2 card cycles")
+})
+
+test_that("card_cycle_ref_check() fails on each of the three ways a reference can dangle", {
+  # SQLite enforces none of these, so if this check does not catch them
+  # nothing does -- the failure surfaces much later as an empty join.
+  cc <- tibble::tibble(id = "core_set", legacy_code = "core")
+  cyc <- tibble::tibble(code = "core")
+  ok_sets <- tibble::tibble(card_cycle_id = "core_set")
+  ok_pool <- tibble::tibble(card_cycle_id = "core_set")
+
+  # (a) a card_set naming an unknown cycle
+  a <- card_cycle_ref_check(cc, tibble::tibble(card_cycle_id = "ghost_cycle"), ok_pool, cyc)
+  expect_equal(a$status, "fail")
+  expect_match(a$message, "ghost_cycle")
+
+  # (b) a card_pool_cycle naming an unknown cycle
+  b <- card_cycle_ref_check(cc, ok_sets, tibble::tibble(card_cycle_id = "ghost_pool"), cyc)
+  expect_equal(b$status, "fail")
+  expect_match(b$message, "ghost_pool")
+
+  # (c) a legacy_code that is not a v1 cycle -- the case a string-derived
+  # mapping would have produced for core_set, revised_core_set,
+  # napd_multiplayer and system_core_2019.
+  c_ <- card_cycle_ref_check(
+    tibble::tibble(id = "core_set", legacy_code = "core-set"), ok_sets, ok_pool, cyc
+  )
+  expect_equal(c_$status, "fail")
+  expect_match(c_$message, "core-set")
+})
