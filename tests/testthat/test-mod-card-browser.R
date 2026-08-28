@@ -5,7 +5,9 @@ test_that("a filter combination matching zero cards renders an explicit empty st
   shiny::testServer(
     mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
     {
-      session$setInputs(side = "corp", faction = character(0), type = "program", subtype = character(0))
+      # No corp card is an Icebreaker -- the same non-overlap that made
+      # the Type picker redundant is what makes this combination empty.
+      session$setInputs(side = "corp", faction = character(0), subtype = "Icebreaker")
       session$flushReact()
       rendered <- as.character(output$card_grid$html)
       expect_match(rendered, "No cards match")
@@ -212,12 +214,12 @@ test_that("emptying a filter restores the full grid rather than matching nothing
   shiny::testServer(
     mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
     {
-      session$setInputs(type = "program")
+      session$setInputs(subtype = "Icebreaker")
       session$flushReact()
       narrowed <- as.character(output$card_grid$html)
       expect_false(grepl("ice01", narrowed, fixed = TRUE))
 
-      session$setInputs(type = character(0))
+      session$setInputs(subtype = character(0))
       session$flushReact()
       restored <- as.character(output$card_grid$html)
       expect_match(restored, "ice01", fixed = TRUE)
@@ -273,6 +275,9 @@ test_that("Clear all filters resets every filter, including format", {
 
   testthat::local_mocked_bindings(updateTextInput = record, .package = "shiny")
   testthat::local_mocked_bindings(updatePickerInput = record, .package = "shinyWidgets")
+  # Side is a radio now, so it resets through a different function; a
+  # mock covering only the pickers would silently stop watching it.
+  testthat::local_mocked_bindings(updateRadioGroupButtons = record, .package = "shinyWidgets")
 
   shiny::testServer(
     mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
@@ -282,12 +287,76 @@ test_that("Clear all filters resets every filter, including format", {
     }
   )
 
+  # No "type": that control is gone in this version, and a stale name
+  # here would be the test still believing in a filter the UI dropped.
   expect_setequal(
     names(updates$calls),
-    c("query", "format", "side", "faction", "type", "subtype")
+    c("query", "format", "side", "faction", "subtype")
   )
   expect_identical(updates$calls$query, "")
   expect_identical(updates$calls$format, "")
-  expect_identical(updates$calls$side, character(0))
+  # Any, not the Corp default: clearing to a default would leave a side
+  # applied, which is the same mistake as clearing format back to
+  # Standard.
+  expect_identical(updates$calls$side, "")
   expect_identical(updates$calls$subtype, character(0))
+})
+
+test_that("Side is exclusive: one side at a time, and Any means both", {
+  # Only Corps have ICE and only Runners have programs, so the two pools
+  # do not overlap -- holding both open at once buys nothing, and the
+  # control is a radio rather than a multi-select for that reason.
+  cards <- mini_pool_cardpool()
+  selected_code <- shiny::reactiveVal(NULL)
+
+  shiny::testServer(
+    mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
+    {
+      session$setInputs(side = "corp")
+      session$flushReact()
+      corp_only <- as.character(output$card_grid$html)
+      expect_match(corp_only, "ice01", fixed = TRUE)
+      expect_false(grepl("brk01", corp_only, fixed = TRUE))
+
+      # Choosing the other side replaces rather than adds to it.
+      session$setInputs(side = "runner")
+      session$flushReact()
+      runner_only <- as.character(output$card_grid$html)
+      expect_match(runner_only, "brk01", fixed = TRUE)
+      expect_false(grepl("ice01", runner_only, fixed = TRUE))
+
+      # "" is the Any state. It is a value, not an absent input, which is
+      # why the filter tests nzchar() rather than length().
+      session$setInputs(side = "")
+      session$flushReact()
+      both <- as.character(output$card_grid$html)
+      expect_match(both, "ice01", fixed = TRUE)
+      expect_match(both, "brk01", fixed = TRUE)
+    }
+  )
+})
+
+test_that("filters are cumulative across controls", {
+  # Each control narrows what the last one left; they are ANDed, not
+  # ORed. Runner AND Icebreaker is the runner breakers, not every runner
+  # card plus every icebreaker.
+  cards <- mini_pool_cardpool()
+  selected_code <- shiny::reactiveVal(NULL)
+
+  shiny::testServer(
+    mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
+    {
+      session$setInputs(side = "runner", subtype = "Icebreaker")
+      session$flushReact()
+      html <- as.character(output$card_grid$html)
+      expect_match(html, "brk01", fixed = TRUE)
+      expect_false(grepl("ice01", html, fixed = TRUE))
+
+      # A combination whose halves each match something, but whose
+      # intersection is empty, must render empty rather than either half.
+      session$setInputs(side = "corp", subtype = "Icebreaker")
+      session$flushReact()
+      expect_match(as.character(output$card_grid$html), "No cards match")
+    }
+  )
 })
