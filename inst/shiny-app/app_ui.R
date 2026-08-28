@@ -8,7 +8,13 @@
 #' or the missing-release error screen).
 app_ui <- function() {
   bslib::page_fluid(
-    theme = bslib::bs_theme(),
+    theme = netrunneR::netrunner_theme(),
+    # Served from inst/shiny-app/www, which shinyAppDir() publishes at the
+    # app root. Everything needing a selector lives there; everything
+    # expressible as a Bootstrap variable lives in netrunner_theme().
+    shiny::tags$head(
+      shiny::tags$link(rel = "stylesheet", type = "text/css", href = "netrunner.css")
+    ),
     shiny::uiOutput("main")
   )
 }
