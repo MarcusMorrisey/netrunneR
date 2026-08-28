@@ -1,11 +1,17 @@
 # Assembles individual check records (from validate-helpers.R and a
 # lineage's own build method) into the pass/fail report embedded in the manifest.
-#' Assemble and run the per-lineage validation checks
+#' Assemble the per-lineage validation checks into a pass/fail report
 #'
-#' Runs shape and required-field checks, id uniqueness, a row-count delta
-#' against the previous release (skipped on a lineage's first release) and
-#' referential-integrity checks against joined reference tibbles. The
-#' assembled report is embedded verbatim in the release manifest.
+#' Runs no checks itself, despite an earlier title saying it did. The
+#' individual records -- shape and required-field checks, id uniqueness,
+#' the row-count delta against the previous release, referential-integrity
+#' checks -- are produced by validate-helpers.R and by the lineage's own
+#' build method, and arrive here already computed. This function
+#' concatenates them, fails the report if any single record failed, and
+#' returns it for verbatim embedding in the release manifest.
+#'
+#' Enforcement is the caller's: run_sync() (R/sync.R) is what refuses to
+#' promote on a failing report.
 #'
 #' @param lineage A lineage object.
 #' @param built The value returned by the matching build_lineage() method.

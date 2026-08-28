@@ -2,7 +2,7 @@
 % Please edit documentation in R/validate-helpers.R
 \name{check_col_vals_in_set}
 \alias{check_col_vals_in_set}
-\title{Assert every value of a column falls in an allowed set}
+\title{Check that every value of a column falls in an allowed set}
 \usage{
 check_col_vals_in_set(df, column, allowed)
 }
@@ -17,5 +17,5 @@ check_col_vals_in_set(df, column, allowed)
 A check-result list with \code{check}, \code{status}, and \code{message}.
 }
 \description{
-Assert every value of a column falls in an allowed set
+Check that every value of a column falls in an allowed set
 }

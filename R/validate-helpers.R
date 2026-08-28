@@ -1,6 +1,6 @@
 # Individual validation-check primitives combined by validate_release()
 # into one report; each returns a {check, status, message} record.
-#' Assert every value of a column falls in an allowed set
+#' Check that every value of a column falls in an allowed set
 #' @param df A data frame.
 #' @param column Character. Name of the column to check.
 #' @param allowed Vector of values the column is allowed to contain.
@@ -16,7 +16,7 @@ check_col_vals_in_set <- function(df, column, allowed) {
   )
 }
 
-#' Assert rows are distinct on one or more key columns
+#' Check that rows are distinct on one or more key columns
 #' @param df A data frame.
 #' @param keys Character vector of one or more column names forming the
 #'   uniqueness key.
