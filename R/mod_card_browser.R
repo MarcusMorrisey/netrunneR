@@ -7,7 +7,7 @@
 #' @keywords internal
 MULTI_PICKER_OPTIONS <- list(`actions-box` = TRUE, `none-selected-text` = "Any")
 
-#' Pool browsing: faction/type/subtype/side filters, image grid, code-keyed.
+#' Pool browsing: side/faction/subtype filters, image grid, code-keyed.
 #'
 #' `card.title` is not used as an identity key anywhere below -- only
 #' `card.code` (the schema's actual primary key) -- since titles are not
@@ -41,12 +41,29 @@ mod_card_browser_ui <- function(id) {
       # another, which reads as "this filter cannot be turned off".
       # `none-selected-text` then says what an empty selection MEANS,
       # since a blank box and "no filter applied" look identical.
-      shinyWidgets::pickerInput(ns("side"), "Side", choices = c("corp", "runner"),
-        multiple = TRUE, options = MULTI_PICKER_OPTIONS),
+      # Side is exclusive, not multi-select: only Corps have ICE and only
+      # Runners have programs, so the two pools do not overlap and there
+      # is nothing to be gained from holding both open at once. Picking
+      # one switches the other off, which radio semantics give for free.
+      #
+      # "Any" is kept even so, because the pool is browsable as a whole
+      # and losing that would be a capability change, not a tidy-up.
+      # Corp is the default on first load; Clear all filters returns to
+      # Any, matching the Format convention below -- a default and a
+      # cleared state are different questions.
+      shinyWidgets::radioGroupButtons(
+        ns("side"), "Side",
+        choices = c("Any" = "", "Corp" = "corp", "Runner" = "runner"),
+        selected = "corp", justified = TRUE, size = "sm"
+      ),
       shinyWidgets::pickerInput(ns("faction"), "Faction", choices = NULL,
         multiple = TRUE, options = c(MULTI_PICKER_OPTIONS, list(`live-search` = TRUE))),
-      shinyWidgets::pickerInput(ns("type"), "Type", choices = NULL,
-        multiple = TRUE, options = MULTI_PICKER_OPTIONS),
+      # No Type picker in this version. Its only two values here are ice
+      # and program, which is the Corp/Runner split restated -- the same
+      # filter wearing a second name. The field stays searchable from the
+      # query box (`t:ice`), so this removes a control, not a capability,
+      # and the picker comes back when the pool widens to card types that
+      # do not track side.
       shinyWidgets::pickerInput(ns("subtype"), "Subtype", choices = NULL,
         multiple = TRUE, options = c(MULTI_PICKER_OPTIONS, list(`live-search` = TRUE))),
       shiny::actionButton(ns("clear"), "Clear all filters", class = "btn-sm btn-outline-secondary")
@@ -102,7 +119,6 @@ mod_card_browser_server <- function(id, cards, selected_code, legality = NULL) {
 
     shiny::observe({
       shinyWidgets::updatePickerInput(session, "faction", choices = sort(unique(cards$faction_code)))
-      shinyWidgets::updatePickerInput(session, "type", choices = sort(unique(cards$type_code)))
       shinyWidgets::updatePickerInput(session, "subtype",
         choices = sort(unique(unlist(strsplit(stats::na.omit(cards$keywords), " - ")))))
 
@@ -158,9 +174,11 @@ mod_card_browser_server <- function(id, cards, selected_code, legality = NULL) {
 
     filtered <- shiny::reactive({
       d <- annotated()
-      if (length(input$side))    d <- d[d$side_code %in% input$side, ]
+      # nzchar(), not length(): the radio always has a value, and "" is
+      # the Any state rather than an absent input.
+      side <- input$side %||% ""
+      if (nzchar(side))          d <- d[d$side_code == side, ]
       if (length(input$faction)) d <- d[d$faction_code %in% input$faction, ]
-      if (length(input$type))    d <- d[d$type_code %in% input$type, ]
       if (length(input$subtype)) d <- d[!is.na(d$keywords) & grepl(paste(input$subtype, collapse = "|"), d$keywords), ]
 
       p <- parsed()
@@ -209,7 +227,11 @@ mod_card_browser_server <- function(id, cards, selected_code, legality = NULL) {
     shiny::observeEvent(input$clear, {
       shiny::updateTextInput(session, "query", value = "")
       shinyWidgets::updatePickerInput(session, "format", selected = "")
-      for (filter_id in c("side", "faction", "type", "subtype")) {
+      # Any, not back to the Corp default: a clear that leaves a side
+      # applied has not cleared all filters, the same reasoning the
+      # format reset above already follows.
+      shinyWidgets::updateRadioGroupButtons(session, "side", selected = "")
+      for (filter_id in c("faction", "subtype")) {
         shinyWidgets::updatePickerInput(session, filter_id, selected = character(0))
       }
     })

@@ -2,7 +2,7 @@
 % Please edit documentation in R/mod_card_browser.R
 \name{mod_card_browser_ui}
 \alias{mod_card_browser_ui}
-\title{Pool browsing: faction/type/subtype/side filters, image grid, code-keyed.}
+\title{Pool browsing: side/faction/subtype filters, image grid, code-keyed.}
 \usage{
 mod_card_browser_ui(id)
 }
