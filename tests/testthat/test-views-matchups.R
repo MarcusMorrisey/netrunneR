@@ -164,6 +164,31 @@ test_that("has_card_subtype() matches whole tokens, not substrings", {
   )
 })
 
+test_that("has_card_subtype() handles an empty card set", {
+  # An empty cardpool/traits join is legitimate -- e.g. while the
+  # implementation lineage still keys traits by something the cardpool
+  # does not carry. ifelse() collapsed character(0) to logical(0), which
+  # strsplit() then rejected, crashing the app at startup.
+  expect_identical(has_card_subtype(character(0), "Icebreaker"), logical(0))
+})
+
+test_that("compute_ice_breaker_matchups() survives an empty join", {
+  traits <- tibble::tibble(
+    code = character(0), subtypes = list(), base_strength = numeric(0),
+    break_cost = numeric(0)
+  )
+  cards <- tibble::tibble(
+    code = character(0), type_code = character(0), keywords = character(0),
+    cost = numeric(0)
+  )
+  overrides <- tibble::tibble(
+    ice_code = character(0), breaker_code = character(0),
+    cost_to_break = numeric(0)
+  )
+  result <- compute_ice_breaker_matchups(traits, cards, overrides)
+  expect_identical(nrow(result$matchups), 0L)
+})
+
 test_that("compute_ice_breaker_matchups() pairs ICE with icebreakers only", {
   # Previously every program entered the cross-join, so a piece of ICE was
   # paired with Datasucker and friends.
