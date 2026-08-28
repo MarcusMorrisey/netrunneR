@@ -250,3 +250,44 @@ test_that("an empty query is no filter, not a failed parse", {
     }
   )
 })
+
+test_that("Clear all filters resets every filter, including format", {
+  # Nothing asserted that the observer actually fires -- the neighbouring
+  # test only covers the downstream half of the contract (an empty
+  # selection reads as "filter off"). The button was verified by hand in
+  # a running app instead, which does not survive a refactor.
+  #
+  # Format must reset to "" (Any format), not to Standard: a "clear all
+  # filters" that leaves a format applied has not cleared all filters.
+  cards <- mini_pool_cardpool()
+  selected_code <- shiny::reactiveVal(NULL)
+  updates <- new.env(parent = emptyenv())
+  updates$calls <- list()
+
+  record <- function(session, inputId, ...) {
+    args <- list(...)
+    value <- if ("value" %in% names(args)) args$value else args$selected
+    updates$calls[[inputId]] <- value
+    invisible(NULL)
+  }
+
+  testthat::local_mocked_bindings(updateTextInput = record, .package = "shiny")
+  testthat::local_mocked_bindings(updatePickerInput = record, .package = "shinyWidgets")
+
+  shiny::testServer(
+    mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
+    {
+      session$setInputs(clear = 1)
+      session$flushReact()
+    }
+  )
+
+  expect_setequal(
+    names(updates$calls),
+    c("query", "format", "side", "faction", "type", "subtype")
+  )
+  expect_identical(updates$calls$query, "")
+  expect_identical(updates$calls$format, "")
+  expect_identical(updates$calls$side, character(0))
+  expect_identical(updates$calls$subtype, character(0))
+})
