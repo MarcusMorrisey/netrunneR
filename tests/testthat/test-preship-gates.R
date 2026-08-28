@@ -87,3 +87,21 @@ test_that("every guarded view actually renders the notice it asserts", {
   # one that must carry MIT.
   expect_match(matchup_ui, "Permission is hereby granted, free of charge")
 })
+
+test_that("the rules gate stays closed until a rules-sourced view exists", {
+  # RULES_DISCLAIMER_CONFIRMED guards a view nobody has built. Attesting
+  # that the app renders a disclaimer it has nowhere to render is the
+  # failure this catches -- the gates were added precisely because a
+  # guard with nothing behind it still passes.
+  rendered_anywhere <- any(grepl(
+    "require_rules_disclaimer",
+    unlist(lapply(list.files(test_path("..", ".."), pattern = "[.]R$",
+                             recursive = TRUE, full.names = TRUE),
+                  readLines, warn = FALSE))
+  ))
+  if (!isTRUE(SHIPPED_GATE_DEFAULTS$RULES_DISCLAIMER_CONFIRMED)) {
+    succeed()
+  } else {
+    expect_true(rendered_anywhere)
+  }
+})

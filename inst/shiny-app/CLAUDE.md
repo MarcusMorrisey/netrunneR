@@ -18,7 +18,7 @@ Any view sourced from the `implementation` lineage must render the mtgred/netrun
 
 Any view sourced from the `cardpool` lineage must render a disclaimer that it is not maintained, produced, endorsed, supported, or affiliated with Fantasy Flight Games and/or Wizards of the Coast, and call `netrunneR::require_cardpool_disclaimer(netrunneR::CARDPOOL_DISCLAIMER_CONFIRMED)`; see `R/app.R`.
 
-Any view sourced from the `rules` lineage must render a disclaimer that it is not associated with, produced by, or endorsed by Fantasy Flight Games, R. Talsorian Games, or Wizards of the Coast, and call `netrunneR::require_rules_disclaimer(<a gate constant>)`; see `R/app.R`.
+Any view sourced from the `rules` lineage must render a disclaimer that it is not associated with, produced by, or endorsed by Fantasy Flight Games, R. Talsorian Games, or Wizards of the Coast, and call `netrunneR::require_rules_disclaimer(netrunneR::RULES_DISCLAIMER_CONFIRMED)`; see `R/app.R`.
 
 ## Run
 
@@ -26,4 +26,4 @@ Any view sourced from the `rules` lineage must render a disclaimer that it is no
 Rscript -e 'netrunneR::run_app()'
 ```
 
-Never pass a literal `TRUE` to any of these guards. They are `stopifnot()` assertions, so a literal makes them unfalsifiable and the guard decorative. Pass the pre-ship gate constant from `R/config.R`; if a lineage has no constant yet (rules), add one defaulting to `FALSE` rather than hardcoding the argument.
+Never pass a literal `TRUE` to any of these guards. They are `stopifnot()` assertions, so a literal makes them unfalsifiable and the guard decorative. Pass the pre-ship gate constant from `R/config.R`. All three lineages that have a guard now have one; if you add a fourth, add its constant defaulting to `FALSE` rather than hardcoding the argument.

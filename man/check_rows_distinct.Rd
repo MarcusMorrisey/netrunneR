@@ -2,7 +2,7 @@
 % Please edit documentation in R/validate-helpers.R
 \name{check_rows_distinct}
 \alias{check_rows_distinct}
-\title{Assert rows are distinct on one or more key columns}
+\title{Check that rows are distinct on one or more key columns}
 \usage{
 check_rows_distinct(df, keys)
 }
@@ -16,5 +16,5 @@ uniqueness key.}
 A check-result list with \code{check}, \code{status}, and \code{message}.
 }
 \description{
-Assert rows are distinct on one or more key columns
+Check that rows are distinct on one or more key columns
 }

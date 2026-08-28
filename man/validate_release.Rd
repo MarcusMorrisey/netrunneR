@@ -2,7 +2,7 @@
 % Please edit documentation in R/validate.R
 \name{validate_release}
 \alias{validate_release}
-\title{Assemble and run the per-lineage validation checks}
+\title{Assemble the per-lineage validation checks into a pass/fail report}
 \usage{
 validate_release(lineage, built, checks = list())
 }
@@ -19,8 +19,15 @@ A list with \code{status} ("pass" or "fail") and \code{checks}, the full list
 of individual check records.
 }
 \description{
-Runs shape and required-field checks, id uniqueness, a row-count delta
-against the previous release (skipped on a lineage's first release) and
-referential-integrity checks against joined reference tibbles. The
-assembled report is embedded verbatim in the release manifest.
+Runs no checks itself, despite an earlier title saying it did. The
+individual records -- shape and required-field checks, id uniqueness,
+the row-count delta against the previous release, referential-integrity
+checks -- are produced by validate-helpers.R and by the lineage's own
+build method, and arrive here already computed. This function
+concatenates them, fails the report if any single record failed, and
+returns it for verbatim embedding in the release manifest.
+}
+\details{
+Enforcement is the caller's: run_sync() (R/sync.R) is what refuses to
+promote on a failing report.
 }

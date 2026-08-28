@@ -68,6 +68,23 @@ CARDPOOL_DISCLAIMER_CONFIRMED <- TRUE
 #' @export
 IMPLEMENTATION_MIT_NOTICE_CONFIRMED <- TRUE
 
+#' Pre-ship dependency gate: rules non-affiliation disclaimer
+#'
+#' Passed to require_rules_disclaimer() by any rules-sourced view. There
+#' is no such view yet -- the guard and this constant exist ahead of one
+#' deliberately. The gates were added after every guard call site had
+#' been written with a literal TRUE, and the moment to prevent that
+#' recurring is before a view exists whose author needs an argument to
+#' pass, not after.
+#'
+#' Flipping this to TRUE attests that the app renders nullsignal.games'
+#' own Comprehensive Rules disclaimer -- that Null Signal Games is not
+#' associated with, produced by, or endorsed by Fantasy Flight Games,
+#' R. Talsorian Games, or Wizards of the Coast -- at the exact mirrored
+#' commit.
+#' @export
+RULES_DISCLAIMER_CONFIRMED <- FALSE
+
 #' Validate required runtime configuration at startup
 #'
 #' Rejects a missing or placeholder NRDB_CONTACT so a container never

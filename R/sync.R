@@ -86,7 +86,7 @@ run_sync <- function(lineage, mode = "scheduled", release_id = NULL) {
     record <- list(event = "validation_failed", lineage = lineage$name, at = format_utc_now(), report = report)
     append_ledger(lineage$store_root, record)
     append_sync_log(lineage$store_root, record)
-    rlang::abort("validate_release() failed; release not promoted", class = "netrunneR_validation_failed")
+    rlang::abort("Validation checks failed; release not promoted", class = "netrunneR_validation_failed")
   }
 
   promote(lineage$store_root, attempt_dir, release_id)
