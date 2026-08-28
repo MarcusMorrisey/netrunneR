@@ -102,6 +102,28 @@ CREATE TABLE format (
   name TEXT NOT NULL
 );
 
+-- The v2 cycle entity. `card_set.card_cycle_id` and
+-- `card_pool_cycle.card_cycle_id` both name one of these; before this
+-- table existed they were the only cross-entity columns in this schema
+-- with no REFERENCES target, because the entity they named was simply
+-- not being ingested (upstream ships it as v2/card_cycles.json).
+--
+-- `legacy_code` is the v1 cycle code, stated upstream rather than
+-- derived here -- the two id spaces cover the same 29 cycles but differ
+-- by separator (`red_sand` / `red-sand`) and by four outright renames
+-- (`core_set`/`core`, `revised_core_set`/`core2`,
+-- `napd_multiplayer`/`napd`, `system_core_2019`/`sc19`), so deriving it
+-- by string rule would have been wrong for those four. Verified total in
+-- both directions against a real release: 29 to 29, every legacy_code
+-- present in cycle, every referenced id present here.
+CREATE TABLE card_cycle (
+  id TEXT PRIMARY KEY,
+  legacy_code TEXT NOT NULL REFERENCES cycle(code),
+  name TEXT NOT NULL,
+  position INTEGER,
+  released_by TEXT
+);
+
 -- Card sets are v2's name for what the legacy files call packs, and
 -- `legacy_code` is exactly the v1 pack code (verified: the two sets
 -- correspond 1:1 upstream, in both directions). Carried so a card pool,
@@ -111,7 +133,7 @@ CREATE TABLE card_set (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   legacy_code TEXT NOT NULL,
-  card_cycle_id TEXT NOT NULL,
+  card_cycle_id TEXT NOT NULL REFERENCES card_cycle(id),
   date_release TEXT,
   position INTEGER
 );
@@ -142,7 +164,7 @@ CREATE TABLE card_pool_set (
 
 CREATE TABLE card_pool_cycle (
   card_pool_id TEXT NOT NULL REFERENCES card_pool(id),
-  card_cycle_id TEXT NOT NULL,
+  card_cycle_id TEXT NOT NULL REFERENCES card_cycle(id),
   PRIMARY KEY (card_pool_id, card_cycle_id)
 );
 

@@ -249,6 +249,12 @@ build_cardpool <- function(lineage, staged_raw) {
                    card_cycle_id = character(0), date_release = character(0),
                    position = integer(0))
   }
+  card_cycles_path <- file.path(v2_dir, "card_cycles.json")
+  card_cycles <- if (fs::file_exists(card_cycles_path)) {
+    read_card_cycles(card_cycles_path)
+  } else {
+    empty_card_cycle()
+  }
   printings <- read_printings(file.path(v2_dir, "printings"))
 
   # The legacy mwl table's format column, resolved rather than guessed.
@@ -312,6 +318,7 @@ build_cardpool <- function(lineage, staged_raw) {
     DBI::dbWriteTable(con, "mwl", mwls$mwl, append = TRUE)
     DBI::dbWriteTable(con, "mwl_card", mwls$mwl_card, append = TRUE)
     DBI::dbWriteTable(con, "format", formats$format, append = TRUE)
+    DBI::dbWriteTable(con, "card_cycle", card_cycles, append = TRUE)
     DBI::dbWriteTable(con, "card_set", card_sets, append = TRUE)
     DBI::dbWriteTable(con, "printing", printings, append = TRUE)
     DBI::dbWriteTable(con, "card_pool", pools$card_pool, append = TRUE)
@@ -324,6 +331,8 @@ build_cardpool <- function(lineage, staged_raw) {
     DBI::dbWriteTable(con, "format_snapshot", formats$format_snapshot, append = TRUE)
   })
 
+  cycle_ref_check <- card_cycle_ref_check(card_cycles, card_sets, pools$card_pool_cycle, cycles)
+
   br <- build_revision(lineage, build_module_path = "R/build-cardpool.R")
 
   list(
@@ -334,7 +343,7 @@ build_cardpool <- function(lineage, staged_raw) {
     # release identity must track the exact git commit fetched, since the
     # underlying repo can advance between two builds of the same content.
     release_id = sprintf("%s-b%s", staged_raw$source_revision, substr(br, 1, 12)),
-    checks = list(unknown_key_check, legality_check, active_flag_check)
+    checks = list(unknown_key_check, legality_check, active_flag_check, cycle_ref_check)
   )
 }
 
@@ -620,6 +629,70 @@ read_card_sets <- function(path) {
     position = vapply(parsed, function(s) if (is.null(s$position)) NA_integer_ else as.integer(s$position), integer(1))
   )
   dplyr::arrange(out, .data$id)
+}
+
+#' Check that every card_cycle reference resolves
+#'
+#' The card_cycle foreign keys are declarative: no PRAGMA foreign_keys is
+#' set anywhere, so SQLite will store an id resolving to nothing. Upstream
+#' renaming or dropping a cycle would then surface as an empty join in the
+#' app rather than a failed build, which is the slow way to find out.
+#'
+#' Named rather than inline so it can be tested against a deliberately
+#' broken input; an inline check is only ever exercised by the happy path.
+#'
+#' @param card_cycles,card_sets,card_pool_cycle,cycles The built tibbles.
+#' @return A {check, status, message} record.
+#' @keywords internal
+card_cycle_ref_check <- function(card_cycles, card_sets, card_pool_cycle, cycles) {
+  known <- card_cycles$id
+  bad <- unique(c(
+    setdiff(card_sets$card_cycle_id, known),
+    setdiff(card_pool_cycle$card_cycle_id, known),
+    setdiff(card_cycles$legacy_code, cycles$code)
+  ))
+  list(
+    check = "card_cycle_referential_integrity",
+    status = if (length(bad) == 0) "pass" else "fail",
+    message = if (length(bad) == 0) {
+      sprintf("%d card cycles; every card_set and card_pool_cycle reference resolves, every legacy_code is a known cycle",
+              nrow(card_cycles))
+    } else {
+      sprintf("unresolvable card_cycle references: %s", paste(bad, collapse = ", "))
+    }
+  )
+}
+
+#' Flatten v2/card_cycles.json into the card_cycle table
+#'
+#' `legacy_code` is the v1 cycle code. It is taken from upstream rather
+#' than derived from `id`: 25 of the 29 differ only by separator, but
+#' `core_set`, `revised_core_set`, `napd_multiplayer` and
+#' `system_core_2019` are renames, so a string rule would silently
+#' mis-map exactly the four oldest cycles.
+#' @param path Character. Path to v2/card_cycles.json.
+#' @return A card_cycle tibble.
+#' @keywords internal
+read_card_cycles <- function(path) {
+  parsed <- read_json_raw(path)
+  if (!length(parsed)) return(empty_card_cycle())
+  chr <- function(field) vapply(parsed, function(s) s[[field]] %||% NA_character_, character(1))
+  out <- tibble::tibble(
+    id = chr("id"),
+    legacy_code = chr("legacy_code"),
+    name = chr("name"),
+    position = vapply(parsed, function(s) if (is.null(s$position)) NA_integer_ else as.integer(s$position), integer(1)),
+    released_by = chr("released_by")
+  )
+  dplyr::arrange(out, .data$id)
+}
+
+#' The empty card_cycle tibble, for an older mirrored commit with no v2 tree
+#' @return A zero-row card_cycle tibble.
+#' @keywords internal
+empty_card_cycle <- function() {
+  tibble::tibble(id = character(0), legacy_code = character(0), name = character(0),
+                 position = integer(0), released_by = character(0))
 }
 
 #' Flatten v2/printings into the printing table
