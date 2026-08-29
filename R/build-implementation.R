@@ -33,7 +33,8 @@ build_implementation <- function(lineage, staged_raw) {
   traits <- attach_cardpool_codes(traits, cardpool)
   traits <- dplyr::select(
     traits, "code", "title", "kind", "subroutine_count",
-    "break_cost", "break_qty", "break_subtype", "pump_cost", "pump_amount",
+    "break_cost", "break_qty", "break_subtype", "break_subtype_count",
+    "pump_cost", "pump_amount",
     "pump_stealth", "pump_resource_type", "pump_resource_qty",
     "parse_status"
   )
@@ -178,8 +179,9 @@ ice_parse_status <- function(body, count) {
 #' @keywords internal
 breaker_economics <- function(body) {
   none <- list(break_cost = NA_integer_, break_qty = NA_integer_,
-               break_subtype = NA_character_, pump_cost = NA_integer_,
-               pump_amount = NA_integer_, pump_stealth = NA_integer_,
+               break_subtype = NA_character_, break_subtype_count = 0L,
+               pump_cost = NA_integer_, pump_amount = NA_integer_,
+               pump_stealth = NA_integer_,
                pump_resource_type = NA_character_, pump_resource_qty = NA_integer_,
                parse_status = "not_a_breaker")
 
@@ -200,6 +202,7 @@ breaker_economics <- function(body) {
   bs <- regmatches(body, regexpr('\\(break-sub +[0-9]+ +[0-9]+ +"[^"]*"', body))
   if (length(bs) == 0) {
     none$break_subtype <- declared_subtype
+    none$break_subtype_count <- break_subtype_count(body)
     none$parse_status <- "non_credit_break_cost"
     # The PUMP is still read even though the BREAK cost was not. The two
     # are independent clauses, and a card whose break cost is a virus
@@ -220,6 +223,7 @@ breaker_economics <- function(body) {
 
   list(
     break_cost = bsn[1], break_qty = bsn[2], break_subtype = subtype,
+    break_subtype_count = break_subtype_count(body),
     pump_cost = p$pump_cost, pump_amount = p$pump_amount,
     pump_stealth = p$pump_stealth,
     pump_resource_type = p$pump_resource_type,
@@ -233,6 +237,51 @@ breaker_economics <- function(body) {
     # old two-integer regex could not see. See pump_economics().
     parse_status = if (p$has_pump) "parsed" else "parsed_no_pump"
   )
+}
+
+#' How many distinct ice subtypes this card's break clauses name
+#'
+#' A defcard may carry several `(break-sub ...)` clauses, and they do not
+#' all have to name the same subtype. Penrose breaks Code Gates and also
+#' Barriers on the turn it is installed; Lobisomem breaks Code Gates and
+#' X Barrier subroutines. This table records ONE subtype per card, so for
+#' those two the other subtype is dropped and every pairing against it
+#' vanishes from the matchup table.
+#'
+#' An absent pairing used to render as "not computable", which was at
+#' least honest ignorance. It now renders as CANNOT BREAK, a definite
+#' negative -- so a dropped clause turned a vague wrong answer into a
+#' confident one, for 133 Penrose pairings and 101 Lobisomem pairings.
+#'
+#' This count is the interim guard: where it exceeds 1, the single
+#' recorded `break_subtype` is KNOWN to be incomplete, and
+#' matchup_pair_state() declines to claim the breaker cannot break
+#' anything. It does not fix the underlying gap -- recording every clause
+#' with its own subtype and cost does, and that is the real fix -- it
+#' stops us stating something false in the meantime.
+#'
+#' Counts DISTINCT subtypes rather than clauses: BlacKat, Euler, Odore
+#' and Revolver each carry two clauses naming the same subtype, and for
+#' compatibility purposes one record of it is complete.
+#'
+#' @param body Character. One defcard body.
+#' @return Integer. 0 when the card declares no break clause at all.
+#' @keywords internal
+break_subtype_count <- function(body) {
+  ch <- strsplit(body, "", fixed = TRUE)[[1]]
+  at <- gregexpr("(break-sub ", body, fixed = TRUE)[[1]]
+  if (length(at) == 1 && at[[1]] == -1) return(0L)
+
+  subtypes <- vapply(at, function(start) {
+    close <- read_form(ch, start)
+    if (is.na(close)) return(NA_character_)
+    form <- paste(ch[start:close], collapse = "")
+    literals <- regmatches(form, gregexpr('"[^"]*"', form))[[1]]
+    if (length(literals) == 0) return(NA_character_)
+    gsub('"', "", literals[[1]], fixed = TRUE)
+  }, character(1))
+
+  length(unique(stats::na.omit(subtypes)))
 }
 
 #' Read a `(strength-pump ...)` cost, whatever form it takes
@@ -368,7 +417,7 @@ extract_traits_from_file <- function(path, kind) {
         title = d$title, kind = "ice",
         subroutine_count = as.integer(n),
         break_cost = NA_integer_, break_qty = NA_integer_,
-        break_subtype = NA_character_,
+        break_subtype = NA_character_, break_subtype_count = 0L,
         pump_cost = NA_integer_, pump_amount = NA_integer_,
         pump_stealth = NA_integer_, pump_resource_type = NA_character_,
         pump_resource_qty = NA_integer_,
@@ -381,6 +430,7 @@ extract_traits_from_file <- function(path, kind) {
         subroutine_count = NA_integer_,
         break_cost = e$break_cost, break_qty = e$break_qty,
         break_subtype = e$break_subtype,
+        break_subtype_count = e$break_subtype_count,
         pump_cost = e$pump_cost, pump_amount = e$pump_amount,
         pump_stealth = e$pump_stealth,
         pump_resource_type = e$pump_resource_type,
@@ -405,6 +455,7 @@ empty_traits <- function() {
     title = character(0), kind = character(0),
     subroutine_count = integer(0), break_cost = integer(0),
     break_qty = integer(0), break_subtype = character(0),
+    break_subtype_count = integer(0),
     pump_cost = integer(0), pump_amount = integer(0),
     pump_stealth = integer(0), pump_resource_type = character(0),
     pump_resource_qty = integer(0),
@@ -452,5 +503,15 @@ break_sub_subtype <- function(body) {
   form <- paste(ch[at:close], collapse = "")
   literals <- regmatches(form, gregexpr('"[^"]*"', form))[[1]]
   if (length(literals) == 0) return(NA_character_)
-  gsub('"', "", literals[[length(literals)]], fixed = TRUE)
+  # The FIRST literal, because the subtype is the third POSITIONAL argument
+  # of (break-sub cost qty "Subtype" {opts}) and the cost and quantity are
+  # never strings. Taking the last one instead read whatever string
+  # happened to come after it -- a :label, a :msg, or a subtype named in a
+  # :req -- and Endless Hunger recorded a break_subtype of " subroutine",
+  # which matches no ice at all. Eight cards had a first/last disagreement;
+  # only Endless Hunger reached this function, because the ordinary path
+  # uses a positional regex that stops at the first quoted string. That
+  # divergence between the two readers was itself the bug: they disagreed
+  # about where the subtype lives, and only one of them was right.
+  gsub('"', "", literals[[1]], fixed = TRUE)
 }

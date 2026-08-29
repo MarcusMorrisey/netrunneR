@@ -25,6 +25,13 @@ CREATE TABLE ice_breaker_traits (
   break_qty INTEGER,
   -- 'Barrier' / 'Code Gate' / 'Sentry' / 'All' for an AI breaker.
   break_subtype TEXT,
+  -- How many DISTINCT subtypes this card's break clauses name. Above 1,
+  -- break_subtype above is known to be incomplete -- Penrose breaks Code
+  -- Gates and Barriers, Lobisomem breaks Code Gates and Barriers, and
+  -- only one of each pair is stored. Recorded so a consumer can decline
+  -- to say "cannot break" on evidence it knows is partial, rather than
+  -- reporting our own dropped clause as a fact about the card.
+  break_subtype_count INTEGER,
   -- Credits only. Stealth credits ARE credits -- the qualifier says where
   -- they must be sourced, not that they are a different currency -- so
   -- they are counted here and the constraint is recorded in
