@@ -12,12 +12,11 @@ test_that("a gate is only open if its notice actually renders", {
   # to back it. Closing a gate again is allowed and does not fail here.
   if (isTRUE(SHIPPED_GATE_DEFAULTS$CARDPOOL_DISCLAIMER_CONFIRMED)) {
     txt <- squish(shiny::tagList(cardpool_disclaimer_ui()))
-    # Two notices, one per publisher. Null Signal Games gets its own even
-  # though the cardpool source's own COPYRIGHT.md does not name them --
-  # see cardpool_disclaimer_ui() for the card that settles it. The
-  # Fantasy Flight notice is still COPYRIGHT.md's wording verbatim.
-  expect_match(txt, "copyrighted by Null Signal Games[.]")
-  expect_match(txt, "copyrighted by Fantasy Flight Games and/or Wizards of the Coast")
+    # The default is the mixed-pool notice: all three in one disjunction.
+  # Null Signal Games is named even though the cardpool source's own
+  # COPYRIGHT.md does not name them -- see cardpool_disclaimer_ui() for
+  # the card that settles it.
+  expect_match(txt, "copyrighted by Null Signal Games, Fantasy Flight Games, and/or Wizards of the Coast")
     expect_match(txt, "Not maintained, produced, endorsed, supported, or affiliated")
   }
   if (isTRUE(SHIPPED_GATE_DEFAULTS$IMPLEMENTATION_MIT_NOTICE_CONFIRMED)) {
@@ -68,12 +67,11 @@ test_that("the cardpool disclaimer carries both COPYRIGHT.md clauses", {
   # Collapse whitespace: htmltools indents tag bodies, so a literal
   # match would be asserting the renderer's formatting, not the text.
   txt <- squish(shiny::tagList(cardpool_disclaimer_ui()))
-  # Two notices, one per publisher. Null Signal Games gets its own even
-  # though the cardpool source's own COPYRIGHT.md does not name them --
-  # see cardpool_disclaimer_ui() for the card that settles it. The
-  # Fantasy Flight notice is still COPYRIGHT.md's wording verbatim.
-  expect_match(txt, "copyrighted by Null Signal Games[.]")
-  expect_match(txt, "copyrighted by Fantasy Flight Games and/or Wizards of the Coast")
+  # The default is the mixed-pool notice: all three in one disjunction.
+  # Null Signal Games is named even though the cardpool source's own
+  # COPYRIGHT.md does not name them -- see cardpool_disclaimer_ui() for
+  # the card that settles it.
+  expect_match(txt, "copyrighted by Null Signal Games, Fantasy Flight Games, and/or Wizards of the Coast")
   expect_match(txt, "Not maintained, produced, endorsed, supported, or affiliated")
 })
 
@@ -196,17 +194,22 @@ test_that("a Fantasy Flight card keeps COPYRIGHT.md's wording exactly", {
   expect_no_match(txt, "Null Signal")
 })
 
-test_that("a mixed pool renders both notices", {
+test_that("a mixed pool makes one claim, not two contradictory ones", {
+  # "Card data is copyrighted by Null Signal Games" and "Card data is
+  # copyrighted by Fantasy Flight Games and/or Wizards of the Coast"
+  # cannot both be true of the same card data. Printed together with
+  # nothing saying each covers a subset, they contradict; one disjunction
+  # over all three holds for every card in the pool.
   txt <- squish(cardpool_disclaimer_ui(c("null_signal_games", "fantasy_flight_games")))
-  expect_match(txt, "Null Signal Games")
-  expect_match(txt, "Fantasy Flight Games")
+  expect_match(txt, "copyrighted by Null Signal Games, Fantasy Flight Games, and/or Wizards of the Coast")
+  expect_equal(length(gregexpr("Card data is copyrighted", txt)[[1]]), 1L)
 })
 
 test_that("an untraceable card still gets a notice rather than silence", {
   # Missing legality tables must not mean a view renders no copyright
-  # line at all -- that is the failure the gates exist to prevent.
+  # line at all -- that is the failure the gates exist to prevent. It
+  # falls back to naming all three, which is true of any card.
   expect_equal(card_publishers("01061", NULL), character(0))
   txt <- squish(cardpool_disclaimer_ui(character(0)))
-  expect_match(txt, "Null Signal Games")
-  expect_match(txt, "Fantasy Flight Games")
+  expect_match(txt, "copyrighted by Null Signal Games, Fantasy Flight Games, and/or Wizards of the Coast")
 })
