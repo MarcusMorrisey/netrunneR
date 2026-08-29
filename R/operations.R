@@ -128,7 +128,11 @@ read_active_release_tables <- function(lineage_name, db_filename, tables) {
 #' @keywords internal
 CARDPOOL_LEGALITY_TABLES <- c(
   "format", "format_snapshot", "card_pool_set", "restriction_card",
-  "printing", "card_set"
+  # printing -> card_set -> card_cycle is also how a card is traced to
+  # the publisher that released it, which decides which copyright notice
+  # it gets (see card_publishers()). card_cycle is loaded for that, not
+  # for legality.
+  "printing", "card_set", "card_cycle"
 )
 
 #' Read the curated matchup overrides with declared column types

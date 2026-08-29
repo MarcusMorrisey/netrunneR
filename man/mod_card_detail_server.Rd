@@ -4,7 +4,13 @@
 \alias{mod_card_detail_server}
 \title{Card detail modal module server}
 \usage{
-mod_card_detail_server(id, selected_code, cards, rulings = NULL)
+mod_card_detail_server(
+  id,
+  selected_code,
+  cards,
+  rulings = NULL,
+  legality = NULL
+)
 }
 \arguments{
 \item{id}{Module id.}
@@ -22,6 +28,10 @@ session, never releasing the previous set.}
 no nrdb release is active. Optional: the panel is omitted rather
 than the modal failing, since this app is about ice/breaker
 economics and rulings are an augmentation of it.}
+
+\item{legality}{The legality tables, used only to trace this card to
+the publisher that released it, so the modal shows that card's own
+copyright notice rather than every notice the pool needs.}
 }
 \description{
 Card detail modal module server

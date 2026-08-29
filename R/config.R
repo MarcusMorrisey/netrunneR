@@ -59,13 +59,18 @@ LLM_USE_POLICY_PRECAUTIONARY <- "no_llm_indexing_of_cardpool_implementation_rule
 #' data, so nrdb_disclaimer_ui() reproduces both statements above and
 #' links back to the site.
 #'
-#' Flipping this to TRUE is a HUMAN ATTESTATION that someone has read
-#' those terms and agrees the rendered disclaimer matches them -- the same
-#' bar the cardpool and implementation gates were held to. It was left
-#' closed deliberately: the text above was gathered by reading the page,
-#' which is evidence for a person to weigh, not the attestation itself.
+#' ATTESTED OPEN by the maintainer (Marcus Morrisey) on 2026-08-29, on
+#' the evidence above: the two statements are reproduced verbatim by
+#' nrdb_disclaimer_ui(), which also links back to netrunnerdb.com, and no
+#' further obligation was found on the source's own terms page.
+#'
+#' This is a human attestation, not a mechanical change to make a view or
+#' a test pass -- the same bar the cardpool and implementation gates were
+#' held to. Anyone reopening this question should re-read
+#' netrunnerdb.com/en/about rather than trusting the quotation above,
+#' which was accurate at the date given and is not automatically checked.
 #' @export
-NRDB_ATTRIBUTION_CONFIRMED <- FALSE
+NRDB_ATTRIBUTION_CONFIRMED <- TRUE
 
 #' Pre-ship dependency gate: cardpool non-affiliation disclaimer
 #'

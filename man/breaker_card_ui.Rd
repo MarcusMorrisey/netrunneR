@@ -4,7 +4,7 @@
 \alias{breaker_card_ui}
 \title{A portrait breaker card}
 \usage{
-breaker_card_ui(session, breaker)
+breaker_card_ui(session, breaker, ice_code)
 }
 \description{
 A portrait breaker card

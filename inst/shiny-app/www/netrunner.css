@@ -482,3 +482,35 @@ summary:focus-visible {
   border-left: 2px solid var(--nr-accent-dim);
   color: var(--nr-ink);
 }
+
+/* ---- remove control --------------------------------------------------
+ * Hidden until the pointer is on the card, or the button takes keyboard
+ * focus. The cards carry the publisher's own art and text and nothing
+ * sits on top of that at rest -- but a card you cannot take off the board
+ * is worse than a control you have to hover for.
+ */
+.nr-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  font-size: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--nr-panel-edge);
+  background: rgba(0, 0, 0, 0.72);
+  color: var(--nr-ink);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.nr-lane-card:hover .nr-remove,
+.nr-remove:focus-visible { opacity: 1; }
+.nr-remove:hover {
+  border-color: var(--nr-bad);
+  color: var(--nr-bad);
+}
+/* Never invisible to the keyboard: opacity 0 still takes focus, so the
+ * focus ring has to be able to bring it back into view. */
+.nr-remove:focus-visible { outline: 2px solid var(--nr-accent); }
