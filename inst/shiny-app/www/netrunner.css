@@ -184,3 +184,250 @@ summary:focus-visible {
   outline: 2px solid var(--nr-accent);
   outline-offset: 2px;
 }
+
+/* ---- lane board ------------------------------------------------------
+ * Implements Main.dc.html from
+ * homelab/docs/netrunneR/design-references/wireframes/.
+ *
+ * The wireframe carries its own inline palette. Where a value there
+ * corresponds to one already measured off jinteki/netrunnerdb, the
+ * measured value above wins -- the point of NETRUNNER_PALETTE (R/theme.R)
+ * is that the app has ONE set of colours, and a wireframe's working
+ * variation is not a second source of truth. Only the tokens the
+ * wireframe genuinely introduces are added here: two deeper panel
+ * shades for the chrome, an accent-tinted border for active/inviting
+ * edges, and the good/bad pair for the credit differential (which is the
+ * one place this app must say "better" or "worse" in colour).
+ */
+:root {
+  --nr-chrome:     #0f1820;  /* suite strip: below the panel, above black */
+  --nr-chrome-2:   #16212c;  /* app bar gradient top */
+  --nr-edge-hi:    rgba(255, 166, 0, 0.55);
+  --nr-good:       #6fd08c;
+  --nr-bad:        #e07a6b;
+  --nr-ink-faint:  #617485;
+}
+
+/* ---- suite nav strip ------------------------------------------------
+ * Sibling apps that do not exist yet are styled as plainly non-clickable
+ * (default cursor, no hover) rather than as links -- the strip reads as
+ * designed without promising navigation that would 404.
+ */
+.nr-suite {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 9px 28px;
+  background: var(--nr-chrome);
+  border-bottom: 1px solid var(--nr-panel-edge);
+}
+.nr-suite-brand {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--nr-ink-faint);
+}
+.nr-suite-rule { width: 1px; height: 16px; background: var(--nr-panel-edge); }
+.nr-suite-items { display: flex; gap: 4px; }
+.nr-suite-item {
+  padding: 5px 14px;
+  border-radius: var(--nr-radius);
+  font-size: 12.5px;
+}
+.nr-suite-item-active {
+  font-weight: 600;
+  background: var(--nr-accent-dim);
+  color: var(--nr-accent);
+}
+.nr-suite-item-inert { color: var(--nr-ink-quiet); cursor: default; }
+
+/* ---- app bar --------------------------------------------------------- */
+.nr-appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--nr-panel-edge);
+  background: linear-gradient(180deg, var(--nr-chrome-2), var(--nr-ground));
+}
+.nr-appbar-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--nr-ink-bright);
+}
+.nr-appbar-mark { color: var(--nr-accent); font-size: 22px; line-height: 1; }
+.nr-swap { color: var(--nr-accent); }
+.nr-appbar-actions { display: flex; gap: 12px; }
+
+.nr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: var(--nr-radius);
+  border: 1px solid var(--nr-panel-edge);
+  background: transparent;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--nr-ink-quiet);
+}
+.nr-btn-accent {
+  background: var(--nr-accent-dim);
+  border-color: var(--nr-edge-hi);
+  color: var(--nr-accent);
+}
+/* LOAD DECK ships disabled: see mod_lane_board_ui(). Dimmed rather than
+ * hidden, with the native disabled cursor, so the gap is visible. */
+.nr-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- board ----------------------------------------------------------- */
+.nr-board { padding: 28px; overflow-x: auto; }
+.nr-lanes { display: flex; gap: 28px; align-items: flex-start; }
+.nr-lane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 280px;
+  flex: none;
+}
+
+/* ---- cards -----------------------------------------------------------
+ * Card art is the real NetrunnerDB image (card_image_url(), R/app.R).
+ * The gradient sits UNDER it as the background, so a lane still reads as
+ * a lane when an image 404s or the viewer is offline -- which, for an
+ * app built around an offline mirror that nonetheless hotlinks images,
+ * is the expected case rather than the edge case.
+ */
+.nr-lane-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--nr-panel-edge);
+  cursor: pointer;
+}
+.nr-lane-card-ice {
+  width: 280px;
+  height: 196px;
+  background: linear-gradient(115deg, #22303f, #10171e);
+}
+.nr-lane-card-breaker {
+  width: 158px;
+  aspect-ratio: 5 / 7;
+  margin-top: 14px;
+  background: linear-gradient(155deg, #16202c, #0b1117);
+}
+/* Ice art is a portrait scan shown in a landscape frame: crop to the
+ * middle rather than letterboxing, so the frame stays the wireframe's
+ * shape and the title band below stays legible. */
+.nr-lane-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 28%;
+}
+.nr-lane-hatch {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    20deg, transparent, transparent 14px,
+    rgba(255, 166, 0, 0.03) 14px, rgba(255, 166, 0, 0.03) 15px);
+}
+.nr-lane-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 14px;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.88), transparent);
+}
+.nr-lane-card-breaker .nr-lane-label { padding: 8px 10px; }
+.nr-lane-title { font-size: 15px; font-weight: 600; color: var(--nr-ink-bright); }
+.nr-lane-card-breaker .nr-lane-title { font-size: 12.5px; }
+.nr-lane-sub {
+  margin-top: 2px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--nr-ink-faint);
+}
+.nr-lane-card-breaker .nr-lane-sub { font-size: 9.5px; }
+
+.nr-pip {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 9px;
+  border-radius: var(--nr-radius);
+  background: var(--nr-accent-dim);
+  border: 1px solid var(--nr-edge-hi);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--nr-accent);
+}
+.nr-lane-card-breaker .nr-pip { top: 8px; left: 8px; padding: 3px 8px; font-size: 11px; }
+
+/* ---- stat strip ------------------------------------------------------
+ * Narrower than the card above it and butted straight against it: the
+ * strip belongs to that pairing, not to the lane in general.
+ */
+.nr-strip {
+  width: 240px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  font-size: 12px;
+  background: var(--nr-panel);
+  border: 1px solid var(--nr-panel-edge);
+  border-top: none;
+}
+.nr-strip-break { color: var(--nr-ink-quiet); }
+.nr-strip-break b { color: var(--nr-ink); }
+.nr-diff { font-weight: 600; }
+.nr-diff-good { color: var(--nr-good); }
+.nr-diff-bad  { color: var(--nr-bad); }
+.nr-diff-none { color: var(--nr-ink-faint); font-weight: 400; }
+
+.nr-badge {
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+  padding: 2px 7px;
+  border-radius: 99px;
+}
+.nr-badge-formula  { background: rgba(255, 166, 0, 0.10); color: var(--nr-accent); }
+.nr-badge-override { background: rgba(255, 166, 0, 0.22); color: #ffcf80; }
+/* Deliberately the quietest of the three: "not computable" is an absence
+ * of information, and colouring it like a result would overstate it. */
+.nr-badge-unknown  { background: #1c232b; color: var(--nr-ink-faint); }
+
+/* ---- empty slots ----------------------------------------------------- */
+.nr-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--nr-panel-edge);
+  border-radius: 6px;
+  color: var(--nr-ink-faint);
+  cursor: pointer;
+}
+.nr-slot-landscape { width: 280px; height: 196px; }
+.nr-slot-portrait  { width: 158px; aspect-ratio: 5 / 7; margin-top: 14px; }
+.nr-slot-plus { font-size: 26px; line-height: 1; }
+.nr-slot-portrait .nr-slot-plus { font-size: 18px; }
+.nr-slot-text { font-size: 12.5px; font-weight: 600; letter-spacing: 0.03em; }
+.nr-slot:hover { border-color: var(--nr-edge-hi); color: var(--nr-accent); }
+
+/* ---- footer ----------------------------------------------------------
+ * The cardpool disclaimer and the MIT notice are required on this view
+ * (see mod_lane_board_ui()). Quiet, but never display:none -- they are
+ * licence obligations, not decoration.
+ */
+.nr-footer { padding: 16px 28px 22px; font-size: 11.5px; line-height: 1.7; }
+.nr-footer p, .nr-footer summary { color: var(--nr-ink-faint); }

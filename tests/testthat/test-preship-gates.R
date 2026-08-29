@@ -80,12 +80,18 @@ test_that("the implementation notice is an MIT notice, not the licence's name", 
 test_that("every guarded view actually renders the notice it asserts", {
   browser_ui  <- squish(mod_card_browser_ui("b"))
   matchup_ui  <- squish(mod_matchup_explorer_ui("m"))
+  board_ui    <- squish(mod_lane_board_ui("l"))
 
   expect_match(browser_ui, "copyrighted by Fantasy Flight Games")
   expect_match(matchup_ui, "copyrighted by Fantasy Flight Games")
-  # The matchup explorer is the implementation-sourced view, so it is the
-  # one that must carry MIT.
+  expect_match(board_ui, "copyrighted by Fantasy Flight Games")
+  # The matchup explorer and the lane board both render
+  # implementation-derived cost_to_break/credit_differential, so both must
+  # carry MIT. The lane board is the app's landing screen, which makes it
+  # the one most likely to be restyled without the notice being noticed --
+  # exactly what this gate exists to catch.
   expect_match(matchup_ui, "Permission is hereby granted, free of charge")
+  expect_match(board_ui, "Permission is hereby granted, free of charge")
 })
 
 test_that("the rules gate stays closed until a rules-sourced view exists", {
