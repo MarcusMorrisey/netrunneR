@@ -17,9 +17,18 @@ click_sets_input(session, input_id, value)
 Character, for use as an \code{onclick} HTML attribute.
 }
 \description{
-So a clickable element (a card image, a table cell) sets a namespaced
+So a clickable element (a card image, a lane slot) sets a namespaced
 input without a per-element observer -- used identically by
-\code{mod_card_browser.R} and \code{mod_matchup_explorer.R}; factored out here
-rather than each constructing the same JS string.
+\code{mod_card_browser.R} and \code{mod_lane_board.R}; factored out here rather
+than each constructing the same JS string.
+}
+\details{
+ONLY FOR TAGS RENDERED THROUGH \code{renderUI()}. The string this returns is
+an \code{onclick} HTML attribute, and reactable draws its cells through
+React, which ignores a lowercase \code{onclick} -- a table wired this way
+arrives in the browser stripped of its handler and is silently
+unclickable. \code{mod_matchup_explorer.R} used to do exactly that; it now
+passes a \code{htmlwidgets::JS()} callback to \code{reactable::reactable()}
+instead.
 }
 \keyword{internal}

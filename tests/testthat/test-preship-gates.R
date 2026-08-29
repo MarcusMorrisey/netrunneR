@@ -87,8 +87,14 @@ test_that("the implementation notice is an MIT notice, not the licence's name", 
 
 test_that("every guarded view actually renders the notice it asserts", {
   browser_ui  <- squish(mod_card_browser_ui("b"))
-  matchup_ui  <- squish(mod_matchup_explorer_ui("m"))
   board_ui    <- squish(mod_lane_board_ui("l"))
+  # The matchup view is built inside a modal by the server rather than by
+  # a UI function, so the gate reaches its tags through
+  # matchup_modal_body() instead. has_legality = FALSE only drops the
+  # format selector; both notices are unconditional, which is the half of
+  # the view this gate is about.
+  matchup_ui  <- squish(matchup_modal_body(shiny::NS("m"), FALSE,
+                                           c("Any format" = ""), ""))
 
   expect_match(browser_ui, "copyrighted by Null Signal Games")
   expect_match(matchup_ui, "copyrighted by Null Signal Games")

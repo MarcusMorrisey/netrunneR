@@ -10,10 +10,16 @@
 #' WHY LANES RATHER THAN A TABLE: the question this app exists to answer
 #' is "which of my breakers handles this ice, and at what cost" -- that is
 #' a comparison across a handful of chosen cards, not a scan of the full
-#' ice x breaker cross join. `mod_matchup_explorer` renders the whole
-#' matchup tibble as one sortable table, which answers a different
-#' question and is kept for that purpose; this view is what the wireframe
-#' specifies as the landing screen.
+#' ice x breaker cross join. `mod_matchup_explorer` answers the
+#' complementary question -- everything ONE card can meet, sortable by
+#' cost -- and is reached from the card detail modal rather than as a
+#' peer view; this view is what the wireframe specifies as the landing
+#' screen.
+#'
+#' This board reads the matchup table UNFILTERED by format, unlike the
+#' matchup modal and the card browser, which both default to Standard. A
+#' lane can therefore pair cards that no format allows together. That is
+#' a real gap rather than a decision -- see inst/shiny-app/CLAUDE.md.
 #'
 #' BREAKERS ARE PER LANE. Each ice gets its own stack, and each lane's
 #' "+" adds to that lane only. An earlier draft shared one breaker set
@@ -302,7 +308,7 @@ remove_button <- function(session, input_id, value, label) {
                      click_sets_input(session, input_id, value)),
     # Multiplication sign, not the letter x: R CMD check warns on
     # non-ASCII bytes in source outside comments.
-    "×"
+    "\u00d7"
   )
 }
 

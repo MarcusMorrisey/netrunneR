@@ -35,13 +35,34 @@ mod_card_detail_ui <- function(id) {
 #' @param legality The legality tables, used only to trace this card to
 #'   the publisher that released it, so the modal shows that card's own
 #'   copyright notice rather than every notice the pool needs.
+#' @param on_compare Optional callback taking one card code, invoked when
+#'   the user asks to compare this card against everything it can meet.
+#'   NULL omits the control entirely rather than showing one that does
+#'   nothing, so a caller that has not mounted
+#'   mod_matchup_explorer_server() does not advertise a view it cannot
+#'   open. The caller, not this module, owns the transition: this module
+#'   dismisses its own modal and hands the code over.
 #' @export
 mod_card_detail_server <- function(id, selected_code, cards, rulings = NULL,
-                                   legality = NULL) {
+                                   legality = NULL, on_compare = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     shiny::observeEvent(selected_code(), {
       shiny::req(selected_code())
       shiny::showModal(shiny::modalDialog(
+        # An empty marker div identifying WHICH modal this is. There is
+        # only ever one `#shiny-modal` element, and the dismissal handler
+        # below is delegated on `document` rather than bound to the modal
+        # itself, so it survives that element being replaced -- which
+        # means it also fires for a DIFFERENT module's modal. With the
+        # card detail modal the only one in the app that was harmless;
+        # once mod_matchup_explorer_server() added a second, closing
+        # either one cleared both modules' reactiveVals. The clearing
+        # then landed in the middle of a detail -> matchup -> detail
+        # transition and blanked the modal that had just opened, because
+        # the R side sets the new value synchronously while this event
+        # arrives a round trip later. Guarding on the marker keeps each
+        # handler to its own modal.
+        shiny::div(class = "dc-detail-modal", style = "display: none;"),
         shiny::uiOutput(session$ns("detail")),
         # Bootstrap's own `hidden.bs.modal` event fires on EVERY
         # dismissal path -- the Close button, the backdrop click, or
@@ -56,18 +77,39 @@ mod_card_detail_server <- function(id, selected_code, cards, rulings = NULL,
         # the modal reopens.
         shiny::tags$script(shiny::HTML(sprintf(
           "$(document).off('hidden.bs.modal.dcDetail').on('hidden.bs.modal.dcDetail', '#shiny-modal', function() {
+            if (!$(this).find('.dc-detail-modal').length) { return; }
             Shiny.setInputValue('%s', Math.random(), {priority: 'event'});
           });",
           session$ns("dismissed")
         ))),
         size = "l", easyClose = TRUE,
-        footer = shiny::actionButton(session$ns("close"), "Close")
+        footer = shiny::tagList(
+          if (!is.null(on_compare)) {
+            shiny::actionButton(session$ns("compare"), "Compare vs all")
+          },
+          shiny::actionButton(session$ns("close"), "Close")
+        )
       ))
     })
 
     shiny::observeEvent(input$close, {
       shiny::removeModal()
     })
+
+    # Registered only when there is something to call, matching the
+    # footer above: with no on_compare the control is never rendered, so
+    # an observer for it would be waiting on an input that cannot arrive.
+    if (!is.null(on_compare)) {
+      # The code is read BEFORE the modal is dismissed: removeModal()
+      # leads to the handler above clearing selected_code(), so reading
+      # it afterwards would hand the caller a NULL.
+      shiny::observeEvent(input$compare, {
+        shiny::req(selected_code())
+        code <- selected_code()
+        shiny::removeModal()
+        on_compare(code)
+      })
+    }
 
     shiny::observeEvent(input$dismissed, {
       selected_code(NULL)

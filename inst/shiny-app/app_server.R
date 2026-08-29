@@ -17,6 +17,13 @@
 #' the searching, filtering and legality annotation -- only where it is
 #' rendered has moved.
 #'
+#' The matchup view is mounted the same way, as a modal reached from the
+#' card detail modal rather than as a view of its own. It was a "Matchup"
+#' tab under the old navbar and was left mounted nowhere when the lane
+#' board replaced it; the design corpus has no artboard for it, so it is
+#' reached from a card instead of being given a destination the wireframe
+#' does not have.
+#'
 #' @param app_data The value `netrunneR::load_ice_breaker_app_data()` returns.
 app_server <- function(input, output, session, app_data) {
   if (!is.null(app_data$missing_lineages)) {
@@ -32,8 +39,36 @@ app_server <- function(input, output, session, app_data) {
   # setter and only ever calls it; none instantiates its own copy of the
   # detail module.
   selected_code <- shiny::reactiveVal(NULL)
-  netrunneR::mod_card_detail_server("card_detail_modal", selected_code, cards,
-                                    app_data$rulings, app_data$legality)
+
+  # A SECOND caller-owned reactiveVal, exactly parallel to selected_code
+  # and for the same reason: the matchup modal is one module instantiated
+  # once per session, driven by a value this function owns, not a module
+  # rebuilt per click.
+  #
+  # The two are deliberately never set at the same time. Each modal
+  # replaces the other rather than stacking -- Bootstrap nests modals
+  # poorly, and both share the single `#shiny-modal` element -- so the
+  # handoff in each direction dismisses the modal it is leaving before
+  # setting the other value. See the marker div in each module for how
+  # their dismissal handlers are kept from firing on each other.
+  compare_code <- shiny::reactiveVal(NULL)
+
+  netrunneR::mod_card_detail_server(
+    "card_detail_modal", selected_code, cards,
+    app_data$rulings, app_data$legality,
+    # Card detail is the ONLY way into the matchup view. There is no
+    # navbar and the wireframe (Main.dc.html) does not draw one, so the
+    # comparison hangs off the card you already opened rather than
+    # becoming a peer destination. That also means the matchup module
+    # needs no mode selector and no card pickers: you arrive with a card,
+    # and its type decides which side of the pair you are asking about.
+    on_compare = function(code) compare_code(code)
+  )
+
+  netrunneR::mod_matchup_explorer_server(
+    "matchup_modal", compare_code, cards, matchup, selected_code,
+    traits = app_data$traits, legality = app_data$legality
+  )
 
   # The two picker modules are instantiated ONCE per session, not per
   # click. mod_card_browser_server() registers observers, so building a

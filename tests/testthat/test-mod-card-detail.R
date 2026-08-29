@@ -56,3 +56,25 @@ test_that("any dismissal (backdrop click, Escape, or Close) clears selected_code
     expect_null(selected_code())
   })
 })
+
+test_that("the compare control hands the code to on_compare before the modal is dismissed", {
+  # removeModal() leads to the hidden.bs.modal bridge clearing
+  # selected_code(), so reading the code AFTER dismissing would hand the
+  # caller a NULL. This asserts the ordering, not just that the callback
+  # fires.
+  cards <- mini_pool_cardpool()
+  selected_code <- shiny::reactiveVal(NULL)
+  seen <- NULL
+
+  shiny::testServer(
+    mod_card_detail_server,
+    args = list(selected_code = selected_code, cards = cards,
+                on_compare = function(code) seen <<- code),
+    {
+      selected_code("ice01")
+      session$flushReact()
+      session$setInputs(compare = 1)
+      expect_equal(seen, "ice01")
+    }
+  )
+})
