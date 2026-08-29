@@ -94,6 +94,37 @@ test_that("every guarded view actually renders the notice it asserts", {
   expect_match(board_ui, "Permission is hereby granted, free of charge")
 })
 
+test_that("an open nrdb gate means the disclaimer actually renders", {
+  # The gate is an attestation that the app SHOWS the disclaimer, not that
+  # someone once read the terms. If it is open, the rulings panel must
+  # carry the text -- otherwise the attestation is about nothing, which is
+  # the exact failure these gates exist to catch.
+  if (!isTRUE(SHIPPED_GATE_DEFAULTS$NRDB_ATTRIBUTION_CONFIRMED)) {
+    succeed()
+    return(invisible(NULL))
+  }
+
+  rulings <- data.frame(
+    title = "Some Card", ruling = "A ruling. [Official FAQ]",
+    date_update = "2020-01-01", nsg_rules_team_verified = 0L,
+    stringsAsFactors = FALSE
+  )
+  panel <- squish(shiny::tagList(card_rulings_ui(rulings, "Some Card")))
+
+  expect_match(panel, "copyrighted by Fantasy Flight Games and/or Null Signal Games")
+  expect_match(panel, "not produced, endorsed, supported, or affiliated")
+  expect_match(panel, "netrunnerdb.com")
+})
+
+test_that("the nrdb disclaimer quotes the source's own two statements", {
+  txt <- squish(nrdb_disclaimer_ui())
+  # Verbatim from netrunnerdb.com/en/about. Both clauses, not just the
+  # non-affiliation half -- the same omission the cardpool disclaimer was
+  # once corrected for.
+  expect_match(txt, "copyrighted by Fantasy Flight Games and/or Null Signal Games")
+  expect_match(txt, "not produced, endorsed, supported, or affiliated with Fantasy Flight Games")
+})
+
 test_that("the rules gate stays closed until a rules-sourced view exists", {
   # RULES_DISCLAIMER_CONFIRMED guards a view nobody has built. Attesting
   # that the app renders a disclaimer it has nowhere to render is the
