@@ -437,14 +437,18 @@ test_that("a subtype containing a regex metacharacter is matched literally", {
   )
 })
 
-test_that("a picker mounted over one side's pool can start on that side", {
-  # app_server() mounts this module twice as an add-card picker, each
-  # over a pre-narrowed pool. The breaker picker opened on an empty grid
-  # until it could ask for "runner": the Corp browsing default silently
-  # contradicted the data it had been handed.
-  expect_match(as.character(mod_card_browser_ui("b", "runner")),
-               'value="runner"[^>]*checked')
-  expect_match(as.character(mod_card_browser_ui("b")),
-               'value="corp"[^>]*checked')
-  expect_error(mod_card_browser_ui("b", "nonsense"))
+test_that("a picker mounted over one side's pool renders no Side control", {
+  # app_server() mounts this module twice as an add-card picker, each over
+  # a pool already narrowed to one side. There the control has no
+  # non-destructive state to offer: it can restate the choice already made
+  # or empty the grid. filtered() reads input$side %||% "", so omitting it
+  # is already the Any state.
+  picker <- as.character(mod_card_browser_ui("b", side = NULL))
+  expect_no_match(picker, "Side")
+
+  browsing <- as.character(mod_card_browser_ui("b"))
+  expect_match(browsing, "Side")
+  expect_match(browsing, 'value="corp"[^>]*checked')
+
+  expect_error(mod_card_browser_ui("b", side = "nonsense"))
 })

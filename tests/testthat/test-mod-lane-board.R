@@ -119,3 +119,11 @@ test_that("sibling apps that do not exist are inert, not links", {
   expect_match(rendered, "Meta Maps")
   expect_no_match(rendered, "<a[^>]*Meta Maps")
 })
+
+test_that("the add-breaker slot is drawn once, not once per lane", {
+  # Breakers are a shared set, so a slot per lane would be N copies of one
+  # button. The wireframe draws one per lane because it assumed per-lane
+  # breakers; this is the consequence of the other choice.
+  rendered <- render_board(add_ice = c("ice01", "ice02", "ice03"))
+  expect_equal(length(gregexpr("nr-slot-portrait", rendered)[[1]]), 1L)
+})

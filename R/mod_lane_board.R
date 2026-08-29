@@ -134,8 +134,14 @@ mod_lane_board_server <- function(id, cards, matchup, selected_code,
         if (length(codes) == 0) return(empty_board_ui(session))
         shiny::div(
           class = "nr-lanes",
-          lapply(codes, function(ice_code) {
-            lane_ui(session, ice_code, breaker_codes(), cards, matchup)
+          # The add-breaker slot is drawn in the FIRST lane only. The
+          # wireframe puts one at the foot of every lane, which follows
+          # from its per-lane breakers; with one shared breaker set those
+          # would be N copies of a single button, all doing the same
+          # thing. One slot, in the leftmost lane, is that button.
+          lapply(seq_along(codes), function(i) {
+            lane_ui(session, codes[[i]], breaker_codes(), cards, matchup,
+                    show_add_breaker = i == 1L)
           }),
           add_lane_ui(session)
         )
@@ -162,7 +168,8 @@ mod_lane_board_server <- function(id, cards, matchup, selected_code,
 
 #' One lane: an ice card, then every breaker with its stat strip
 #' @keywords internal
-lane_ui <- function(session, ice_code, breaker_codes, cards, matchup) {
+lane_ui <- function(session, ice_code, breaker_codes, cards, matchup,
+                    show_add_breaker = TRUE) {
   ice <- cards[cards$code == ice_code, ]
   if (nrow(ice) == 0) return(NULL)
 
@@ -178,11 +185,13 @@ lane_ui <- function(session, ice_code, breaker_codes, cards, matchup) {
         stat_strip_ui(pair)
       )
     }),
-    shiny::div(
-      class = "nr-slot nr-slot-portrait",
-      onclick = click_sets_input(session, "add_breaker", "slot"),
-      shiny::tags$span(class = "nr-slot-plus", "+")
-    )
+    if (show_add_breaker) {
+      shiny::div(
+        class = "nr-slot nr-slot-portrait",
+        onclick = click_sets_input(session, "add_breaker", "slot"),
+        shiny::tags$span(class = "nr-slot-plus", "+")
+      )
+    }
   )
 }
 

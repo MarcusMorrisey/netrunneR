@@ -320,26 +320,43 @@ summary:focus-visible {
   margin-top: 14px;
   background: linear-gradient(155deg, #16202c, #0b1117);
 }
-/* Both scans are portrait; both frames are not. Crop rather than
- * letterbox, so the frames keep the wireframe's shapes.
+/* An ice tile is an ART CROP, not a card scan.
  *
- * The two object-positions are NOT symmetric, and the difference is not
- * a taste call. ICE is printed to be read rotated, so NetrunnerDB's
- * portrait scan puts the title and rules text at the top and the art in
- * the BOTTOM third; a centred crop of an ice card shows a wall of rules
- * text. Programs are printed portrait and read portrait, so their art is
- * where you would expect it, near the top. Verified against live NRDB
- * images (01061 Heimdall 1.0, 01007 Corroder) in the running app, not
- * inferred from the frame geometry. */
+ * The wireframe draws ice as a landscape tile: artwork, then a title
+ * band. NetrunnerDB serves a portrait card scan instead -- title and
+ * rules text across the top, artwork in the bottom half, and vertical
+ * strips of type line and illustrator credit down the two edges. Fitting
+ * that whole scan into a 280x196 landscape frame shows a slice of card
+ * furniture rather than a picture, which is what it looked like before.
+ *
+ * So the ice art is positioned by hand to land the artwork region, and
+ * only the artwork region, inside the frame. The numbers below depend on
+ * every v2/large image being exactly 300x418 -- which they are, and which
+ * card_image_url() (R/app.R) already relies on -- so they are stated as
+ * pixels rather than percentages. If NetrunnerDB ever changes that size,
+ * this crop is what breaks, and it will look wrong rather than fail.
+ *
+ * Programs need none of this: they are portrait cards shown in a portrait
+ * frame, so the scan fits as-is. */
 .nr-lane-art {
   position: absolute;
+  display: block;
+}
+.nr-lane-card-ice .nr-lane-art {
+  inset: auto;
+  left: -40px;
+  top: -280px;
+  width: 356px;
+  height: auto;
+  object-fit: none;
+}
+.nr-lane-card-breaker .nr-lane-art {
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 22%;
 }
-.nr-lane-card-ice .nr-lane-art { object-position: center 78%; }
-.nr-lane-card-breaker .nr-lane-art { object-position: center 22%; }
 .nr-lane-hatch {
   position: absolute;
   inset: 0;

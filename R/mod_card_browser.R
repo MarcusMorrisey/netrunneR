@@ -16,17 +16,18 @@ MULTI_PICKER_OPTIONS <- list(`actions-box` = TRUE, `none-selected-text` = "Any")
 #' `shiny::` prefixes for the same reason given there.
 #'
 #' @param id Module id.
-#' @param default_side Character. Which side the Side control starts on:
-#'   `"corp"` (the browsing default), `"runner"`, or `""` for Any. A
-#'   caller that has already narrowed the pool to one side must say so,
-#'   or the control silently contradicts the data -- app_server() mounts
-#'   this module twice as an add-card picker, and the breaker picker
-#'   opened on an empty grid until it could ask for "runner" here.
-#'   Clearing all filters still returns to Any, not to this value: a
-#'   default and a cleared state are different questions.
+#' @param side Character. Which side the Side control starts on:
+#'   `"corp"` (the browsing default), `"runner"`, or `""` for Any.
+#'   `NULL` omits the control altogether, for a caller that has already
+#'   narrowed the pool to one side -- there the control cannot do
+#'   anything except contradict the data it was handed, since the only
+#'   states it offers are "the side you already have" and "nothing".
+#'   `filtered()` reads `input$side %||% ""`, so an absent control is
+#'   already the Any state and the server needs no matching change.
 #' @export
-mod_card_browser_ui <- function(id, default_side = c("corp", "runner", "")) {
-  default_side <- match.arg(default_side)
+mod_card_browser_ui <- function(id, side = "corp") {
+  stopifnot(is.null(side) || (is.character(side) && length(side) == 1 &&
+                              side %in% c("corp", "runner", "")))
   ns <- shiny::NS(id)
   shiny::sidebarLayout(
     shiny::sidebarPanel(
@@ -60,10 +61,10 @@ mod_card_browser_ui <- function(id, default_side = c("corp", "runner", "")) {
       # Corp is the default on first load; Clear all filters returns to
       # Any, matching the Format convention below -- a default and a
       # cleared state are different questions.
-      shinyWidgets::radioGroupButtons(
+      if (!is.null(side)) shinyWidgets::radioGroupButtons(
         ns("side"), "Side",
         choices = c("Any" = "", "Corp" = "corp", "Runner" = "runner"),
-        selected = default_side, justified = TRUE, size = "sm"
+        selected = side, justified = TRUE, size = "sm"
       ),
       shinyWidgets::pickerInput(ns("faction"), "Faction", choices = NULL,
         multiple = TRUE, options = c(MULTI_PICKER_OPTIONS, list(`live-search` = TRUE))),
