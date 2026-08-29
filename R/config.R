@@ -36,6 +36,37 @@ LLM_USE_POLICY <- "no_llm_indexing_of_nrdb_text"
 #' @export
 LLM_USE_POLICY_PRECAUTIONARY <- "no_llm_indexing_of_cardpool_implementation_rules_text"
 
+#' Pre-ship dependency gate: NetrunnerDB non-affiliation disclaimer
+#'
+#' Passed to require_nrdb_attribution() by every nrdb-sourced view --
+#' currently the card-detail rulings section, which is the first view in
+#' this app to render nrdb text rather than cardpool or implementation
+#' data.
+#'
+#' STARTS FALSE, WHICH WITHHOLDS THAT SECTION. netrunnerdb.com/en/about
+#' was read live and states, in full on this point:
+#'
+#'   "The information presented on this site about Android: Netrunner,
+#'   both literal and graphical, is copyrighted by Fantasy Flight Games
+#'   and/or Null Signal Games."
+#'
+#'   "This website is not produced, endorsed, supported, or affiliated
+#'   with Fantasy Flight Games."
+#'
+#' No explicit obligation to credit NetrunnerDB was found there, and no
+#' machine-readable licence accompanies the rulings endpoint. Rulings are
+#' nonetheless authored content hosted by NetrunnerDB rather than raw card
+#' data, so nrdb_disclaimer_ui() reproduces both statements above and
+#' links back to the site.
+#'
+#' Flipping this to TRUE is a HUMAN ATTESTATION that someone has read
+#' those terms and agrees the rendered disclaimer matches them -- the same
+#' bar the cardpool and implementation gates were held to. It was left
+#' closed deliberately: the text above was gathered by reading the page,
+#' which is evidence for a person to weigh, not the attestation itself.
+#' @export
+NRDB_ATTRIBUTION_CONFIRMED <- FALSE
+
 #' Pre-ship dependency gate: cardpool non-affiliation disclaimer
 #'
 #' Passed to require_cardpool_disclaimer() by every cardpool-sourced view.

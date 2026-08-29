@@ -377,39 +377,6 @@ summary:focus-visible {
     20deg, transparent, transparent 14px,
     rgba(255, 166, 0, 0.03) 14px, rgba(255, 166, 0, 0.03) 15px);
 }
-.nr-lane-label {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 10px 14px;
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.88), transparent);
-}
-.nr-lane-card-breaker .nr-lane-label { padding: 8px 10px; }
-.nr-lane-title { font-size: 15px; font-weight: 600; color: var(--nr-ink-bright); }
-.nr-lane-card-breaker .nr-lane-title { font-size: 12.5px; }
-.nr-lane-sub {
-  margin-top: 2px;
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  color: var(--nr-ink-faint);
-}
-.nr-lane-card-breaker .nr-lane-sub { font-size: 9.5px; }
-
-.nr-pip {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  padding: 4px 9px;
-  border-radius: var(--nr-radius);
-  background: var(--nr-accent-dim);
-  border: 1px solid var(--nr-edge-hi);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--nr-accent);
-}
-.nr-lane-card-breaker .nr-pip { top: 8px; left: 8px; padding: 3px 8px; font-size: 11px; }
-
 /* ---- stat strip ------------------------------------------------------
  * Narrower than the card above it and butted straight against it: the
  * strip belongs to that pairing, not to the lane in general.
@@ -470,3 +437,48 @@ summary:focus-visible {
  */
 .nr-footer { padding: 16px 28px 22px; font-size: 11.5px; line-height: 1.7; }
 .nr-footer p, .nr-footer summary { color: var(--nr-ink-faint); }
+
+/* ---- rulings panel ---------------------------------------------------
+ * Card-detail only. Deliberately quiet: a ruling is reference text a
+ * reader goes looking for, not something to compete with the card.
+ */
+.nr-rulings-heading { margin-top: 1.25rem; color: var(--nr-ink-bright); }
+.nr-rulings { display: flex; flex-direction: column; gap: 12px; }
+.nr-ruling {
+  padding: 10px 14px;
+  background: var(--nr-panel);
+  border: 1px solid var(--nr-panel-edge);
+  border-radius: var(--nr-radius);
+}
+.nr-ruling-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+}
+/* The source is the weight-bearing label -- an Official FAQ answer and
+ * one person's ruling are different things -- so it gets the accent. */
+.nr-ruling-source {
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--nr-accent-dim);
+  color: var(--nr-accent);
+}
+.nr-ruling-verified {
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: rgba(111, 208, 140, 0.14);
+  color: var(--nr-good);
+}
+.nr-ruling-date { color: var(--nr-ink-faint); margin-left: auto; }
+.nr-ruling-body { font-size: 13px; line-height: 1.55; }
+.nr-ruling-body p:last-child { margin-bottom: 0; }
+/* NetrunnerDB writes the answer as a blockquote under the question. */
+.nr-ruling-body blockquote {
+  margin: 6px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--nr-accent-dim);
+  color: var(--nr-ink);
+}

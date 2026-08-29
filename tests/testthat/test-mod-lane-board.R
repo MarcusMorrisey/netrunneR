@@ -46,11 +46,16 @@ test_that("an empty board invites an ice rather than rendering nothing", {
   expect_match(rendered, "ADD ICE TO COMPARE")
 })
 
-test_that("an added ice anchors a lane with its title and strength", {
+test_that("an added ice anchors a lane, named but not written over", {
   rendered <- render_board(add_ice = "ice01")
-  expect_match(rendered, "Cheap Wall")
-  expect_match(rendered, "BARRIER")
-  expect_match(rendered, "STR 1")
+  # The card image carries the publisher's own title, type line, cost and
+  # strength. The name is still reachable -- as the accessible name and
+  # the hover -- but nothing is painted across the art to repeat it.
+  expect_match(rendered, 'title="Cheap Wall"')
+  expect_match(rendered, 'alt="Cheap Wall"')
+  expect_no_match(rendered, "nr-lane-label")
+  expect_no_match(rendered, "nr-pip")
+  expect_no_match(rendered, "STR 1")
 })
 
 test_that("a hand-curated pair is badged OVERRIDE, not passed off as derived", {
@@ -98,7 +103,9 @@ test_that("a breaker added to one lane does not appear in the others", {
   # column.
   rendered <- render_board(add_ice = c("ice01", "ice02"),
                            lane_breakers = list(ice01 = "brk01"))
-  expect_equal(length(gregexpr("Bargain Breaker", rendered)[[1]]), 1L)
+  # Twice for the one card that is present -- title= and alt= -- and not
+  # at all for the lane it was never added to.
+  expect_equal(length(gregexpr("Bargain Breaker", rendered)[[1]]), 2L)
 })
 
 test_that("each lane carries its own breakers and its own strip", {
@@ -115,7 +122,7 @@ test_that("each lane carries its own breakers and its own strip", {
 
 test_that("adding the same ice twice does not duplicate its lane", {
   rendered <- render_board(add_ice = c("ice01", "ice01"))
-  expect_equal(length(gregexpr("Cheap Wall", rendered)[[1]]), 1L)
+  expect_equal(length(gregexpr("Cheap Wall", rendered)[[1]]), 2L)
 })
 
 test_that("clicking a card sets the shared selected_code", {

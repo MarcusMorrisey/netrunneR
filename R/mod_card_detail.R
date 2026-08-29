@@ -28,8 +28,12 @@ mod_card_detail_ui <- function(id) {
 #'   fresh per card click would accumulate a growing set of observers per
 #'   session, never releasing the previous set.
 #' @param cards The active cardpool's `card` data frame.
+#' @param rulings The active nrdb release's `ruling` table, or NULL when
+#'   no nrdb release is active. Optional: the panel is omitted rather
+#'   than the modal failing, since this app is about ice/breaker
+#'   economics and rulings are an augmentation of it.
 #' @export
-mod_card_detail_server <- function(id, selected_code, cards) {
+mod_card_detail_server <- function(id, selected_code, cards, rulings = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     shiny::observeEvent(selected_code(), {
       shiny::req(selected_code())
@@ -99,7 +103,11 @@ mod_card_detail_server <- function(id, selected_code, cards) {
             shiny::tags$pre(card$text)
           )
         ),
-        cardpool_disclaimer_ui()
+        cardpool_disclaimer_ui(),
+        # Rulings, official FAQ answers and release-note errata for this
+        # card. Returns NULL when the nrdb attribution gate is closed or
+        # the card has none, so nothing here claims a card is unruled.
+        card_rulings_ui(rulings, card$title)
       )
     })
   })

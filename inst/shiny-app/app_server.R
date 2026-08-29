@@ -32,7 +32,8 @@ app_server <- function(input, output, session, app_data) {
   # setter and only ever calls it; none instantiates its own copy of the
   # detail module.
   selected_code <- shiny::reactiveVal(NULL)
-  netrunneR::mod_card_detail_server("card_detail_modal", selected_code, cards)
+  netrunneR::mod_card_detail_server("card_detail_modal", selected_code, cards,
+                                    app_data$rulings)
 
   # The two picker modules are instantiated ONCE per session, not per
   # click. mod_card_browser_server() registers observers, so building a

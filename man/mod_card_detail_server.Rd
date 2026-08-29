@@ -4,7 +4,7 @@
 \alias{mod_card_detail_server}
 \title{Card detail modal module server}
 \usage{
-mod_card_detail_server(id, selected_code, cards)
+mod_card_detail_server(id, selected_code, cards, rulings = NULL)
 }
 \arguments{
 \item{id}{Module id.}
@@ -17,6 +17,11 @@ fresh per card click would accumulate a growing set of observers per
 session, never releasing the previous set.}
 
 \item{cards}{The active cardpool's \code{card} data frame.}
+
+\item{rulings}{The active nrdb release's \code{ruling} table, or NULL when
+no nrdb release is active. Optional: the panel is omitted rather
+than the modal failing, since this app is about ice/breaker
+economics and rulings are an augmentation of it.}
 }
 \description{
 Card detail modal module server

@@ -35,6 +35,15 @@ height either way; and reading ACROSS rows is not the question this
 board answers. It answers "for this ice, which of my breakers handles
 it, and at what cost", which is read down a single lane.
 
+NOTHING IS PAINTED OVER THE CARD. An earlier version drew a title
+band and a cost pip on top of each image, carried over from the
+wireframe -- where the tile was an art crop with no card text on it.
+Now that whole cards are shown, every one of those values is already
+printed on the card itself, in the publisher's own layout, and the
+overlay only covered the art it duplicated. The title survives as the
+element's \code{title} and the image's \code{alt}, which is where a name belongs
+for a clickable image anyway.
+
 This view renders BOTH cardpool data (titles, images, strength,
 keywords) and implementation-derived data (cost_to_break /
 credit_differential), so it renders -- and its server guards -- both
