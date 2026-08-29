@@ -320,7 +320,11 @@ summary:focus-visible {
 }
 .nr-lane-card-ice {
   width: 280px;
-  height: 196px;
+  /* 280 * 300/418: a 300x418 card turned on its side, exactly. The
+   * wireframe draws 196, which is within a few pixels of the real card
+   * proportion -- matching the card exactly is what lets the whole thing
+   * show with no letterboxing and no crop. */
+  height: 201px;
   background: linear-gradient(115deg, #22303f, #10171e);
 }
 .nr-lane-card-breaker {
@@ -329,35 +333,35 @@ summary:focus-visible {
   margin-top: 14px;
   background: linear-gradient(155deg, #16202c, #0b1117);
 }
-/* An ice tile is an ART CROP, not a card scan.
+/* ICE is shown ROTATED, whole and uncropped.
  *
- * The wireframe draws ice as a landscape tile: artwork, then a title
- * band. NetrunnerDB serves a portrait card scan instead -- title and
- * rules text across the top, artwork in the bottom half, and vertical
- * strips of type line and illustrator credit down the two edges. Fitting
- * that whole scan into a 280x196 landscape frame shows a slice of card
- * furniture rather than a picture, which is what it looked like before.
+ * An ice card is printed to be read sideways -- that is why its type line
+ * runs up the left edge of the scan while the rules text runs across.
+ * Turning the scan a quarter turn clockwise is therefore not a
+ * presentation trick: it is the orientation the card is played in, and it
+ * puts that edge type line horizontal where you would read it.
  *
- * So the ice art is positioned by hand to land the artwork region, and
- * only the artwork region, inside the frame. The numbers below depend on
- * every v2/large image being exactly 300x418 -- which they are, and which
- * card_image_url() (R/app.R) already relies on -- so they are stated as
- * pixels rather than percentages. If NetrunnerDB ever changes that size,
- * this crop is what breaks, and it will look wrong rather than fail.
+ * Nothing is cropped or squashed. The image is sized by its pre-rotation
+ * width, so 201px wide becomes 280px tall at the card's own 300:418
+ * ratio, and the quarter turn lays that down as 280x201 -- the frame
+ * above, exactly. Change one of the three numbers and you must change
+ * all three.
  *
- * Programs need none of this: they are portrait cards shown in a portrait
- * frame, so the scan fits as-is. */
+ * Programs need none of this: they are printed portrait, read portrait,
+ * and shown portrait. */
+/* Both card frames position their image absolutely inside an
+ * overflow-hidden box; only the sizing differs by card type below. */
 .nr-lane-art {
   position: absolute;
   display: block;
 }
 .nr-lane-card-ice .nr-lane-art {
   inset: auto;
-  left: -40px;
-  top: -280px;
-  width: 356px;
+  top: 50%;
+  left: 50%;
+  width: 201px;
   height: auto;
-  object-fit: none;
+  transform: translate(-50%, -50%) rotate(90deg);
 }
 .nr-lane-card-breaker .nr-lane-art {
   inset: 0;
@@ -452,7 +456,7 @@ summary:focus-visible {
   color: var(--nr-ink-faint);
   cursor: pointer;
 }
-.nr-slot-landscape { width: 280px; height: 196px; }
+.nr-slot-landscape { width: 280px; height: 201px; }
 .nr-slot-portrait  { width: 158px; aspect-ratio: 5 / 7; margin-top: 14px; }
 .nr-slot-plus { font-size: 26px; line-height: 1; }
 .nr-slot-portrait .nr-slot-plus { font-size: 18px; }
