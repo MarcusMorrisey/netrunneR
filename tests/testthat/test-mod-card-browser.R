@@ -436,3 +436,44 @@ test_that("a subtype containing a regex metacharacter is matched literally", {
     }
   )
 })
+
+test_that("a picker mounted over one side's pool renders no Side control", {
+  # app_server() mounts this module twice as an add-card picker, each over
+  # a pool already narrowed to one side. There the control has no
+  # non-destructive state to offer: it can restate the choice already made
+  # or empty the grid. filtered() reads input$side %||% "", so omitting it
+  # is already the Any state.
+  picker <- as.character(mod_card_browser_ui("b", side = NULL))
+  expect_no_match(picker, "Side")
+
+  browsing <- as.character(mod_card_browser_ui("b"))
+  expect_match(browsing, "Side")
+  expect_match(browsing, 'value="corp"[^>]*checked')
+
+  expect_error(mod_card_browser_ui("b", side = "nonsense"))
+})
+
+test_that("grid tiles carry an intrinsic size, so lazy loading can defer them", {
+  # loading = "lazy" is inert unless the browser can size the box before
+  # the image arrives. Without width/height the grid collapsed to a few
+  # pixels tall, every tile counted as on-screen, and the whole ice pool
+  # (390 images) was fetched on open. The attributes are the fix; this
+  # pins them so a later tidy-up cannot quietly reintroduce the stall.
+  cards <- mini_pool_cardpool()
+  selected_code <- shiny::reactiveVal(NULL)
+  rendered <- NULL
+
+  shiny::testServer(
+    mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
+    {
+      session$setInputs(query = "", format = "", side = "", faction = character(0),
+                        subtype = character(0))
+      session$flushReact()
+      rendered <<- output$card_grid$html
+    }
+  )
+
+  expect_match(rendered, 'loading="lazy"')
+  expect_match(rendered, 'width="300"')
+  expect_match(rendered, 'height="418"')
+})

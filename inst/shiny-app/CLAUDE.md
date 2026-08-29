@@ -8,7 +8,28 @@ Shiny app served by `run_app()` from the installed package directory.
 | --- | --- | --- |
 | `app.R` | Calls `netrunneR::load_ice_breaker_app_data()` ONCE per process, then `shinyApp(ui = app_ui(), server = function(input, output, session) app_server(input, output, session, app_data))` -- the entry point `shiny::shinyAppDir()` actually looks for. Was missing entirely until the ice/breaker matchup app; `app_ui.R`/`app_server.R` alone are not a convention `shinyAppDir()` recognizes. Calls package functions with explicit `netrunneR::` prefixes rather than `library(netrunneR)` (this directory is sourced outside the package namespace, so a bare name would not resolve; explicit prefixes avoid attaching the whole package to the search path from inside a packaged app's own entry point) | Changing how the three files here are wired together, or what's loaded once vs. per session |
 | `app_ui.R` | `app_ui()` -- a single server-rendered `uiOutput("main")`; renders no real content itself, since it runs once at app-definition time before any session (and therefore any release) exists | Implementing UI layout or adding a view |
-| `app_server.R` | `app_server(input, output, session, app_data)` -- takes the already-loaded `app_data` from `app.R` (not resolved/recomputed per session), renders `startup_error_ui()` if `app_data$missing_lineages` is set, otherwise wires `mod_card_browser`/`mod_matchup_explorer`/`mod_card_detail` together through one shared `selected_code` reactiveVal | Implementing reactive server logic or wiring a view |
+| `app_server.R` | `app_server(input, output, session, app_data)` -- takes the already-loaded `app_data` from `app.R` (not resolved/recomputed per session), renders `startup_error_ui()` if `app_data$missing_lineages` is set, otherwise mounts `mod_lane_board` as the WHOLE app and wires two `mod_card_browser` instances (ice pool, breaker pool) as add-card modals behind its ADD ICE / + slots, all sharing one `selected_code` reactiveVal with `mod_card_detail` | Implementing reactive server logic or adding a view |
+
+## Layout
+
+The lane board is the app. There is no navbar and no standalone Browse
+tab: `Main.dc.html` in
+`homelab/docs/netrunneR/design-references/wireframes/` is the landing
+screen, and that canvas's own annotation on `SearchModal.dc.html` says
+the add-card modal "replaces the standalone browse screen". So
+`mod_card_browser` still does all the searching, filtering and legality
+annotation -- only where it is rendered moved, from a peer tab into a
+modal. Nothing in `mod_card_browser.R` changed to allow that: its
+`selected_code` argument is only ever *called* with a code, so passing a
+different `reactiveVal` is the whole of what redirects a click from
+"open the detail modal" to "add this card to the board".
+
+`mod_matchup_explorer` is still exported, still tested, and no longer
+rendered anywhere. It answers a different question from the board -- the
+entire ice x breaker cross join as one sortable table, rather than a
+comparison across a handful of chosen cards -- and was left in place
+rather than deleted along with the navbar that used to host it. It is
+unreachable from the UI until something mounts it again.
 
 There is no separate "matchup" release to resolve: `compute_ice_breaker_matchups()` is a plain function called live against the active cardpool/implementation data, exactly like `compute_identity_ratings()`; `matchup` is not one of the five `BUILTIN_LINEAGES` (see `R/lineage.R`). `netrunneR::load_ice_breaker_app_data()` (`R/operations.R`) is what actually resolves the two releases, reads both SQLite databases, and computes the matchup table -- once per process, shared by every session, since none of this changes for the life of the R process.
 
