@@ -1,16 +1,23 @@
-# Canonical fixture for the new ice/breaker matchup tests, matching the
-# REAL cardpool (inst/sql/schema/cardpool.sql) and implementation
+# Canonical fixture for the ice/breaker matchup tests, matching the REAL
+# cardpool (inst/sql/schema/cardpool.sql) and implementation
 # (inst/sql/schema/implementation.sql) column shapes -- not a separately
 # invented sample per test file. Two pairs are named and reused
 # everywhere: PAIR_RUNNER_FAVORED (credit_differential > 0) and
 # PAIR_CORP_FAVORED (credit_differential < 0).
 #
-# subtype_compatible()'s literal-string-overlap check is pre-existing
-# behavior, not something this fixture attempts to validate for real
-# game accuracy -- "Barrier"/"Code Gate" are used as opaque matching
-# tokens on both the ice and breaker side purely so at least one pair is
-# subtype-compatible and therefore reaches the cost_to_break/override
-# logic under test.
+# The implementation side carries ECONOMICS, not subtypes or strengths:
+# those come from the cardpool half of the fixture, exactly as they do in
+# the real build. Which breaker can touch which ice is decided by the
+# breaker's own break_subtype against the ice's printed keywords.
+#
+# The strengths below are chosen so the formula's branches are all
+# reachable by hand:
+#
+#   ice01 str 1, 1 sub   x brk01 str 1, break 1/1, pump 1/1 -> 0 pump + 1 break = 1
+#   ice02 str 3, 2 subs  x brk02 str 3, break 2/1, pump 2/1 -> 0 pump + 4 break = 4
+#   ice04 str 4, 2 subs  x brk01 str 1, break 1/1, pump 1/1 -> 3 pump + 2 break = 5
+#   ice04 str 4          x brk04 str 2, no pump             -> NA (cannot reach)
+#   ice03 subs unknown   x brk03 cost unknown               -> NA (both ends)
 
 PAIR_RUNNER_FAVORED <- list(ice_code = "ice01", breaker_code = "brk01")
 PAIR_CORP_FAVORED   <- list(ice_code = "ice02", breaker_code = "brk02")
@@ -21,21 +28,29 @@ mini_pool_cardpool <- function() {
     "ice01", "Cheap Wall",      "core",     "neutral-corp",  "ice",      "corp",     "",    2L,    1L,        "Barrier",
     "ice02", "Expensive Code",  "core",     "neutral-corp",  "ice",      "corp",     "",    8L,    3L,        "Code Gate",
     "ice03", "Untouched Gate",  "core",     "neutral-corp",  "ice",      "corp",     "",    4L,    2L,        "Sentry",
-    "brk01", "Bargain Breaker", "core",     "neutral-runner","program",  "runner",   "",    1L,    1L,        "Icebreaker",
-    "brk02", "Pricey Breaker",  "core",     "neutral-runner","program",  "runner",   "",    6L,    3L,        "Icebreaker",
-    "brk03", "Idle Breaker",    "core",     "neutral-runner","program",  "runner",   "",    3L,    2L,        "Icebreaker"
+    "ice04", "Tall Wall",       "core",     "neutral-corp",  "ice",      "corp",     "",    5L,    4L,        "Barrier",
+    "brk01", "Bargain Breaker", "core",     "neutral-runner","program",  "runner",   "",    1L,    1L,        "Icebreaker - Fracter",
+    "brk02", "Pricey Breaker",  "core",     "neutral-runner","program",  "runner",   "",    6L,    3L,        "Icebreaker - Decoder",
+    "brk03", "Idle Breaker",    "core",     "neutral-runner","program",  "runner",   "",    3L,    2L,        "Icebreaker - Killer",
+    "brk04", "Fixed Breaker",   "core",     "neutral-runner","program",  "runner",   "",    4L,    2L,        "Icebreaker - Fracter"
   )
 }
 
 mini_pool_ice_breaker_traits <- function() {
   tibble::tribble(
-    ~code,   ~subtypes,    ~base_strength,
-    "ice01", "Barrier",    1L,
-    "ice02", "Code Gate",  3L,
-    "ice03", "Sentry",     2L,
-    "brk01", "Barrier",    1L,
-    "brk02", "Code Gate",  3L,
-    "brk03", "Sentry",     2L
+    ~code,   ~title,            ~kind,     ~subroutine_count, ~break_cost, ~break_qty, ~break_subtype, ~pump_cost, ~pump_amount, ~parse_status,
+    "ice01", "Cheap Wall",      "ice",     1L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, "parsed",
+    "ice02", "Expensive Code",  "ice",     2L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, "parsed",
+    # Subroutine count genuinely varies with game state, as on Ashigaru.
+    "ice03", "Untouched Gate",  "ice",     NA_integer_,       NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, "variable_subroutines",
+    "ice04", "Tall Wall",       "ice",     2L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, "parsed",
+    "brk01", "Bargain Breaker", "program", NA_integer_,       1L,          1L,          "Barrier",     1L,          1L,          "parsed",
+    "brk02", "Pricey Breaker",  "program", NA_integer_,       2L,          1L,          "Code Gate",   2L,          1L,          "parsed",
+    # Breaks Sentry, but for a cost the parser will not read as credits --
+    # the subtype survives so the pair is still visible as unknown.
+    "brk03", "Idle Breaker",    "program", NA_integer_,       NA_integer_, NA_integer_, "Sentry",      NA_integer_, NA_integer_, "non_credit_break_cost",
+    # A real card design, not a parse failure: fixed strength, no pump.
+    "brk04", "Fixed Breaker",   "program", NA_integer_,       1L,          1L,          "Barrier",     NA_integer_, NA_integer_, "parsed_no_pump"
   )
 }
 

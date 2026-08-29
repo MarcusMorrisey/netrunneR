@@ -174,12 +174,15 @@ test_that("has_card_subtype() handles an empty card set", {
 
 test_that("compute_ice_breaker_matchups() survives an empty join", {
   traits <- tibble::tibble(
-    code = character(0), subtypes = list(), base_strength = numeric(0),
-    break_cost = numeric(0)
+    code = character(0), title = character(0), kind = character(0),
+    subroutine_count = integer(0), break_cost = integer(0),
+    break_qty = integer(0), break_subtype = character(0),
+    pump_cost = integer(0), pump_amount = integer(0),
+    parse_status = character(0)
   )
   cards <- tibble::tibble(
     code = character(0), type_code = character(0), keywords = character(0),
-    cost = numeric(0)
+    cost = integer(0), strength = integer(0)
   )
   overrides <- tibble::tibble(
     ice_code = character(0), breaker_code = character(0),
@@ -193,16 +196,19 @@ test_that("compute_ice_breaker_matchups() pairs ICE with icebreakers only", {
   # Previously every program entered the cross-join, so a piece of ICE was
   # paired with Datasucker and friends.
   traits <- tibble::tribble(
-    ~code,   ~subtypes,  ~base_strength,
-    "ice01", "Barrier",  1L,
-    "brk01", "Barrier",  1L,
-    "prg01", "Barrier",  1L
+    ~code,   ~title,      ~kind,     ~subroutine_count, ~break_cost, ~break_qty, ~break_subtype, ~pump_cost, ~pump_amount, ~parse_status,
+    "ice01", "Some ICE",  "ice",     1L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, "parsed",
+    "brk01", "A Breaker", "program", NA_integer_,       1L,          1L,          "Barrier",     1L,          1L,          "parsed",
+    # A virus program: it has no break clause at all, so the real build
+    # would never emit a row for it. One is written here anyway, to prove
+    # the Icebreaker keyword check is what excludes it.
+    "prg01", "A Virus",   "program", NA_integer_,       1L,          1L,          "Barrier",     1L,          1L,          "parsed"
   )
   cardpool <- tibble::tribble(
-    ~code,   ~title,      ~type_code, ~keywords,             ~cost,
-    "ice01", "Some ICE",  "ice",      "Barrier",             2L,
-    "brk01", "A Breaker", "program",  "Icebreaker - Fracter", 1L,
-    "prg01", "A Virus",   "program",  "Virus",                1L
+    ~code,   ~title,      ~type_code, ~keywords,              ~cost, ~strength,
+    "ice01", "Some ICE",  "ice",      "Barrier",              2L,    1L,
+    "brk01", "A Breaker", "program",  "Icebreaker - Fracter", 1L,    1L,
+    "prg01", "A Virus",   "program",  "Virus",                1L,    1L
   )
 
   matchups <- compute_ice_breaker_matchups(
@@ -211,4 +217,104 @@ test_that("compute_ice_breaker_matchups() pairs ICE with icebreakers only", {
 
   expect_true(all(matchups$breaker_code == "brk01"))
   expect_false("prg01" %in% matchups$breaker_code)
+})
+
+# ---- the cost-to-break formula ---------------------------------------
+# Fixture arithmetic, worked by hand in helper-mini-pool.R. Each case
+# names the branch it covers, because a single wrong number here is the
+# difference between a comparison tool and a plausible-looking one.
+
+matchup_cost <- function(ice_code, breaker_code) {
+  m <- compute_ice_breaker_matchups(
+    mini_pool_ice_breaker_traits(), mini_pool_cardpool(),
+    mini_pool_matchup_overrides()[0, ]
+  )$matchups
+  row <- m[m$ice_code == ice_code & m$breaker_code == breaker_code, ]
+  if (nrow(row) == 0) return(NULL)
+  row
+}
+
+test_that("a breaker already at strength pays only to break", {
+  # ice01 str 1, 1 sub; brk01 str 1, break 1/1 -> 0 pump + 1 break = 1
+  row <- matchup_cost("ice01", "brk01")
+  expect_equal(row$cost_to_break, 1L)
+  expect_equal(row$source, "formula")
+})
+
+test_that("multiple subroutines are broken one application each", {
+  # ice02 str 3, 2 subs; brk02 str 3, break 2/1 -> 0 pump + 2 x 2 = 4
+  expect_equal(matchup_cost("ice02", "brk02")$cost_to_break, 4L)
+})
+
+test_that("a strength gap is pumped before breaking, and both are charged", {
+  # ice04 str 4, 2 subs; brk01 str 1, pump 1/1, break 1/1
+  # -> 3 pumps x 1 + 2 breaks x 1 = 5
+  expect_equal(matchup_cost("ice04", "brk01")$cost_to_break, 5L)
+})
+
+test_that("a breaker that cannot reach the ice's strength gets NA, not a big number", {
+  # brk04 has no strength-pump and is str 2 against ice04's str 4. "You
+  # cannot do this" and "this is expensive" are different answers, and
+  # only one of them is true.
+  row <- matchup_cost("ice04", "brk04")
+  expect_true(is.na(row$cost_to_break))
+  expect_equal(row$source, "not_computable")
+})
+
+test_that("that same pumpless breaker still costs a normal break within its strength", {
+  # ice01 is str 1, below brk04's str 2, so no pump is needed and none is
+  # charged -- the missing pump columns only matter when there is a gap.
+  expect_equal(matchup_cost("ice01", "brk04")$cost_to_break, 1L)
+})
+
+test_that("an ice with a variable subroutine count is not computable", {
+  row <- matchup_cost("ice03", "brk03")
+  expect_true(is.na(row$cost_to_break))
+  expect_equal(row$source, "not_computable")
+})
+
+test_that("a breaker whose break cost is not credits still appears, as unknown", {
+  # brk03 declares Sentry but its cost defeated the parser. The pair must
+  # exist: a pair that is absent and a pair that is unknown look identical
+  # to a reader, and only one of them is true.
+  expect_false(is.null(matchup_cost("ice03", "brk03")))
+})
+
+test_that("pairing follows the breaker's declared subtype, not shared keywords", {
+  # brk02 breaks Code Gate, so it never meets a Barrier however many
+  # keywords the two cards happen to share.
+  expect_null(matchup_cost("ice01", "brk02"))
+  expect_false(is.null(matchup_cost("ice02", "brk02")))
+})
+
+test_that("an AI breaker's 'All' subtype meets every ice", {
+  traits <- mini_pool_ice_breaker_traits()
+  traits$break_subtype[traits$code == "brk01"] <- "All"
+  m <- compute_ice_breaker_matchups(
+    traits, mini_pool_cardpool(), mini_pool_matchup_overrides()[0, ]
+  )$matchups
+  reached <- sort(unique(m$ice_code[m$breaker_code == "brk01"]))
+  expect_equal(reached, c("ice01", "ice02", "ice03", "ice04"))
+})
+
+test_that("break_qty 0 means one application for all subroutines", {
+  # How this codebase writes Begemot: one payment, whatever the count.
+  traits <- mini_pool_ice_breaker_traits()
+  traits$break_qty[traits$code == "brk01"] <- 0L
+  m <- compute_ice_breaker_matchups(
+    traits, mini_pool_cardpool(), mini_pool_matchup_overrides()[0, ]
+  )$matchups
+  # ice04: 2 subs, but one application -> 3 pumps x 1 + 1 x 1 = 4
+  expect_equal(m$cost_to_break[m$ice_code == "ice04" & m$breaker_code == "brk01"], 4L)
+})
+
+test_that("the formula computes without warnings", {
+  # x/0 is Inf and as.integer(Inf) warns while quietly producing NA, so a
+  # divisor guard written inside ifelse() does not actually prevent it.
+  expect_no_warning(
+    compute_ice_breaker_matchups(
+      mini_pool_ice_breaker_traits(), mini_pool_cardpool(),
+      mini_pool_matchup_overrides()
+    )
+  )
 })
