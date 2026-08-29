@@ -65,22 +65,16 @@ re-run of the same inputs at a different wall-clock time still resolves
 to the same cache identity.
 }
 \details{
-NOTE ON SCOPE: \code{cost_to_break} cannot be computed from real per-card
-data yet -- \code{extract_ice_breaker_traits()} (R/build-implementation.R)
-is still a stub that has never parsed real subtype/strength/cost values
-out of a mtgred/netrunner Clojure card definition; it emits one
-placeholder row per \emph{file} (currently one per card \emph{category}, not per
-card). \code{compute_cost_to_break_formula()} below always returns \code{NA}
-until that extraction work lands, so every non-override pair correctly
-reports \code{source == "not_computable"} today -- that is the honest
-current state, not a bug this change introduces.
+SCOPE. \code{cost_to_break} is the standard encounter: raise the breaker to
+the ice's strength, then break every subroutine. It is not the
+cheapest line of play -- it does not model paying a subroutine's cost
+instead of breaking it, letting a subroutine fire, or any
+card-specific trick. It is the number that makes two breakers
+comparable against the same ice.
 
-There is no separate "matchup release": this function is a plain,
-repeatedly-callable computation over already-loaded \code{cardpool} and
-\code{implementation} release data, exactly like \code{compute_identity_ratings()}
-(R/views-ratings.R) -- it is not promoted, versioned, or resolved via
-\code{lineage()}/\code{resolve_release()}, and \code{matchup} is not one of the five
-\code{BUILTIN_LINEAGES}. The \code{cardpool_release_id}/\code{implementation_release_id}
-parameters below exist purely as cache/provenance metadata in the
-sidecar manifest, not as inputs to a promote/rollback mechanism.
+Any pair whose inputs are not all known stays \code{source == "not_computable"}: an ice whose subroutine count is variable by design
+(Ashigaru counts cards in HQ), a breaker whose break cost is a virus
+or power counter rather than credits, or a breaker with no
+strength-pump facing ice above its strength -- which it cannot break
+at all, an answer that is NA rather than a large number.
 }
