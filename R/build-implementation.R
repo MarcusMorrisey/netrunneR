@@ -34,6 +34,7 @@ build_implementation <- function(lineage, staged_raw) {
   traits <- dplyr::select(
     traits, "code", "title", "kind", "subroutine_count",
     "break_cost", "break_qty", "break_subtype", "pump_cost", "pump_amount",
+    "pump_stealth", "pump_resource_type", "pump_resource_qty",
     "parse_status"
   )
 
@@ -178,7 +179,9 @@ ice_parse_status <- function(body, count) {
 breaker_economics <- function(body) {
   none <- list(break_cost = NA_integer_, break_qty = NA_integer_,
                break_subtype = NA_character_, pump_cost = NA_integer_,
-               pump_amount = NA_integer_, parse_status = "not_a_breaker")
+               pump_amount = NA_integer_, pump_stealth = NA_integer_,
+               pump_resource_type = NA_character_, pump_resource_qty = NA_integer_,
+               parse_status = "not_a_breaker")
 
   if (!grepl("(break-sub ", body, fixed = TRUE)) return(none)
 
@@ -198,25 +201,147 @@ breaker_economics <- function(body) {
   if (length(bs) == 0) {
     none$break_subtype <- declared_subtype
     none$parse_status <- "non_credit_break_cost"
+    # The PUMP is still read even though the BREAK cost was not. The two
+    # are independent clauses, and a card whose break cost is a virus
+    # counter can still have a perfectly ordinary credit pump -- dropping
+    # it here would lose data for no reason.
+    p <- pump_economics(body)
+    none$pump_cost <- p$pump_cost
+    none$pump_amount <- p$pump_amount
+    none$pump_stealth <- p$pump_stealth
+    none$pump_resource_type <- p$pump_resource_type
+    none$pump_resource_qty <- p$pump_resource_qty
     return(none)
   }
   bsn <- as.integer(regmatches(bs, gregexpr("[0-9]+", bs))[[1]])
   subtype <- sub('.*"([^"]*)"$', "\\1", bs)
 
-  sp <- regmatches(body, regexpr("\\(strength-pump +[0-9]+ +[0-9]+", body))
-  spn <- if (length(sp)) {
-    as.integer(regmatches(sp, gregexpr("[0-9]+", sp))[[1]])
-  } else {
-    c(NA_integer_, NA_integer_)
-  }
+  p <- pump_economics(body)
 
   list(
     break_cost = bsn[1], break_qty = bsn[2], break_subtype = subtype,
-    pump_cost = spn[1], pump_amount = spn[2],
+    pump_cost = p$pump_cost, pump_amount = p$pump_amount,
+    pump_stealth = p$pump_stealth,
+    pump_resource_type = p$pump_resource_type,
+    pump_resource_qty = p$pump_resource_qty,
     # A breaker with no strength-pump has a fixed strength, which is a
-    # real card design (Afterimage, Atman), not a parse failure. It only
+    # real card design (Atman, Adept), not a parse failure. It only
     # limits which ice it can reach, which the formula handles.
-    parse_status = if (length(sp)) "parsed" else "parsed_no_pump"
+    #
+    # Afterimage used to be named here as an example of that and was the
+    # wrong example: it has a pump, costing a stealth credit, which the
+    # old two-integer regex could not see. See pump_economics().
+    parse_status = if (p$has_pump) "parsed" else "parsed_no_pump"
+  )
+}
+
+#' Read a `(strength-pump ...)` cost, whatever form it takes
+#'
+#' The pump clause has four shapes in the source, and only the first was
+#' ever read:
+#'
+#'     (strength-pump 2 2)                             plain credits
+#'     (strength-pump (->c :credit 1 {:stealth 1}) 3)  credits, stealth-sourced
+#'     (strength-pump [(->c :power 1)] 2)              a non-credit resource
+#'     (strength-pump [(->c :virus 1) 3] 2)            both at once (Hantu)
+#'
+#' A regex bounded to two integers matches only the first, so the other
+#' three produced no pump at all -- and compute_cost_to_break_formula()
+#' reads "no pump" as "this breaker cannot reach ice above its own
+#' strength", which is a DEFINITE WRONG ANSWER rather than a missing one.
+#' Eleven breakers were affected, every stealth breaker among them
+#' (Refractor, Switchblade, Dagger, Blackstone, Houdini, Penrose,
+#' Afterimage) plus Audrey v2, Faust, Hantu and Propeller. That is the
+#' failure this whole table exists to avoid: an honest NA says "we do not
+#' know", and these were saying "it cannot be done".
+#'
+#' STEALTH CREDITS ARE STILL CREDITS. `{:stealth 1}` means one of the
+#' credits must come from a stealth card, and `:all-stealth` means all of
+#' them must; neither changes how many credits are paid. So the count
+#' goes in `pump_cost` as normal and the sourcing constraint is recorded
+#' separately in `pump_stealth`, rather than inventing a second currency.
+#' Power and virus counters and trashing a card are NOT credits, and are
+#' kept out of `pump_cost` entirely for the same reason -- adding them in
+#' would be a conversion rate nobody has defined.
+#'
+#' @param body Character. One defcard body.
+#' @return A list with `pump_cost` (credits), `pump_amount` (strength
+#'   gained), `pump_stealth` (how many of those credits must be stealth,
+#'   NA if none need be), `pump_resource_type`/`pump_resource_qty` (a
+#'   non-credit cost, NA if there is none) and `has_pump`.
+#' @keywords internal
+pump_economics <- function(body) {
+  none <- list(pump_cost = NA_integer_, pump_amount = NA_integer_,
+               pump_stealth = NA_integer_, pump_resource_type = NA_character_,
+               pump_resource_qty = NA_integer_, has_pump = FALSE)
+
+  at <- regexpr("(strength-pump ", body, fixed = TRUE)
+  if (at == -1) return(none)
+  ch <- strsplit(body, "", fixed = TRUE)[[1]]
+  close <- read_form(ch, at)
+  if (is.na(close)) return(none)
+  form <- paste(ch[at:close], collapse = "")
+
+  # The plain form, which is 82 of the 93 breakers that have a pump.
+  plain <- regmatches(form, regexpr("^\\(strength-pump +[0-9]+ +[0-9]+", form))
+  if (length(plain)) {
+    n <- as.integer(regmatches(plain, gregexpr("[0-9]+", plain))[[1]])
+    return(list(pump_cost = n[[1]], pump_amount = n[[2]],
+                pump_stealth = NA_integer_, pump_resource_type = NA_character_,
+                pump_resource_qty = NA_integer_, has_pump = TRUE))
+  }
+
+  # Otherwise the first argument is a cost form -- either one (->c ...)
+  # or a vector of them -- and it is read with read_form() rather than a
+  # regex because it contains its own parentheses and braces.
+  inner <- sub("^\\(strength-pump[[:space:]]+", "", form)
+  ich <- strsplit(inner, "", fixed = TRUE)[[1]]
+  if (!length(ich) || !(ich[[1]] %in% c("(", "["))) return(none)
+  cost_end <- read_form(ich, 1L)
+  if (is.na(cost_end) || cost_end >= length(ich)) return(none)
+
+  cost_txt <- paste(ich[1:cost_end], collapse = "")
+  rest <- paste(ich[(cost_end + 1L):length(ich)], collapse = "")
+
+  # The strength gained is the next integer after the cost form. Taken
+  # from `rest` and not from the whole form, so a number inside the cost
+  # cannot be mistaken for it.
+  amt <- regmatches(rest, regexpr("[0-9]+", rest))
+  if (!length(amt)) return(none)
+
+  costs <- regmatches(cost_txt, gregexpr("\\(->c +:[a-z-]+ +[0-9]+", cost_txt))[[1]]
+  if (!length(costs)) return(none)
+  types <- sub("\\(->c +:([a-z-]+) +[0-9]+", "\\1", costs)
+  qtys <- as.integer(sub("\\(->c +:[a-z-]+ +([0-9]+)", "\\1", costs))
+
+  # A bare integer sitting beside the ->c forms is a plain credit cost
+  # (Hantu pays a virus counter AND three credits). It is read only after
+  # the ->c forms are stripped, or their own amounts would be counted a
+  # second time.
+  bare_txt <- gsub("\\(->c[^)]*\\)", "", cost_txt)
+  bare <- as.integer(regmatches(bare_txt, gregexpr("[0-9]+", bare_txt))[[1]])
+
+  credit_i <- which(types == "credit")
+  other_i <- which(types != "credit")
+  credits <- sum(c(qtys[credit_i], bare))
+
+  stealth <- NA_integer_
+  st <- regmatches(cost_txt, regexpr("\\{:stealth +(:all-stealth|[0-9]+)\\}", cost_txt))
+  if (length(st)) {
+    stealth <- if (grepl("all-stealth", st, fixed = TRUE)) {
+      as.integer(credits)
+    } else {
+      as.integer(regmatches(st, regexpr("[0-9]+", st)))
+    }
+  }
+
+  list(
+    pump_cost = as.integer(credits),
+    pump_amount = as.integer(amt),
+    pump_stealth = stealth,
+    pump_resource_type = if (length(other_i)) types[[other_i[[1]]]] else NA_character_,
+    pump_resource_qty = if (length(other_i)) qtys[[other_i[[1]]]] else NA_integer_,
+    has_pump = TRUE
   )
 }
 
@@ -245,6 +370,8 @@ extract_traits_from_file <- function(path, kind) {
         break_cost = NA_integer_, break_qty = NA_integer_,
         break_subtype = NA_character_,
         pump_cost = NA_integer_, pump_amount = NA_integer_,
+        pump_stealth = NA_integer_, pump_resource_type = NA_character_,
+        pump_resource_qty = NA_integer_,
         parse_status = ice_parse_status(d$body, n)
       )
     } else {
@@ -255,6 +382,9 @@ extract_traits_from_file <- function(path, kind) {
         break_cost = e$break_cost, break_qty = e$break_qty,
         break_subtype = e$break_subtype,
         pump_cost = e$pump_cost, pump_amount = e$pump_amount,
+        pump_stealth = e$pump_stealth,
+        pump_resource_type = e$pump_resource_type,
+        pump_resource_qty = e$pump_resource_qty,
         parse_status = e$parse_status
       )
     }
@@ -276,6 +406,8 @@ empty_traits <- function() {
     subroutine_count = integer(0), break_cost = integer(0),
     break_qty = integer(0), break_subtype = character(0),
     pump_cost = integer(0), pump_amount = integer(0),
+    pump_stealth = integer(0), pump_resource_type = character(0),
+    pump_resource_qty = integer(0),
     parse_status = character(0)
   )
 }

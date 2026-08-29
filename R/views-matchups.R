@@ -41,6 +41,32 @@ ice_breaker_pool <- function(cards) {
   cards[keep, , drop = FALSE]
 }
 
+#' Fill in trait columns a release predating them does not carry
+#'
+#' Releases and the package that reads them are deployed separately: the
+#' sync image is built from a pinned package SHA, so a store can hold a
+#' release built before a column existed while the app reading it already
+#' knows about that column. Selecting it directly aborts the whole app at
+#' startup with "Can't select columns that don't exist", which is a
+#' hard failure over data that is merely older.
+#'
+#' The same choice the legality tables make (see
+#' CARDPOOL_LEGALITY_TABLES): a table the active release predates reads
+#' as absent, not as an error. An absent pump_stealth is NA, which is
+#' already this codebase's word for "not known", and every consumer
+#' handles it.
+#'
+#' @param df A data frame.
+#' @param cols Named list of column name -> the NA of its type.
+#' @return `df`, with any missing column added.
+#' @keywords internal
+fill_missing_columns <- function(df, cols) {
+  for (nm in names(cols)) {
+    if (!nm %in% names(df)) df[[nm]] <- cols[[nm]]
+  }
+  df
+}
+
 #' Compute ice/breaker matchup pairs
 #'
 #' Joins ice_breaker_traits to cardpool with an inner_join, expands the
@@ -106,6 +132,14 @@ ice_breaker_pool <- function(cards) {
 compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_overrides,
                                           cardpool_release_id = NA_character_,
                                           implementation_release_id = NA_character_) {
+  # Tolerated rather than required, so a release built before these
+  # columns existed still starts the app -- see fill_missing_columns().
+  ice_breaker_traits <- fill_missing_columns(ice_breaker_traits, list(
+    pump_stealth = NA_integer_,
+    pump_resource_type = NA_character_,
+    pump_resource_qty = NA_integer_
+  ))
+
   traits <- dplyr::inner_join(ice_breaker_traits, cardpool, by = "code")
 
   ice <- dplyr::filter(traits, .data$type_code == "ice")
@@ -124,7 +158,8 @@ compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_o
                   ice_subroutines = "subroutine_count"),
     dplyr::select(breakers, breaker_code = "code", breaker_strength = "strength",
                   "break_cost", "break_qty", "break_subtype",
-                  "pump_cost", "pump_amount")
+                  "pump_cost", "pump_amount", "pump_stealth",
+                  "pump_resource_type")
   )
 
   # Filtered on the breaker's OWN declared break subtype, not on a shared
@@ -134,7 +169,22 @@ compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_o
 
   pairs$cost_to_break <- compute_cost_to_break_formula(
     pairs$ice_strength, pairs$ice_subroutines, pairs$breaker_strength,
-    pairs$break_cost, pairs$break_qty, pairs$pump_cost, pairs$pump_amount
+    pairs$break_cost, pairs$break_qty, pairs$pump_cost, pairs$pump_amount,
+    pairs$pump_resource_type
+  )
+
+  # Stealth credits are part of cost_to_break, not extra to it, so this
+  # column says how many of those credits cannot come from the Runner's
+  # general pool -- it never changes the total. Counted from the same
+  # pump applications the cost uses, so the two cannot disagree. NA
+  # rather than 0 where no stealth is required: "none needed" and "we did
+  # not work it out" are different, and only one of them is true here.
+  pumps <- strength_pump_applications(
+    pairs$ice_strength, pairs$breaker_strength, pairs$pump_amount
+  )
+  pairs$stealth_credits <- ifelse(
+    is.na(pairs$pump_stealth) | is.na(pumps) | pumps == 0L,
+    NA_integer_, as.integer(pumps * pairs$pump_stealth)
   )
   pairs$source <- dplyr::if_else(is.na(pairs$cost_to_break), "not_computable", "formula")
 
@@ -150,18 +200,27 @@ compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_o
     cost_to_break = dplyr::if_else(!is.na(.data$override_cost), .data$override_cost, .data$cost_to_break),
     credit_differential = dplyr::if_else(
       .data$source == "not_computable", NA_integer_, .data$ice_rez_cost - .data$cost_to_break
+    ),
+    # A hand-curated override replaces the formula's answer outright, and
+    # the formula's stealth count came from pump applications the
+    # override may have priced differently -- so it is dropped rather
+    # than carried alongside a total it no longer describes. Same for a
+    # pair with no computable cost at all.
+    stealth_credits = dplyr::if_else(
+      .data$source == "formula", .data$stealth_credits, NA_integer_
     )
   )
 
   matchups <- dplyr::arrange(
-    dplyr::select(matchups, "ice_code", "breaker_code", "cost_to_break", "credit_differential", "source"),
+    dplyr::select(matchups, "ice_code", "breaker_code", "cost_to_break",
+                  "stealth_credits", "credit_differential", "source"),
     .data$ice_code, .data$breaker_code
   )
 
   overrides_content_hash <- digest::digest(matchup_overrides, algo = "sha256")
 
   manifest <- build_view_manifest(
-    spec_id = "ice-breaker-matchups-v2",
+    spec_id = "ice-breaker-matchups-v3",
     output = matchups,
     parameters = list(
       cardpool_release_id = cardpool_release_id,
@@ -171,6 +230,30 @@ compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_o
   )
 
   list(matchups = matchups, manifest = manifest)
+}
+
+#' How many times the pump must be used to reach the ice
+#'
+#' Factored out because the credit cost and the stealth requirement both
+#' need the same count, and computing it twice invites the two answers to
+#' drift apart.
+#'
+#' @param ice_strength,breaker_strength,pump_amount Integer vectors.
+#' @return An integer vector; 0 where the breaker is already at or above
+#'   the ice's strength, NA where the gap is positive but there is no
+#'   usable pump.
+#' @keywords internal
+strength_pump_applications <- function(ice_strength, breaker_strength, pump_amount) {
+  gap <- pmax(0L, ice_strength - breaker_strength)
+  # A breaker already at or above the ice's strength pays nothing to get
+  # there, even with no pump at all -- so the pump columns are only
+  # required where the gap is positive.
+  # The divisor is made NA BEFORE dividing, not tested inside ifelse():
+  # ifelse() evaluates both branches over the whole vector, so a guard in
+  # the condition does not stop the division happening, and x/0 is Inf,
+  # which as.integer() then warns about while quietly producing NA.
+  safe_pump_amount <- ifelse(is.na(pump_amount) | pump_amount <= 0L, NA_integer_, pump_amount)
+  ifelse(gap == 0L, 0L, as.integer(ceiling(gap / safe_pump_amount)))
 }
 
 #' The real cost-to-break formula
@@ -200,27 +283,45 @@ compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_o
 #' than a large number -- "you cannot do this" and "this is expensive"
 #' are different answers.
 #'
+#' That reasoning only holds if "no strength-pump" is TRUE, and for
+#' eleven breakers it was not: the parser could not read a pump whose
+#' cost was a cost form rather than a bare integer, so every stealth
+#' breaker was recorded as fixed-strength and reported as unable to
+#' reach ice it reaches routinely. Fixed in pump_economics(); noted here
+#' because this function is where the wrong answer surfaced.
+#'
 #' @param ice_strength,ice_subroutines Integer vectors, from cardpool and
 #'   the implementation lineage respectively.
 #' @param breaker_strength,break_cost,break_qty,pump_cost,pump_amount
-#'   Integer vectors for the breaker side.
+#'   Integer vectors for the breaker side. `pump_cost` is CREDITS ONLY;
+#'   see pump_economics() in R/build-implementation.R for why stealth
+#'   credits are counted here and counters are not.
+#' @param pump_resource_type Character vector naming a non-credit pump
+#'   cost ('power', 'virus', 'trash-from-hand', ...), or NA where the
+#'   pump costs only credits. A pair that must actually use such a pump
+#'   has no credit-denominated answer and comes back NA.
 #' @return An integer vector of credit costs, `NA_integer_` where any
 #'   input needed for that pair is unknown.
 compute_cost_to_break_formula <- function(ice_strength, ice_subroutines,
                                           breaker_strength, break_cost,
-                                          break_qty, pump_cost, pump_amount) {
-  gap <- pmax(0L, ice_strength - breaker_strength)
-
-  # A breaker already at or above the ice's strength pays nothing to get
-  # there, even if it has no pump at all -- so the pump columns are only
-  # required where the gap is positive.
-  # The divisors are made NA BEFORE dividing, not tested inside ifelse():
-  # ifelse() evaluates both branches over the whole vector, so a guard in
-  # the condition does not stop the division happening, and x/0 is Inf,
-  # which as.integer() then warns about while quietly producing NA.
-  safe_pump_amount <- ifelse(is.na(pump_amount) | pump_amount <= 0L, NA_integer_, pump_amount)
-  pumps <- ifelse(gap == 0L, 0L, as.integer(ceiling(gap / safe_pump_amount)))
+                                          break_qty, pump_cost, pump_amount,
+                                          pump_resource_type = NA_character_) {
+  pumps <- strength_pump_applications(ice_strength, breaker_strength, pump_amount)
   pump_total <- ifelse(pumps == 0L, 0L, pumps * pump_cost)
+
+  # A pump that also costs a power counter, a virus counter or a card
+  # off the top of the stack is NOT expressible as a credit total, so a
+  # pair that actually needs to use it is unknown here rather than
+  # cheap. Propeller's pump costs zero credits and one power counter:
+  # reporting "0" would be arithmetically true and completely
+  # misleading. The resource is recorded in the traits table and will be
+  # shown alongside the credit cost as its own quantity; until it is,
+  # this stays NA.
+  #
+  # Only where the pump is actually NEEDED. The same breaker facing ice
+  # at or below its own strength pays no pump cost of any kind, and that
+  # total is perfectly knowable.
+  pump_total <- ifelse(!is.na(pump_resource_type) & pumps > 0L, NA_integer_, pump_total)
 
   # break_qty 0 is "all subroutines at once", so one application. A
   # subroutine count of 0 costs nothing to break, which is right: there

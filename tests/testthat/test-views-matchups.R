@@ -178,6 +178,8 @@ test_that("compute_ice_breaker_matchups() survives an empty join", {
     subroutine_count = integer(0), break_cost = integer(0),
     break_qty = integer(0), break_subtype = character(0),
     pump_cost = integer(0), pump_amount = integer(0),
+    pump_stealth = integer(0), pump_resource_type = character(0),
+    pump_resource_qty = integer(0),
     parse_status = character(0)
   )
   cards <- tibble::tibble(
@@ -196,13 +198,13 @@ test_that("compute_ice_breaker_matchups() pairs ICE with icebreakers only", {
   # Previously every program entered the cross-join, so a piece of ICE was
   # paired with Datasucker and friends.
   traits <- tibble::tribble(
-    ~code,   ~title,      ~kind,     ~subroutine_count, ~break_cost, ~break_qty, ~break_subtype, ~pump_cost, ~pump_amount, ~parse_status,
-    "ice01", "Some ICE",  "ice",     1L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, "parsed",
-    "brk01", "A Breaker", "program", NA_integer_,       1L,          1L,          "Barrier",     1L,          1L,          "parsed",
+    ~code,   ~title,      ~kind,     ~subroutine_count, ~break_cost, ~break_qty, ~break_subtype, ~pump_cost, ~pump_amount, ~pump_stealth, ~pump_resource_type, ~pump_resource_qty, ~parse_status,
+    "ice01", "Some ICE",  "ice",     1L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, NA_integer_,  NA_character_,       NA_integer_,        "parsed",
+    "brk01", "A Breaker", "program", NA_integer_,       1L,          1L,          "Barrier",     1L,          1L,          NA_integer_,  NA_character_,       NA_integer_,        "parsed",
     # A virus program: it has no break clause at all, so the real build
     # would never emit a row for it. One is written here anyway, to prove
     # the Icebreaker keyword check is what excludes it.
-    "prg01", "A Virus",   "program", NA_integer_,       1L,          1L,          "Barrier",     1L,          1L,          "parsed"
+    "prg01", "A Virus",   "program", NA_integer_,       1L,          1L,          "Barrier",     1L,          1L,          NA_integer_,  NA_character_,       NA_integer_,        "parsed"
   )
   cardpool <- tibble::tribble(
     ~code,   ~title,      ~type_code, ~keywords,              ~cost, ~strength,
@@ -317,4 +319,107 @@ test_that("the formula computes without warnings", {
       mini_pool_matchup_overrides()
     )
   )
+})
+
+# ---- stealth and non-credit pump costs -------------------------------
+# Arithmetic worked by hand against helper-mini-pool.R, as above.
+# brk05 "Stealth Breaker": strength 1, break 1/1, pump 1 credit for +2,
+#   of which 1 must be stealth.
+# brk06 "Counter Breaker": strength 1, break 1/1, pump 0 credits and one
+#   power counter for +2.
+# ice01 "Cheap Wall": strength 1, 1 subroutine, rez 2.
+# ice04 "Tall Wall":  strength 4, 2 subroutines, rez 5.
+
+test_that("a stealth pump is priced in credits like any other pump", {
+  # gap 4-1 = 3, pump +2 -> 2 applications at 1 credit = 2
+  # break 2 subroutines at 1 each = 2
+  row <- matchup_cost("ice04", "brk05")
+
+  expect_equal(row$source, "formula")
+  expect_equal(row$cost_to_break, 4L)
+  expect_equal(row$credit_differential, 1L)
+})
+
+test_that("stealth_credits says how many of those credits must be stealth", {
+  # 2 pump applications, 1 stealth credit each. It is a SUBSET of
+  # cost_to_break, never an addition to it -- 4 credits are paid, and 2 of
+  # them cannot come from the general pool.
+  row <- matchup_cost("ice04", "brk05")
+
+  expect_equal(row$stealth_credits, 2L)
+  expect_lte(row$stealth_credits, row$cost_to_break)
+})
+
+test_that("stealth_credits is NA, not 0, when the pump is never used", {
+  # brk05 already matches ice01's strength, so no pump is applied and no
+  # stealth credit is required. NA rather than 0 because this column is
+  # about a requirement that does not exist here, and 0 would read as a
+  # computed quantity.
+  row <- matchup_cost("ice01", "brk05")
+
+  expect_equal(row$cost_to_break, 1L)
+  expect_true(is.na(row$stealth_credits))
+})
+
+test_that("a pump costing a power counter has no credit answer when it is needed", {
+  # The credit total would be 2 -- zero for two pump applications, plus 2
+  # to break -- which is arithmetically true and thoroughly misleading,
+  # because it omits the two power counters entirely. Unknown is the
+  # honest answer until the counters are shown alongside.
+  row <- matchup_cost("ice04", "brk06")
+
+  expect_equal(row$source, "not_computable")
+  expect_true(is.na(row$cost_to_break))
+  expect_true(is.na(row$credit_differential))
+})
+
+test_that("the same counter breaker IS computable against ice it need not pump for", {
+  # The non-credit cost only defeats the arithmetic where the pump is
+  # actually used. Against ice at or below its own strength, brk06 pays
+  # its break cost in plain credits and nothing else.
+  row <- matchup_cost("ice01", "brk06")
+
+  expect_equal(row$source, "formula")
+  expect_equal(row$cost_to_break, 1L)
+})
+
+test_that("an override drops the formula's stealth count rather than keeping it", {
+  # An override replaces the cost outright, and it may have priced the
+  # encounter with a different number of pump applications than the
+  # formula assumed. Carrying the formula's stealth count alongside
+  # someone else's total would describe a line of play nobody chose.
+  overrides <- tibble::tibble(
+    ice_code = "ice04", breaker_code = "brk05", cost_to_break = 99L
+  )
+  m <- compute_ice_breaker_matchups(
+    mini_pool_ice_breaker_traits(), mini_pool_cardpool(), overrides
+  )$matchups
+  row <- m[m$ice_code == "ice04" & m$breaker_code == "brk05", ]
+
+  expect_equal(row$source, "override")
+  expect_equal(row$cost_to_break, 99L)
+  expect_true(is.na(row$stealth_credits))
+})
+
+test_that("a release predating the pump-cost columns still computes, rather than aborting", {
+  # The sync image is built from a pinned package SHA, so the store can
+  # hold a release built before these columns existed while the app
+  # reading it already knows about them. That must degrade to "not
+  # known", not abort the whole app at startup -- which is exactly what
+  # selecting a missing column does.
+  old_traits <- mini_pool_ice_breaker_traits()
+  old_traits$pump_stealth <- NULL
+  old_traits$pump_resource_type <- NULL
+  old_traits$pump_resource_qty <- NULL
+
+  m <- compute_ice_breaker_matchups(
+    old_traits, mini_pool_cardpool(), mini_pool_matchup_overrides()[0, ]
+  )$matchups
+
+  expect_gt(nrow(m), 0)
+  # Every stealth requirement is unknown rather than asserted as absent.
+  expect_true(all(is.na(m$stealth_credits)))
+  # And the ordinary pairs still price exactly as they did before.
+  row <- m[m$ice_code == "ice01" & m$breaker_code == "brk01", ]
+  expect_equal(row$source, "formula")
 })

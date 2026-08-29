@@ -11,14 +11,22 @@ compute_cost_to_break_formula(
   break_cost,
   break_qty,
   pump_cost,
-  pump_amount
+  pump_amount,
+  pump_resource_type = NA_character_
 )
 }
 \arguments{
 \item{ice_strength, ice_subroutines}{Integer vectors, from cardpool and
 the implementation lineage respectively.}
 
-\item{breaker_strength, break_cost, break_qty, pump_cost, pump_amount}{Integer vectors for the breaker side.}
+\item{breaker_strength, break_cost, break_qty, pump_cost, pump_amount}{Integer vectors for the breaker side. \code{pump_cost} is CREDITS ONLY;
+see pump_economics() in R/build-implementation.R for why stealth
+credits are counted here and counters are not.}
+
+\item{pump_resource_type}{Character vector naming a non-credit pump
+cost ('power', 'virus', 'trash-from-hand', ...), or NA where the
+pump costs only credits. A pair that must actually use such a pump
+has no credit-denominated answer and comes back NA.}
 }
 \value{
 An integer vector of credit costs, \code{NA_integer_} where any
@@ -51,4 +59,11 @@ upstream. A breaker with no \code{strength-pump} cannot reach ice above its
 own strength at all, and a strength it cannot reach is \code{NA} rather
 than a large number -- "you cannot do this" and "this is expensive"
 are different answers.
+
+That reasoning only holds if "no strength-pump" is TRUE, and for
+eleven breakers it was not: the parser could not read a pump whose
+cost was a cost form rather than a bare integer, so every stealth
+breaker was recorded as fixed-strength and reported as unable to
+reach ice it reaches routinely. Fixed in pump_economics(); noted here
+because this function is where the wrong answer surfaced.
 }
