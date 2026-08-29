@@ -2,20 +2,75 @@
 % Please edit documentation in R/mod_matchup_explorer.R
 \name{mod_matchup_explorer_server}
 \alias{mod_matchup_explorer_server}
-\title{Matchup explorer module server}
+\title{One card's matchups against everything it can meet, as a modal}
 \usage{
-mod_matchup_explorer_server(id, cards, matchup, selected_code)
+mod_matchup_explorer_server(
+  id,
+  compare_code,
+  cards,
+  matchup,
+  selected_code,
+  traits = NULL,
+  legality = NULL
+)
 }
 \arguments{
 \item{id}{Module id.}
+
+\item{compare_code}{A \code{reactiveVal} OWNED BY THE CALLER (app_server())
+holding the code of the card to compare, or NULL. Instantiate this
+module exactly ONCE per session, for the observer-accumulation
+reason documented on mod_card_detail_server().}
 
 \item{cards}{The active cardpool's \code{card} data frame.}
 
 \item{matchup}{The tibble compute_ice_breaker_matchups() returns.}
 
-\item{selected_code}{Same shared reactiveVal as mod_card_browser_server()
-receives -- both callers set it; only mod_card_detail_server() reads it.}
+\item{selected_code}{The same shared reactiveVal mod_card_detail_server()
+reads, so clicking a counterpart card in the table opens its detail.}
+
+\item{traits}{The implementation release's \code{ice_breaker_traits}, used
+ONLY to tell "this breaker breaks nothing we could read" apart from
+"this breaker has no legal counterpart in this format". Optional:
+without it the empty state stays honest but less specific, rather
+than guessing which of the two it is.}
+
+\item{legality}{The legality tables, or NULL. NULL disables the format
+selector entirely and leaves every pair visible, rather than
+silently showing an unfiltered pool as though a format had been
+applied -- the same contract as mod_card_browser_server().}
 }
 \description{
-Matchup explorer module server
+Renders compute_ice_breaker_matchups()'s output for a SINGLE card --
+cost_to_break / credit_differential / source already computed, never
+re-derived here. \code{cards} supplies display titles by code.
+}
+\details{
+NO MODE SELECTOR AND NO CARD DROPDOWNS, unlike the version of this
+module that was a "Matchup" tab before the lane board became the whole
+app. Both survivors of that UI ("one ice vs all breakers", "one
+breaker vs all ice") are the same question asked from opposite sides,
+and which side you are on is already decided by the card you opened:
+ice compares against breakers, a breaker against ice. A radio button
+restating the type of the card in the title bar is a control with one
+legal value. The dropdowns went for the same reason -- this module is
+now entered WITH a card, from the card detail modal, so a picker could
+only re-ask a question already answered.
+
+The third mode, "All vs all", is gone rather than hidden. It put all
+21,377 subtype-compatible pairs in one reactable, roughly a third of
+them \code{not_computable} dashes. Under the Standard default that would
+now be 1,270 rows and defensible, but it answers no question a person
+actually has: nobody compares every ice to every breaker at once, and
+the two single-card views are what the lane board cannot already do
+cheaply.
+
+MOUNTED VIA THE MODAL ONLY. Like mod_card_detail_ui(), there is no
+top-level UI mount -- app_server() calls only the server function, and
+the modal built below creates the output elements. Hence there is no
+mod_matchup_explorer_ui(): a UI function nothing calls is the same
+unreachable-export problem this module was itself an instance of.
+
+Uses explicit \verb{shiny::} prefixes for the reason given on
+mod_card_detail_ui().
 }

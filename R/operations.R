@@ -40,10 +40,18 @@ safe_render <- function(expr_fn, fallback_message = "Something went wrong displa
 
 #' Build a Shiny.setInputValue() onclick attribute string
 #'
-#' So a clickable element (a card image, a table cell) sets a namespaced
+#' So a clickable element (a card image, a lane slot) sets a namespaced
 #' input without a per-element observer -- used identically by
-#' `mod_card_browser.R` and `mod_matchup_explorer.R`; factored out here
-#' rather than each constructing the same JS string.
+#' `mod_card_browser.R` and `mod_lane_board.R`; factored out here rather
+#' than each constructing the same JS string.
+#'
+#' ONLY FOR TAGS RENDERED THROUGH `renderUI()`. The string this returns is
+#' an `onclick` HTML attribute, and reactable draws its cells through
+#' React, which ignores a lowercase `onclick` -- a table wired this way
+#' arrives in the browser stripped of its handler and is silently
+#' unclickable. `mod_matchup_explorer.R` used to do exactly that; it now
+#' passes a `htmlwidgets::JS()` callback to `reactable::reactable()`
+#' instead.
 #' @param session The module's session (its `ns()` namespaces the input id).
 #' @param input_id Character. Unnamespaced input id to set.
 #' @param value Character. Value to set it to.
@@ -184,7 +192,9 @@ read_matchup_overrides <- function(path = system.file("extdata", "matchup_overri
 #' reopening both databases and rerunning the ice x breaker cross-join --
 #' cardpool/implementation data is static for the life of the R process.
 #' @return A list with `cards`, `legality` (the CARDPOOL_LEGALITY_TABLES,
-#'   each NULL when the release predates that schema) and `matchup`, or
+#'   each NULL when the release predates that schema), `matchup` and
+#'   `traits` (the `ice_breaker_traits` the matchup table was built
+#'   from), or
 #'   `missing_lineages` (character vector, non-NULL) if either required
 #'   release is unavailable -- callers branch on `missing_lineages`
 #'   before touching the rest.
@@ -232,6 +242,13 @@ load_ice_breaker_app_data <- function() {
     cards = cards,
     legality = legality,
     matchup = matchup_result$matchups,
+    # Carried through alongside the matchup table it was used to build,
+    # because that table records only the pairs that EXIST. A breaker
+    # whose break clause the parser could not read produces no rows at
+    # all, which is indistinguishable from a breaker with no legal
+    # counterpart unless the traits are on hand to say which -- see
+    # empty_matchup_reason() in R/mod_matchup_explorer.R.
+    traits = implementation_result$data,
     rulings = rulings,
     missing_lineages = NULL
   )

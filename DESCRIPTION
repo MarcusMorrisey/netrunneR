@@ -39,6 +39,7 @@ Imports:
     reactable,
     bslib,
     htmltools,
+    htmlwidgets,
     stats,
     tools,
     utils

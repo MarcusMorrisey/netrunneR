@@ -9,7 +9,8 @@ mod_card_detail_server(
   selected_code,
   cards,
   rulings = NULL,
-  legality = NULL
+  legality = NULL,
+  on_compare = NULL
 )
 }
 \arguments{
@@ -32,6 +33,14 @@ economics and rulings are an augmentation of it.}
 \item{legality}{The legality tables, used only to trace this card to
 the publisher that released it, so the modal shows that card's own
 copyright notice rather than every notice the pool needs.}
+
+\item{on_compare}{Optional callback taking one card code, invoked when
+the user asks to compare this card against everything it can meet.
+NULL omits the control entirely rather than showing one that does
+nothing, so a caller that has not mounted
+mod_matchup_explorer_server() does not advertise a view it cannot
+open. The caller, not this module, owns the transition: this module
+dismisses its own modal and hands the code over.}
 }
 \description{
 Card detail modal module server

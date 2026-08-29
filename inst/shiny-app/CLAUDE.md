@@ -24,12 +24,33 @@ modal. Nothing in `mod_card_browser.R` changed to allow that: its
 different `reactiveVal` is the whole of what redirects a click from
 "open the detail modal" to "add this card to the board".
 
-`mod_matchup_explorer` is still exported, still tested, and no longer
-rendered anywhere. It answers a different question from the board -- the
-entire ice x breaker cross join as one sortable table, rather than a
-comparison across a handful of chosen cards -- and was left in place
-rather than deleted along with the navbar that used to host it. It is
-unreachable from the UI until something mounts it again.
+`mod_matchup_explorer` is reached from the card detail modal, not from a
+view of its own. It was a "Matchup" tab under the old navbar and spent a
+while exported, tested and mounted nowhere; the design corpus has no
+artboard for it, so rather than re-introducing navigation the wireframe
+deliberately does not have, the comparison hangs off a card you have
+already opened.
+
+Arriving with a card decides everything the old UI asked for: an ice
+compares against breakers, a breaker against ice, so there is no mode
+selector and no card pickers. The old "All vs all" mode is gone rather
+than hidden -- it answers no question anyone actually has, and the two
+single-card views are the ones the lane board cannot already do cheaply.
+
+The two modals are mutually exclusive by construction. Both live in the
+single `#shiny-modal` element and each dismisses itself before setting
+the other's `reactiveVal`, so they hand off rather than stack. Each
+carries a hidden marker div (`.dc-detail-modal` / `.dc-matchup-modal`)
+because their `hidden.bs.modal` handlers are delegated on `document` and
+would otherwise fire on each other's dismissal, clearing a value that had
+just been set.
+
+The matchup table itself is format-blind -- `compute_ice_breaker_matchups()`
+takes no format argument, and the lane board reads the same unfiltered
+table -- so the explorer filters at DISPLAY, defaulting to Standard, the
+same way `mod_card_browser` does. Filtering at compute time would bake a
+format into the view manifest's cache identity. Note the lane board has
+no format control at all yet, which is the same gap in a live view.
 
 There is no separate "matchup" release to resolve: `compute_ice_breaker_matchups()` is a plain function called live against the active cardpool/implementation data, exactly like `compute_identity_ratings()`; `matchup` is not one of the five `BUILTIN_LINEAGES` (see `R/lineage.R`). `netrunneR::load_ice_breaker_app_data()` (`R/operations.R`) is what actually resolves the two releases, reads both SQLite databases, and computes the matchup table -- once per process, shared by every session, since none of this changes for the life of the R process.
 
