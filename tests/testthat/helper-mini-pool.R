@@ -32,25 +32,33 @@ mini_pool_cardpool <- function() {
     "brk01", "Bargain Breaker", "core",     "neutral-runner","program",  "runner",   "",    1L,    1L,        "Icebreaker - Fracter",
     "brk02", "Pricey Breaker",  "core",     "neutral-runner","program",  "runner",   "",    6L,    3L,        "Icebreaker - Decoder",
     "brk03", "Idle Breaker",    "core",     "neutral-runner","program",  "runner",   "",    3L,    2L,        "Icebreaker - Killer",
-    "brk04", "Fixed Breaker",   "core",     "neutral-runner","program",  "runner",   "",    4L,    2L,        "Icebreaker - Fracter"
+    "brk04", "Fixed Breaker",   "core",     "neutral-runner","program",  "runner",   "",    4L,    2L,        "Icebreaker - Fracter",
+    "brk05", "Stealth Breaker", "core",     "neutral-runner","program",  "runner",   "",    3L,    1L,        "Icebreaker - Fracter",
+    "brk06", "Counter Breaker", "core",     "neutral-runner","program",  "runner",   "",    3L,    1L,        "Icebreaker - Fracter"
   )
 }
 
 mini_pool_ice_breaker_traits <- function() {
   tibble::tribble(
-    ~code,   ~title,            ~kind,     ~subroutine_count, ~break_cost, ~break_qty, ~break_subtype, ~pump_cost, ~pump_amount, ~parse_status,
-    "ice01", "Cheap Wall",      "ice",     1L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, "parsed",
-    "ice02", "Expensive Code",  "ice",     2L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, "parsed",
+    ~code,   ~title,            ~kind,     ~subroutine_count, ~break_cost, ~break_qty, ~break_subtype, ~pump_cost, ~pump_amount, ~pump_stealth, ~pump_resource_type, ~pump_resource_qty, ~parse_status,
+    "ice01", "Cheap Wall",      "ice",     1L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, NA_integer_,  NA_character_,       NA_integer_,        "parsed",
+    "ice02", "Expensive Code",  "ice",     2L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, NA_integer_,  NA_character_,       NA_integer_,        "parsed",
     # Subroutine count genuinely varies with game state, as on Ashigaru.
-    "ice03", "Untouched Gate",  "ice",     NA_integer_,       NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, "variable_subroutines",
-    "ice04", "Tall Wall",       "ice",     2L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, "parsed",
-    "brk01", "Bargain Breaker", "program", NA_integer_,       1L,          1L,          "Barrier",     1L,          1L,          "parsed",
-    "brk02", "Pricey Breaker",  "program", NA_integer_,       2L,          1L,          "Code Gate",   2L,          1L,          "parsed",
+    "ice03", "Untouched Gate",  "ice",     NA_integer_,       NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, NA_integer_,  NA_character_,       NA_integer_,        "variable_subroutines",
+    "ice04", "Tall Wall",       "ice",     2L,                NA_integer_, NA_integer_, NA_character_, NA_integer_, NA_integer_, NA_integer_,  NA_character_,       NA_integer_,        "parsed",
+    "brk01", "Bargain Breaker", "program", NA_integer_,       1L,          1L,          "Barrier",     1L,          1L,          NA_integer_,  NA_character_,       NA_integer_,        "parsed",
+    "brk02", "Pricey Breaker",  "program", NA_integer_,       2L,          1L,          "Code Gate",   2L,          1L,          NA_integer_,  NA_character_,       NA_integer_,        "parsed",
     # Breaks Sentry, but for a cost the parser will not read as credits --
     # the subtype survives so the pair is still visible as unknown.
-    "brk03", "Idle Breaker",    "program", NA_integer_,       NA_integer_, NA_integer_, "Sentry",      NA_integer_, NA_integer_, "non_credit_break_cost",
+    "brk03", "Idle Breaker",    "program", NA_integer_,       NA_integer_, NA_integer_, "Sentry",      NA_integer_, NA_integer_, NA_integer_,  NA_character_,       NA_integer_,        "non_credit_break_cost",
     # A real card design, not a parse failure: fixed strength, no pump.
-    "brk04", "Fixed Breaker",   "program", NA_integer_,       1L,          1L,          "Barrier",     NA_integer_, NA_integer_, "parsed_no_pump"
+    "brk04", "Fixed Breaker",   "program", NA_integer_,       1L,          1L,          "Barrier",     NA_integer_, NA_integer_, NA_integer_,  NA_character_,       NA_integer_,        "parsed_no_pump",
+    # Pumps with a stealth credit: the credits are ordinary credits and
+    # count in pump_cost, and the sourcing constraint rides alongside.
+    "brk05", "Stealth Breaker", "program", NA_integer_,       1L,          1L,          "Barrier",     1L,          2L,          1L,           NA_character_,       NA_integer_,        "parsed",
+    # Pumps for a power counter and no credits at all. The credit total
+    # would be 0, which is true and useless, so the pair stays unknown.
+    "brk06", "Counter Breaker", "program", NA_integer_,       1L,          1L,          "Barrier",     0L,          2L,          NA_integer_,  "power",             1L,                 "parsed"
   )
 }
 
