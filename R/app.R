@@ -46,23 +46,88 @@ require_abr_attribution <- function(has_attribution) {
 #' require_cardpool_disclaimer() exists to prevent, reintroduced one
 #' level up in the string itself.
 #'
-#' Both clauses of Null-Signal-Games/netrunner-cards-json's COPYRIGHT.md
-#' are reproduced. Earlier renders carried only the non-affiliation half;
-#' the copyright attribution is the other thing that file asks for, and
-#' omitting it is what kept CARDPOOL_DISCLAIMER_CONFIRMED from being
-#' attestable.
+#' NULL SIGNAL GAMES IS NAMED, THOUGH COPYRIGHT.md DOES NOT NAME THEM.
+#' Null-Signal-Games/netrunner-cards-json's own COPYRIGHT.md, at the
+#' mirrored commit, reads "copyrighted by Fantasy Flight Games and/or
+#' Wizards of the Coast" and does not mention Null Signal Games at all.
+#' That file is incomplete for the data it now covers: the repository
+#' carries cards Null Signal Games designed and published, and those
+#' cards carry a Null Signal Games copyright line on the card face and no
+#' Fantasy Flight or Wizards line. Checked directly on the printed card
+#' -- Ansel 2.0 (36028, Vantage Point, the most recent cycle) reads
+#' "Null Signal Games, Illus. Benjamin Giletti" down its right edge,
+#' where core-set Heimdall 1.0 (01061) reads "(c) 2012 Wizards of the
+#' Coast LLC. (c) FFG".
 #'
-#' @return A shiny tag.
+#' So there are TWO notices, not one merged sentence. Each names only the
+#' publisher it actually applies to, and the Fantasy Flight one is still
+#' COPYRIGHT.md's wording verbatim -- that file was never wrong, only
+#' incomplete in scope, and applying it to exactly the cards it describes
+#' keeps it accurate rather than restating it over cards it does not
+#' cover. A view showing a mixed pool renders both; the card-detail view
+#' knows which card it is showing and renders one.
+#'
+#' @param publishers Character vector of `released_by` values from
+#'   [card_publishers()], or NULL for both notices.
+#' @return A shiny tagList.
 #' @export
-cardpool_disclaimer_ui <- function() {
-  shiny::tags$p(
-    class = "text-muted small",
-    paste0(
-      "Card data is copyrighted by Fantasy Flight Games and/or Wizards of ",
-      "the Coast. Not maintained, produced, endorsed, supported, or ",
-      "affiliated with Fantasy Flight Games and/or Wizards of the Coast."
+cardpool_disclaimer_ui <- function(publishers = NULL) {
+  known <- c("null_signal_games", "fantasy_flight_games")
+  if (is.null(publishers)) publishers <- known
+  publishers <- intersect(known, publishers)
+  # A view whose cards trace to no known publisher still needs a notice,
+  # so an empty selection falls back to both rather than to silence.
+  if (length(publishers) == 0) publishers <- known
+
+  notice <- function(holders) {
+    shiny::tags$p(
+      class = "text-muted small",
+      sprintf(
+        paste0("Card data is copyrighted by %s. Not maintained, produced, ",
+               "endorsed, supported, or affiliated with %s."),
+        holders, holders
+      )
     )
+  }
+
+  shiny::tagList(
+    if ("null_signal_games" %in% publishers) notice("Null Signal Games"),
+    if ("fantasy_flight_games" %in% publishers) {
+      notice("Fantasy Flight Games and/or Wizards of the Coast")
+    }
   )
+}
+
+#' Which publishers released the given cards
+#'
+#' Traced through printing -> card_set -> card_cycle, whose `released_by`
+#' column the cardpool source already carries: 19 cycles are
+#' `fantasy_flight_games` and 10 are `null_signal_games`, and no cycle is
+#' unattributed. That is a fact in the data rather than a cutoff date
+#' hardcoded here -- the licence changed hands once, but a list of cycle
+#' names maintained by hand would go stale on the next release and fail
+#' silently.
+#'
+#' @param codes Character vector of card codes.
+#' @param legality The legality tables, which carry `printing`,
+#'   `card_set` and `card_cycle`.
+#' @return A character vector of distinct `released_by` values, empty if
+#'   the tables needed are absent.
+#' @export
+card_publishers <- function(codes, legality) {
+  needed <- c("printing", "card_set", "card_cycle")
+  if (is.null(legality) || !all(needed %in% names(legality))) return(character(0))
+  if (any(vapply(legality[needed], is.null, logical(1)))) return(character(0))
+
+  printing <- legality$printing
+  hit <- printing[printing$code %in% codes, , drop = FALSE]
+  if (nrow(hit) == 0) return(character(0))
+
+  sets <- legality$card_set
+  cycles <- legality$card_cycle
+  set_ids <- sets$card_cycle_id[match(hit$card_set_id, sets$id)]
+  released <- cycles$released_by[match(set_ids, cycles$id)]
+  sort(unique(released[!is.na(released)]))
 }
 
 #' The mtgred/netrunner MIT notice, as UI

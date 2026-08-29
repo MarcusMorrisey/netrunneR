@@ -32,8 +32,12 @@ mod_card_detail_ui <- function(id) {
 #'   no nrdb release is active. Optional: the panel is omitted rather
 #'   than the modal failing, since this app is about ice/breaker
 #'   economics and rulings are an augmentation of it.
+#' @param legality The legality tables, used only to trace this card to
+#'   the publisher that released it, so the modal shows that card's own
+#'   copyright notice rather than every notice the pool needs.
 #' @export
-mod_card_detail_server <- function(id, selected_code, cards, rulings = NULL) {
+mod_card_detail_server <- function(id, selected_code, cards, rulings = NULL,
+                                   legality = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     shiny::observeEvent(selected_code(), {
       shiny::req(selected_code())
@@ -103,12 +107,22 @@ mod_card_detail_server <- function(id, selected_code, cards, rulings = NULL) {
             shiny::tags$pre(card$text)
           )
         ),
-        cardpool_disclaimer_ui(),
+        # This view shows ONE card, so it names one publisher.
+        cardpool_disclaimer_ui(card_publishers(card$code, legality)),
         # Rulings, official FAQ answers and release-note errata for this
         # card. Returns NULL when the nrdb attribution gate is closed or
         # the card has none, so nothing here claims a card is unruled.
         card_rulings_ui(rulings, card$title)
       )
     })
+
+    # Same reason as mod_card_browser_server(): this output is bound when
+    # the session starts, but its element only exists while the modal is
+    # open. Shiny suspends an output whose element it cannot see, and on
+    # this path does not reliably resume it -- the modal then opens empty,
+    # with the R process idle, which looks like a data problem and is not.
+    # It rendered on the FIRST open and stopped after a close and reopen,
+    # which is exactly how this hid until someone clicked twice.
+    shiny::outputOptions(output, "detail", suspendWhenHidden = FALSE)
   })
 }

@@ -175,6 +175,25 @@ mod_lane_board_server <- function(id, cards, matchup, selected_code,
       selected_code(input$card_clicked)
     })
 
+    # Removing an ice takes its lane, and its lane's breakers with it --
+    # those breakers were chosen against THAT ice, so keeping them
+    # orphaned would leave a stack of cards with nothing to compare to.
+    shiny::observeEvent(input$remove_ice, {
+      code <- input$remove_ice
+      ice_codes(setdiff(ice_codes(), code))
+      by_ice <- breakers()
+      by_ice[[code]] <- NULL
+      breakers(by_ice)
+    })
+
+    shiny::observeEvent(input$remove_breaker, {
+      parts <- strsplit(input$remove_breaker, "|", fixed = TRUE)[[1]]
+      if (length(parts) != 2L) return(invisible(NULL))
+      by_ice <- breakers()
+      by_ice[[parts[[1]]]] <- setdiff(by_ice[[parts[[1]]]] %||% character(0), parts[[2]])
+      breakers(by_ice)
+    })
+
     list(
       add_ice = function(code) {
         if (!code %in% ice_codes()) ice_codes(c(ice_codes(), code))
@@ -209,7 +228,7 @@ lane_ui <- function(session, ice_code, breaker_codes, cards, matchup) {
       if (nrow(breaker) == 0) return(NULL)
       pair <- matchup[matchup$ice_code == ice_code & matchup$breaker_code == bc, ]
       shiny::tagList(
-        breaker_card_ui(session, breaker),
+        breaker_card_ui(session, breaker, ice_code),
         stat_strip_ui(pair)
       )
     }),
@@ -233,19 +252,57 @@ ice_card_ui <- function(session, ice) {
     onclick = click_sets_input(session, "card_clicked", ice$code),
     shiny::tags$img(class = "nr-lane-art", src = card_image_url(ice$code),
                     loading = "lazy", alt = ice$title),
-    shiny::div(class = "nr-lane-hatch")
+    shiny::div(class = "nr-lane-hatch"),
+    remove_button(session, "remove_ice", ice$code,
+                  sprintf("Remove %s", ice$title))
   )
 }
 
 #' A portrait breaker card
 #' @keywords internal
-breaker_card_ui <- function(session, breaker) {
+breaker_card_ui <- function(session, breaker, ice_code) {
   shiny::div(
     class = "nr-lane-card nr-lane-card-breaker",
     title = breaker$title,
     onclick = click_sets_input(session, "card_clicked", breaker$code),
     shiny::tags$img(class = "nr-lane-art", src = card_image_url(breaker$code),
-                    loading = "lazy", alt = breaker$title)
+                    loading = "lazy", alt = breaker$title),
+    # Carries BOTH codes: the same breaker can sit in several lanes, and
+    # removing it from one must not disturb the others.
+    remove_button(session, "remove_breaker",
+                  paste(ice_code, breaker$code, sep = "|"),
+                  sprintf("Remove %s from this lane", breaker$title))
+  )
+}
+
+#' A remove control for one card
+#'
+#' Revealed on hover and on keyboard focus, never painted over the card at
+#' rest. The cards carry the publisher's own artwork and text, and a
+#' control sitting permanently on top of that is exactly what was taken
+#' off them; appearing only when the pointer is on the card keeps the
+#' affordance without the clutter.
+#'
+#' `event.stopPropagation()` matters: the card underneath opens the detail
+#' modal on click, so without it removing a card would also open the card
+#' being removed.
+#'
+#' @param session The module session.
+#' @param input_id Character. Unnamespaced input to set.
+#' @param value Character. Value identifying what to remove.
+#' @param label Character. Accessible name and tooltip.
+#' @keywords internal
+remove_button <- function(session, input_id, value, label) {
+  shiny::tags$button(
+    class = "nr-remove",
+    type = "button",
+    title = label,
+    `aria-label` = label,
+    onclick = paste0("event.stopPropagation(); ",
+                     click_sets_input(session, input_id, value)),
+    # Multiplication sign, not the letter x: R CMD check warns on
+    # non-ASCII bytes in source outside comments.
+    "×"
   )
 }
 

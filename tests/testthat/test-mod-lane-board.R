@@ -103,9 +103,10 @@ test_that("a breaker added to one lane does not appear in the others", {
   # column.
   rendered <- render_board(add_ice = c("ice01", "ice02"),
                            lane_breakers = list(ice01 = "brk01"))
-  # Twice for the one card that is present -- title= and alt= -- and not
-  # at all for the lane it was never added to.
-  expect_equal(length(gregexpr("Bargain Breaker", rendered)[[1]]), 2L)
+  # Counts the rendered card, not mentions of its name: the name also
+  # appears in the remove control's label, so a raw string count measures
+  # the markup rather than the board.
+  expect_equal(length(gregexpr('alt="Bargain Breaker"', rendered, fixed = TRUE)[[1]]), 1L)
 })
 
 test_that("each lane carries its own breakers and its own strip", {
@@ -122,7 +123,7 @@ test_that("each lane carries its own breakers and its own strip", {
 
 test_that("adding the same ice twice does not duplicate its lane", {
   rendered <- render_board(add_ice = c("ice01", "ice01"))
-  expect_equal(length(gregexpr("Cheap Wall", rendered)[[1]]), 2L)
+  expect_equal(length(gregexpr('alt="Cheap Wall"', rendered, fixed = TRUE)[[1]]), 1L)
 })
 
 test_that("clicking a card sets the shared selected_code", {

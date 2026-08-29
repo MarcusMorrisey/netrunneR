@@ -4,10 +4,14 @@
 \alias{cardpool_disclaimer_ui}
 \title{The cardpool non-affiliation and copyright disclaimer, as UI}
 \usage{
-cardpool_disclaimer_ui()
+cardpool_disclaimer_ui(publishers = NULL)
+}
+\arguments{
+\item{publishers}{Character vector of \code{released_by} values from
+\code{\link[=card_publishers]{card_publishers()}}, or NULL for both notices.}
 }
 \value{
-A shiny tag.
+A shiny tagList.
 }
 \description{
 One definition, rendered by every cardpool-sourced view. The wording
@@ -17,9 +21,24 @@ require_cardpool_disclaimer() exists to prevent, reintroduced one
 level up in the string itself.
 }
 \details{
-Both clauses of Null-Signal-Games/netrunner-cards-json's COPYRIGHT.md
-are reproduced. Earlier renders carried only the non-affiliation half;
-the copyright attribution is the other thing that file asks for, and
-omitting it is what kept CARDPOOL_DISCLAIMER_CONFIRMED from being
-attestable.
+NULL SIGNAL GAMES IS NAMED, THOUGH COPYRIGHT.md DOES NOT NAME THEM.
+Null-Signal-Games/netrunner-cards-json's own COPYRIGHT.md, at the
+mirrored commit, reads "copyrighted by Fantasy Flight Games and/or
+Wizards of the Coast" and does not mention Null Signal Games at all.
+That file is incomplete for the data it now covers: the repository
+carries cards Null Signal Games designed and published, and those
+cards carry a Null Signal Games copyright line on the card face and no
+Fantasy Flight or Wizards line. Checked directly on the printed card
+-- Ansel 2.0 (36028, Vantage Point, the most recent cycle) reads
+"Null Signal Games, Illus. Benjamin Giletti" down its right edge,
+where core-set Heimdall 1.0 (01061) reads "(c) 2012 Wizards of the
+Coast LLC. (c) FFG".
+
+So there are TWO notices, not one merged sentence. Each names only the
+publisher it actually applies to, and the Fantasy Flight one is still
+COPYRIGHT.md's wording verbatim -- that file was never wrong, only
+incomplete in scope, and applying it to exactly the cards it describes
+keeps it accurate rather than restating it over cards it does not
+cover. A view showing a mixed pool renders both; the card-detail view
+knows which card it is showing and renders one.
 }

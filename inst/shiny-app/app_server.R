@@ -33,7 +33,7 @@ app_server <- function(input, output, session, app_data) {
   # detail module.
   selected_code <- shiny::reactiveVal(NULL)
   netrunneR::mod_card_detail_server("card_detail_modal", selected_code, cards,
-                                    app_data$rulings)
+                                    app_data$rulings, app_data$legality)
 
   # The two picker modules are instantiated ONCE per session, not per
   # click. mod_card_browser_server() registers observers, so building a
@@ -57,6 +57,13 @@ app_server <- function(input, output, session, app_data) {
     drop = FALSE
   ]
 
+  # Computed ONCE per session, from the pool each picker is mounted over,
+  # and built into that picker's UI. See mod_card_browser_ui(): pushing
+  # these from the server is what left every filter empty once this module
+  # moved into a modal.
+  ice_choices <- netrunneR::browser_choices(ice_pool, app_data$legality)
+  breaker_choices <- netrunneR::browser_choices(breaker_pool, app_data$legality)
+
   picked_ice <- shiny::reactiveVal(NULL)
   picked_breaker <- shiny::reactiveVal(NULL)
   netrunneR::mod_card_browser_server("pick_ice", ice_pool, picked_ice, app_data$legality)
@@ -64,8 +71,8 @@ app_server <- function(input, output, session, app_data) {
 
   board <- netrunneR::mod_lane_board_server(
     "board", cards, matchup, selected_code,
-    on_add_ice = function() show_picker_modal(session, "pick_ice", "Add ice"),
-    on_add_breaker = function() show_picker_modal(session, "pick_breaker", "Add breaker")
+    on_add_ice = function() show_picker_modal(session, "pick_ice", "Add ice", ice_choices),
+    on_add_breaker = function() show_picker_modal(session, "pick_breaker", "Add breaker", breaker_choices)
   )
 
   shiny::observeEvent(picked_ice(), {
@@ -93,14 +100,14 @@ app_server <- function(input, output, session, app_data) {
 #' sidebar of filters plus an image grid, which is unreadable at the
 #' default modal width.
 #' @keywords internal
-show_picker_modal <- function(session, module_id, title) {
+show_picker_modal <- function(session, module_id, title, choices) {
   shiny::showModal(shiny::modalDialog(
     title = title,
         # side = NULL: each picker is opened from a slot that can only
     # hold one kind of card and is mounted over a pool already
     # narrowed to it, so a Side control could only ever restate the
     # choice already made or empty the grid.
-    netrunneR::mod_card_browser_ui(session$ns(module_id), side = NULL),
+    netrunneR::mod_card_browser_ui(session$ns(module_id), side = NULL, choices = choices),
     size = "xl", easyClose = TRUE,
     footer = shiny::modalButton("Cancel")
   ))

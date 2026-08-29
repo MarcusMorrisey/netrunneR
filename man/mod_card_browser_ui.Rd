@@ -4,7 +4,7 @@
 \alias{mod_card_browser_ui}
 \title{Pool browsing: side/faction/subtype filters, image grid, code-keyed.}
 \usage{
-mod_card_browser_ui(id, side = "corp")
+mod_card_browser_ui(id, side = "corp", choices = NULL)
 }
 \arguments{
 \item{id}{Module id.}
@@ -17,6 +17,24 @@ anything except contradict the data it was handed, since the only
 states it offers are "the side you already have" and "nothing".
 \code{filtered()} reads \code{input$side \%||\% ""}, so an absent control is
 already the Any state and the server needs no matching change.}
+
+\item{choices}{The value \code{\link[=browser_choices]{browser_choices()}} returns, or NULL. These
+are STATIC for a given pool -- the factions, subtypes and formats
+present in it are known before any session -- so they are built into
+the UI rather than pushed from the server after the fact.
+
+That is not a style preference. The server used to send them with
+updatePickerInput() from an observe() at session start, which worked
+while this module was a tab that existed in the DOM from the
+beginning. Mounted inside a modal it is not: the element does not
+exist until someone opens the picker, the update message has nothing
+to land on, and it is dropped. Every list came up empty and Format
+lost its Standard default -- a picker with no choices renders as a
+lone search box that matches nothing, which looks like a broken
+filter rather than an unpopulated one.
+
+NULL renders empty pickers, which is only useful to a caller that
+drives the inputs directly, such as a test.}
 }
 \description{
 \code{card.title} is not used as an identity key anywhere below -- only

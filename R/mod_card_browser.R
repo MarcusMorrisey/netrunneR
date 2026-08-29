@@ -24,8 +24,25 @@ MULTI_PICKER_OPTIONS <- list(`actions-box` = TRUE, `none-selected-text` = "Any")
 #'   states it offers are "the side you already have" and "nothing".
 #'   `filtered()` reads `input$side %||% ""`, so an absent control is
 #'   already the Any state and the server needs no matching change.
+#' @param choices The value [browser_choices()] returns, or NULL. These
+#'   are STATIC for a given pool -- the factions, subtypes and formats
+#'   present in it are known before any session -- so they are built into
+#'   the UI rather than pushed from the server after the fact.
+#'
+#'   That is not a style preference. The server used to send them with
+#'   updatePickerInput() from an observe() at session start, which worked
+#'   while this module was a tab that existed in the DOM from the
+#'   beginning. Mounted inside a modal it is not: the element does not
+#'   exist until someone opens the picker, the update message has nothing
+#'   to land on, and it is dropped. Every list came up empty and Format
+#'   lost its Standard default -- a picker with no choices renders as a
+#'   lone search box that matches nothing, which looks like a broken
+#'   filter rather than an unpopulated one.
+#'
+#'   NULL renders empty pickers, which is only useful to a caller that
+#'   drives the inputs directly, such as a test.
 #' @export
-mod_card_browser_ui <- function(id, side = "corp") {
+mod_card_browser_ui <- function(id, side = "corp", choices = NULL) {
   stopifnot(is.null(side) || (is.character(side) && length(side) == 1 &&
                               side %in% c("corp", "runner", "")))
   ns <- shiny::NS(id)
@@ -44,7 +61,9 @@ mod_card_browser_ui <- function(id, side = "corp") {
       # typo that returns nothing then reads as "faction is 'hb'" rather
       # than as an empty grid with no explanation.
       shiny::uiOutput(ns("query_feedback")),
-      shinyWidgets::pickerInput(ns("format"), "Format", choices = NULL),
+      shinyWidgets::pickerInput(ns("format"), "Format",
+        choices = choices$format %||% character(0),
+        selected = choices$format_selected %||% ""),
       # `actions-box` adds the Select All / Deselect All controls. Without
       # it a multi-select picker offers no way back to an empty selection
       # once anything is chosen -- you can only swap one value for
@@ -66,7 +85,8 @@ mod_card_browser_ui <- function(id, side = "corp") {
         choices = c("Any" = "", "Corp" = "corp", "Runner" = "runner"),
         selected = side, justified = TRUE, size = "sm"
       ),
-      shinyWidgets::pickerInput(ns("faction"), "Faction", choices = NULL,
+      shinyWidgets::pickerInput(ns("faction"), "Faction",
+        choices = choices$faction %||% character(0),
         multiple = TRUE, options = c(MULTI_PICKER_OPTIONS, list(`live-search` = TRUE))),
       # No Type picker in this version. Its only two values here are ice
       # and program, which is the Corp/Runner split restated -- the same
@@ -74,7 +94,8 @@ mod_card_browser_ui <- function(id, side = "corp") {
       # query box (`t:ice`), so this removes a control, not a capability,
       # and the picker comes back when the pool widens to card types that
       # do not track side.
-      shinyWidgets::pickerInput(ns("subtype"), "Subtype", choices = NULL,
+      shinyWidgets::pickerInput(ns("subtype"), "Subtype",
+        choices = choices$subtype %||% character(0),
         multiple = TRUE, options = c(MULTI_PICKER_OPTIONS, list(`live-search` = TRUE))),
       shiny::actionButton(ns("clear"), "Clear all filters", class = "btn-sm btn-outline-secondary")
     ),
@@ -126,23 +147,6 @@ mod_card_browser_server <- function(id, cards, selected_code, legality = NULL) {
 
     has_legality <- !is.null(legality) &&
       !is.null(legality$format_snapshot) && nrow(legality$format_snapshot) > 0
-
-    shiny::observe({
-      shinyWidgets::updatePickerInput(session, "faction", choices = sort(unique(cards$faction_code)))
-      shinyWidgets::updatePickerInput(session, "subtype",
-        choices = sort(unique(unlist(strsplit(stats::na.omit(cards$keywords), " - ")))))
-
-      # "Any format" is a real choice, not a placeholder: it is the only
-      # way to see cards from every pool at once, which is what the
-      # browser did before a format selector existed.
-      format_choices <- c("Any format" = "")
-      if (has_legality && !is.null(legality$format)) {
-        named <- stats::setNames(legality$format$id, legality$format$name)
-        format_choices <- c(format_choices, named)
-      }
-      shinyWidgets::updatePickerInput(session, "format", choices = format_choices,
-                                      selected = if (has_legality) "standard" else "")
-    })
 
     # Legality columns, recomputed only when the chosen format changes --
     # not per keystroke in the search box.
@@ -328,4 +332,42 @@ card_grid_tags <- function(session, d) {
       onclick = click_sets_input(session, "card_clicked", code)
     )
   }))
+}
+
+#' The static choices for one pool's filter pickers
+#'
+#' Factions, subtypes and formats are properties of the pool, not of a
+#' session: they cannot change while the app is running, because the
+#' active release cannot. Computing them once and building them into the
+#' UI is both cheaper than a per-session round trip and, more to the
+#' point, immune to the ordering problem that broke every filter when
+#' this module moved into a modal -- see mod_card_browser_ui().
+#'
+#' "Any format" is a real choice, not a placeholder: it is the only way
+#' to see cards from every pool at once, which is what the browser did
+#' before a format selector existed. Standard is the DEFAULT when
+#' legality data is available, because a card list that silently includes
+#' rotated and banned cards is the more surprising of the two.
+#'
+#' @param cards A cardpool `card` data frame.
+#' @param legality The legality tables, or NULL.
+#' @return A list with `faction`, `subtype`, `format` and
+#'   `format_selected`.
+#' @export
+browser_choices <- function(cards, legality = NULL) {
+  has_legality <- !is.null(legality) &&
+    !is.null(legality$format_snapshot) && nrow(legality$format_snapshot) > 0
+
+  format_choices <- c("Any format" = "")
+  if (has_legality && !is.null(legality$format)) {
+    format_choices <- c(format_choices,
+                        stats::setNames(legality$format$id, legality$format$name))
+  }
+
+  list(
+    faction = sort(unique(cards$faction_code)),
+    subtype = sort(unique(unlist(strsplit(stats::na.omit(cards$keywords), " - ")))),
+    format = format_choices,
+    format_selected = if (has_legality) "standard" else ""
+  )
 }
