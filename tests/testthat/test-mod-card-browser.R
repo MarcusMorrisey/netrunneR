@@ -142,7 +142,10 @@ test_that("a chosen format splits out-of-pool cards into the collapsed group", {
       session$flushReact()
       rendered <- as.character(output$card_grid$html)
       # ice03 is in no pool, so it is hidden rather than gone.
-      expect_match(rendered, "hidden by card pool")
+      expect_match(rendered, "not playable in this format")
+      # The group holds two kinds of card and they look different, so it
+      # says which is which rather than leaving dimming to carry it.
+      expect_match(rendered, "outside the current card pool")
       expect_match(rendered, "ice03", fixed = TRUE)
     }
   )
@@ -476,4 +479,42 @@ test_that("grid tiles carry an intrinsic size, so lazy loading can defer them", 
   expect_match(rendered, 'loading="lazy"')
   expect_match(rendered, 'width="300"')
   expect_match(rendered, 'height="418"')
+})
+
+test_that("a banned card is grouped with the unplayable ones, not left among the playable", {
+  # Dimming alone put an unplayable card in the same list as playable
+  # ones. It is still dimmed -- that is what the legend explains -- but it
+  # now sits below the fold with the rest of what you cannot pick.
+  cards <- mini_pool_cardpool()
+  selected_code <- shiny::reactiveVal(NULL)
+
+  shiny::testServer(
+    mod_card_browser_server,
+    args = list(cards = cards, selected_code = selected_code,
+                legality = browser_legality_fixture()),
+    {
+      session$setInputs(format = "standard")
+      session$flushReact()
+      rendered <- as.character(output$card_grid$html)
+
+      # Everything before the <details> is the playable grid.
+      playable <- strsplit(rendered, "<details", fixed = TRUE)[[1]][1]
+      banned_codes <- browser_legality_fixture()$restriction_card$card_id
+      for (code in banned_codes) {
+        expect_no_match(playable, code, fixed = TRUE)
+      }
+    }
+  )
+})
+
+test_that("the legend names only the categories actually present", {
+  # A legend that describes an empty category is worse than none: it tells
+  # the reader to look for something that is not there.
+  expect_match(as.character(exclusion_legend_ui(3, 0)), "banned in this format")
+  expect_no_match(as.character(exclusion_legend_ui(3, 0)), "rotated")
+
+  expect_match(as.character(exclusion_legend_ui(0, 5)), "rotated")
+  expect_no_match(as.character(exclusion_legend_ui(0, 5)), "banned")
+
+  expect_null(exclusion_legend_ui(0, 0))
 })

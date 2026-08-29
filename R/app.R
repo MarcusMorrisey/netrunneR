@@ -59,13 +59,18 @@ require_abr_attribution <- function(has_attribution) {
 #' where core-set Heimdall 1.0 (01061) reads "(c) 2012 Wizards of the
 #' Coast LLC. (c) FFG".
 #'
-#' So there are TWO notices, not one merged sentence. Each names only the
-#' publisher it actually applies to, and the Fantasy Flight one is still
-#' COPYRIGHT.md's wording verbatim -- that file was never wrong, only
-#' incomplete in scope, and applying it to exactly the cards it describes
-#' keeps it accurate rather than restating it over cards it does not
-#' cover. A view showing a mixed pool renders both; the card-detail view
-#' knows which card it is showing and renders one.
+#' ONE NOTICE, SCOPED TO WHAT THE VIEW SHOWS. A view that knows exactly
+#' which card it is displaying names that card's publisher; the Fantasy
+#' Flight wording is then COPYRIGHT.md's verbatim, which is accurate for
+#' the cards it actually describes.
+#'
+#' A view showing a MIXED pool names all three in one disjunction rather
+#' than printing both statements together. Two absolute claims side by
+#' side -- "card data is copyrighted by Null Signal Games" and "card data
+#' is copyrighted by Fantasy Flight Games and/or Wizards of the Coast" --
+#' cannot both be true of the same card data, and nothing on screen says
+#' each is scoped to a subset. "and/or" over all three is one claim that
+#' holds for every card in the pool.
 #'
 #' @param publishers Character vector of `released_by` values from
 #'   [card_publishers()], or NULL for both notices.
@@ -76,25 +81,25 @@ cardpool_disclaimer_ui <- function(publishers = NULL) {
   if (is.null(publishers)) publishers <- known
   publishers <- intersect(known, publishers)
   # A view whose cards trace to no known publisher still needs a notice,
-  # so an empty selection falls back to both rather than to silence.
+  # so an empty selection falls back to naming all three rather than to
+  # silence.
   if (length(publishers) == 0) publishers <- known
 
-  notice <- function(holders) {
-    shiny::tags$p(
-      class = "text-muted small",
-      sprintf(
-        paste0("Card data is copyrighted by %s. Not maintained, produced, ",
-               "endorsed, supported, or affiliated with %s."),
-        holders, holders
-      )
-    )
+  holders <- if (length(publishers) > 1) {
+    "Null Signal Games, Fantasy Flight Games, and/or Wizards of the Coast"
+  } else if (identical(publishers, "null_signal_games")) {
+    "Null Signal Games"
+  } else {
+    "Fantasy Flight Games and/or Wizards of the Coast"
   }
 
-  shiny::tagList(
-    if ("null_signal_games" %in% publishers) notice("Null Signal Games"),
-    if ("fantasy_flight_games" %in% publishers) {
-      notice("Fantasy Flight Games and/or Wizards of the Coast")
-    }
+  shiny::tags$p(
+    class = "text-muted small",
+    sprintf(
+      paste0("Card data is copyrighted by %s. Not maintained, produced, ",
+             "endorsed, supported, or affiliated with %s."),
+      holders, holders
+    )
   )
 }
 

@@ -226,19 +226,37 @@ mod_card_browser_server <- function(id, cards, selected_code, legality = NULL) {
           return(alert_box("No cards match the current filters.", "info"))
         }
 
-        in_pool <- d[d$in_rotation, , drop = FALSE]
-        out_of_pool <- d[!d$in_rotation, , drop = FALSE]
+        # A banned card is not playable in the chosen format, so it belongs
+        # with the cards that are out of the pool rather than among the
+        # ones you can actually pick. It was previously left in the top
+        # grid and merely dimmed, which put an unplayable card in the same
+        # list as playable ones and left dimming to carry the whole
+        # distinction.
+        #
+        # NA-safe on both flags: annotate_format_legality() leaves them
+        # NA against a release promoted before the legality schema
+        # existed, and `d[NA, ]` silently yields a row of NAs rather than
+        # dropping anything.
+        banned <- !is.na(d$is_banned) & d$is_banned
+        in_rotation <- !is.na(d$in_rotation) & d$in_rotation
+
+        playable <- d[in_rotation & !banned, , drop = FALSE]
+        excluded <- d[!in_rotation | banned, , drop = FALSE]
+
+        n_banned <- sum(banned)
+        n_rotated <- sum(!in_rotation & !banned)
 
         shiny::tagList(
-          card_grid_tags(session, in_pool),
+          card_grid_tags(session, playable),
           # Excluded cards collapse rather than vanish, so a card that is
           # simply out of format is distinguishable from one that does
           # not exist.
-          if (nrow(out_of_pool)) {
+          if (nrow(excluded)) {
             shiny::tags$details(
               shiny::tags$summary(class = "text-muted",
-                sprintf("%d hidden by card pool", nrow(out_of_pool))),
-              card_grid_tags(session, out_of_pool)
+                sprintf("%d not playable in this format", nrow(excluded))),
+              exclusion_legend_ui(n_banned, n_rotated),
+              card_grid_tags(session, excluded)
             )
           }
         )
@@ -369,5 +387,32 @@ browser_choices <- function(cards, legality = NULL) {
     subtype = sort(unique(unlist(strsplit(stats::na.omit(cards$keywords), " - ")))),
     format = format_choices,
     format_selected = if (has_legality) "standard" else ""
+  )
+}
+
+#' Say what the two kinds of excluded card are
+#'
+#' The collapsed group holds cards excluded for two different reasons and
+#' they look different -- banned cards are dimmed, out-of-pool cards are
+#' not -- so the difference is stated rather than left to be inferred from
+#' the styling. Dimming is a hint; a sentence is an explanation.
+#'
+#' Each clause appears only when that group is non-empty, so the legend
+#' never describes a category the reader cannot see.
+#'
+#' @param n_banned,n_rotated Integer counts.
+#' @return A shiny tag, or NULL when there is nothing to explain.
+#' @keywords internal
+exclusion_legend_ui <- function(n_banned, n_rotated) {
+  parts <- c(
+    if (n_banned > 0) sprintf("%d dimmed, banned in this format", n_banned),
+    if (n_rotated > 0) sprintf("%d outside the current card pool (rotated)", n_rotated)
+  )
+  if (length(parts) == 0) return(NULL)
+  # One string, not two arguments: shiny joins sibling arguments with a
+  # space, which put a gap before the full stop.
+  shiny::tags$p(
+    class = "text-muted small nr-exclusion-legend",
+    paste0(paste(parts, collapse = "; "), ".")
   )
 }

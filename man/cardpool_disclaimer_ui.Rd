@@ -34,11 +34,16 @@ Fantasy Flight or Wizards line. Checked directly on the printed card
 where core-set Heimdall 1.0 (01061) reads "(c) 2012 Wizards of the
 Coast LLC. (c) FFG".
 
-So there are TWO notices, not one merged sentence. Each names only the
-publisher it actually applies to, and the Fantasy Flight one is still
-COPYRIGHT.md's wording verbatim -- that file was never wrong, only
-incomplete in scope, and applying it to exactly the cards it describes
-keeps it accurate rather than restating it over cards it does not
-cover. A view showing a mixed pool renders both; the card-detail view
-knows which card it is showing and renders one.
+ONE NOTICE, SCOPED TO WHAT THE VIEW SHOWS. A view that knows exactly
+which card it is displaying names that card's publisher; the Fantasy
+Flight wording is then COPYRIGHT.md's verbatim, which is accurate for
+the cards it actually describes.
+
+A view showing a MIXED pool names all three in one disjunction rather
+than printing both statements together. Two absolute claims side by
+side -- "card data is copyrighted by Null Signal Games" and "card data
+is copyrighted by Fantasy Flight Games and/or Wizards of the Coast" --
+cannot both be true of the same card data, and nothing on screen says
+each is scoped to a subset. "and/or" over all three is one claim that
+holds for every card in the pool.
 }
