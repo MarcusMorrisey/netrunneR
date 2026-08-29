@@ -4,7 +4,15 @@
 \alias{lane_ui}
 \title{One lane: an ice card, then every breaker with its stat strip}
 \usage{
-lane_ui(session, ice_code, breaker_codes, cards, matchup)
+lane_ui(
+  session,
+  ice_code,
+  breaker_codes,
+  cards,
+  matchup,
+  traits = NULL,
+  overridden = character(0)
+)
 }
 \description{
 One lane: an ice card, then every breaker with its stat strip

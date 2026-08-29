@@ -8,13 +8,15 @@ build_mini_matchup <- function() {
 # the same rendered string. Rendering it once, here, keeps each test about
 # what it is actually checking.
 render_board <- function(add_ice = character(0), lane_breakers = list(),
-                         selected_code = shiny::reactiveVal(NULL)) {
+                         selected_code = shiny::reactiveVal(NULL),
+                         traits = NULL, override = character(0)) {
   cards <- mini_pool_cardpool()
   matchup <- build_mini_matchup()
   out <- NULL
   shiny::testServer(
     mod_lane_board_server,
-    args = list(cards = cards, matchup = matchup, selected_code = selected_code),
+    args = list(cards = cards, matchup = matchup, selected_code = selected_code,
+                traits = traits),
     {
       board <- session$getReturned()
       for (code in add_ice) board$add_ice(code)
@@ -31,6 +33,9 @@ render_board <- function(add_ice = character(0), lane_breakers = list(),
           board$add_breaker(bc)
         }
       }
+      # Ticking the "compute anyway" box, through the same input the
+      # checkbox sets rather than by reaching into the reactiveVal.
+      for (key in override) session$setInputs(override_toggled = key)
       session$flushReact()
       # renderUI's value in testServer is the list shiny sends to the
       # client (html + dependencies), not a string -- the markup is the
@@ -87,14 +92,151 @@ test_that("an uncomputable pair says so instead of showing a blank strip", {
   expect_no_match(rendered, "nr-diff-bad")
 })
 
-test_that("a pair with no matchup row at all is uncomputable, not silently blank", {
-  # Same statement as not_computable: an absent row and an uncomputable
-  # one are equally "we cannot tell you". stat_strip_ui() is called
-  # directly with an empty frame because compute_ice_breaker_matchups()
-  # emits a row for every pair, so the state is unreachable through it --
-  # which is exactly why it needs pinning rather than assuming.
-  rendered <- as.character(stat_strip_ui(build_mini_matchup()[0, ]))
-  expect_match(rendered, "NOT COMPUTABLE")
+test_that("an absent row with no traits to explain it stays uncomputable", {
+  # Without `traits` there is nothing to tell "the filter dropped this on
+  # purpose" from "we could not read the breaker", so both collapse to the
+  # weaker statement. That is what this module said before it could tell
+  # them apart: less than we know now, but not wrong.
+  ice <- mini_pool_cardpool()[mini_pool_cardpool()$code == "ice02", ]
+  brk <- mini_pool_cardpool()[mini_pool_cardpool()$code == "brk01", ]
+  state <- matchup_pair_state(ice, brk, build_mini_matchup()[0, ], traits = NULL)
+
+  expect_equal(state$kind, "unknown")
+  expect_match(as.character(stat_strip_ui(state)), "NOT COMPUTABLE")
+})
+
+test_that("a Fracter stacked under a Code Gate says it CANNOT break it", {
+  # The case that prompted this: a Fracter under a Code Gate produced no
+  # matchup row, and an absent row rendered as "not computable" -- which
+  # says we do not know, when in fact this is the most definite statement
+  # the app can make about a pairing.
+  ice <- mini_pool_cardpool()[mini_pool_cardpool()$code == "ice02", ]   # Code Gate
+  brk <- mini_pool_cardpool()[mini_pool_cardpool()$code == "brk01", ]   # Fracter
+  state <- matchup_pair_state(ice, brk, build_mini_matchup()[0, ],
+                              mini_pool_ice_breaker_traits())
+
+  expect_equal(state$kind, "cannot_break")
+  expect_true(state$overridable)
+  rendered <- as.character(stat_strip_ui(state))
+  expect_match(rendered, "CANNOT BREAK")
+  expect_no_match(rendered, "NOT COMPUTABLE")
+})
+
+test_that("a breaker whose break clause could not be read is NOT called incompatible", {
+  # An unreadable break clause means we do not know what it breaks, so we
+  # are in no position to say it cannot break this. Reporting our own
+  # parser gap as a fact about the card is the failure mode this whole
+  # table exists to avoid.
+  traits <- mini_pool_ice_breaker_traits()
+  traits$break_subtype[traits$code == "brk01"] <- NA_character_
+
+  ice <- mini_pool_cardpool()[mini_pool_cardpool()$code == "ice02", ]
+  brk <- mini_pool_cardpool()[mini_pool_cardpool()$code == "brk01", ]
+  state <- matchup_pair_state(ice, brk, build_mini_matchup()[0, ], traits)
+
+  expect_equal(state$kind, "unknown")
+  expect_false(state$overridable)
+  expect_match(as.character(stat_strip_ui(state)), "NOT COMPUTABLE")
+})
+
+test_that("the incompatible pair offers a way to override it", {
+  rendered <- render_board(
+    add_ice = "ice02", lane_breakers = list(ice02 = "brk01"),
+    traits = mini_pool_ice_breaker_traits()
+  )
+
+  expect_match(rendered, "CANNOT BREAK")
+  expect_match(rendered, "nr-override")
+  expect_match(rendered, "compute anyway")
+})
+
+test_that("overriding an incompatible pair prices it and badges it ASSUMED", {
+  # brk01 strength 1 vs ice02 strength 3: gap 2 at +1 a pump = 2 credits,
+  # plus 2 subroutines at 1 each = 2. Total 4, against a rez of 8, so the
+  # differential is +4. The arithmetic is ordinary; only the premise that
+  # a Fracter may break a Code Gate at all is the operator's.
+  rendered <- render_board(
+    add_ice = "ice02", lane_breakers = list(ice02 = "brk01"),
+    traits = mini_pool_ice_breaker_traits(),
+    override = "ice02|brk01"
+  )
+
+  expect_match(rendered, "ASSUMED")
+  expect_no_match(rendered, "CANNOT BREAK")
+  expect_match(rendered, "nr-diff-good")
+  expect_match(rendered, "[+]4")
+})
+
+test_that("an override is never badged FORMULA", {
+  # The number is real; the premise is not ours. A reader must be able to
+  # tell this from a pairing the subtypes actually allow.
+  rendered <- render_board(
+    add_ice = "ice02", lane_breakers = list(ice02 = "brk01"),
+    traits = mini_pool_ice_breaker_traits(),
+    override = "ice02|brk01"
+  )
+
+  expect_no_match(rendered, "nr-badge-formula")
+})
+
+test_that("the override toggles back off", {
+  # An assertion you cannot withdraw is a trap. Setting the same input
+  # twice is what a second click on the checkbox does.
+  rendered <- render_board(
+    add_ice = "ice02", lane_breakers = list(ice02 = "brk01"),
+    traits = mini_pool_ice_breaker_traits(),
+    override = c("ice02|brk01", "ice02|brk01")
+  )
+
+  expect_match(rendered, "CANNOT BREAK")
+  expect_no_match(rendered, "ASSUMED")
+})
+
+test_that("an override names one lane, not a breaker everywhere", {
+  # The same breaker can sit under several ice, and asserting something
+  # about one board position says nothing about the others -- the same
+  # reasoning remove_breaker's composite key already encodes.
+  rendered <- render_board(
+    add_ice = c("ice02", "ice03"),
+    lane_breakers = list(ice02 = "brk01", ice03 = "brk01"),
+    traits = mini_pool_ice_breaker_traits(),
+    override = "ice02|brk01"
+  )
+
+  expect_match(rendered, "ASSUMED")
+  # The other lane's identical pairing is untouched.
+  expect_match(rendered, "CANNOT BREAK")
+})
+
+test_that("a pairing the subtypes allow offers no override control", {
+  # There is nothing to assert about a pair that already computes, and a
+  # checkbox there would imply the result is in doubt.
+  # ice04 is a Barrier and brk01 is a Fracter, so the subtypes agree and
+  # there is nothing to assert. (ice01/brk01 would do just as well for the
+  # compatibility, but it carries a curated override in the fixture and
+  # would badge OVERRIDE, which is a different story.)
+  rendered <- render_board(
+    add_ice = "ice04", lane_breakers = list(ice04 = "brk01"),
+    traits = mini_pool_ice_breaker_traits()
+  )
+
+  expect_match(rendered, "FORMULA")
+  expect_no_match(rendered, "CANNOT BREAK")
+  expect_no_match(rendered, "nr-override")
+})
+
+test_that("the override control does not also open the card detail modal", {
+  # The strip sits under a card whose own onclick opens the detail modal,
+  # so without stopPropagation a tick would do two things, one of them
+  # unasked for. Same reason remove_button() carries it.
+  ice <- mini_pool_cardpool()[mini_pool_cardpool()$code == "ice02", ]
+  brk <- mini_pool_cardpool()[mini_pool_cardpool()$code == "brk01", ]
+  state <- matchup_pair_state(ice, brk, build_mini_matchup()[0, ],
+                              mini_pool_ice_breaker_traits())
+  session <- shiny::MockShinySession$new()
+
+  expect_match(as.character(override_control_ui(session, state)),
+               "event.stopPropagation()", fixed = TRUE)
 })
 
 test_that("a breaker added to one lane does not appear in the others", {

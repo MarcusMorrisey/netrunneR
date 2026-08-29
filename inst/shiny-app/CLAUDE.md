@@ -52,6 +52,35 @@ same way `mod_card_browser` does. Filtering at compute time would bake a
 format into the view manifest's cache identity. Note the lane board has
 no format control at all yet, which is the same gap in a live view.
 
+## What a stat strip can say
+
+The strip under a breaker has five states, and they are genuinely
+different claims:
+
+| badge | meaning |
+| --- | --- |
+| `FORMULA` | derived by `compute_cost_to_break_formula()` |
+| `OVERRIDE` | hand-curated in `inst/extdata/matchup_overrides.csv` |
+| `ASSUMED` | the same arithmetic, on a premise the operator supplied |
+| `CANNOT BREAK` | the subtype filter excluded this pair on purpose |
+| `NOT COMPUTABLE` | we do not know |
+
+`CANNOT BREAK` and `NOT COMPUTABLE` were one state until the board could
+tell them apart. Both appear as an absent matchup row, because
+`compute_ice_breaker_matchups()` only emits subtype-compatible pairs and
+the board lets the operator stack whatever they like. `traits` is what
+separates them: a breaker that declares what it breaks and does not break
+this is a definite no; a breaker whose break clause could not be read is
+a genuine unknown, and reporting our parser's gap as a fact about the
+card is the failure this codebase is built to avoid.
+
+`ASSUMED` exists because subtypes change during a game. The override is
+per lane -- keyed `"<ice_code>|<breaker_code>"`, the same composite key
+`remove_breaker` uses, since the same breaker can sit under several ice
+-- and it lives in a session `reactiveVal`, never in
+`matchup_overrides.csv`. That file is for corrections true of the cards;
+an override here is a claim about one board in front of one person.
+
 There is no separate "matchup" release to resolve: `compute_ice_breaker_matchups()` is a plain function called live against the active cardpool/implementation data, exactly like `compute_identity_ratings()`; `matchup` is not one of the five `BUILTIN_LINEAGES` (see `R/lineage.R`). `netrunneR::load_ice_breaker_app_data()` (`R/operations.R`) is what actually resolves the two releases, reads both SQLite databases, and computes the matchup table -- once per process, shared by every session, since none of this changes for the life of the R process.
 
 Any view sourced from the `abr` lineage must render the `alwaysberunning.net` backlink and call `netrunneR::require_abr_attribution(TRUE)`; see `R/app.R`.

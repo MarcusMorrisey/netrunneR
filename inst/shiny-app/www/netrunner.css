@@ -418,9 +418,38 @@ body > .container-fluid > .shiny-html-output {
 }
 .nr-badge-formula  { background: rgba(255, 166, 0, 0.10); color: var(--nr-accent); }
 .nr-badge-override { background: rgba(255, 166, 0, 0.22); color: #ffcf80; }
-/* Deliberately the quietest of the three: "not computable" is an absence
+/* Deliberately the quietest of them: "not computable" is an absence
  * of information, and colouring it like a result would overstate it. */
 .nr-badge-unknown  { background: #1c232b; color: var(--nr-ink-faint); }
+/* "Cannot break" is the opposite of an absence -- it is the most
+ * definite statement on the strip -- so it gets a real colour rather
+ * than the unknown badge's grey. */
+.nr-badge-cannot   { background: rgba(224, 122, 107, 0.14); color: var(--nr-bad); }
+/* Dashed, because the arithmetic is ours and the premise is the
+ * operator's. It must not be mistakable at a glance for FORMULA. */
+.nr-badge-assumed  {
+  background: rgba(255, 166, 0, 0.08);
+  color: var(--nr-accent);
+  border: 1px dashed rgba(255, 166, 0, 0.55);
+  padding: 1px 6px;
+}
+
+/* Sits directly under the strip and shares its width, so it reads as
+ * part of that pairing rather than as a control belonging to the lane. */
+.nr-override {
+  width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  font-size: 11px;
+  color: var(--nr-ink-quiet);
+  background: var(--nr-panel);
+  border: 1px solid var(--nr-panel-edge);
+  border-top: none;
+  cursor: pointer;
+}
+.nr-override input { cursor: pointer; margin: 0; }
 
 /* ---- empty slots ----------------------------------------------------- */
 .nr-slot {

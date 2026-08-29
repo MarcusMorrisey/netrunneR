@@ -125,6 +125,11 @@ suite_nav_ui <- function(active = "iceBreaker") {
 #' @param matchup The tibble `compute_ice_breaker_matchups()` returns.
 #' @param selected_code The shared card-detail `reactiveVal` owned by
 #'   `app_server()`; this module only ever sets it.
+#' @param traits The implementation release's `ice_breaker_traits`, used
+#'   ONLY to tell a pair the subtype filter removed ON PURPOSE from one it
+#'   removed because the breaker could not be read. Optional: without it
+#'   both collapse to "not computable", which is what this module said
+#'   before it could tell them apart -- weaker, but not wrong.
 #' @param on_add_ice Zero-argument function invoked when the operator asks
 #'   to add an ice. `app_server()` supplies the one that opens the search
 #'   modal, so this module does not need to know the modal exists.
@@ -135,6 +140,7 @@ suite_nav_ui <- function(active = "iceBreaker") {
 #'   only names a card.
 #' @export
 mod_lane_board_server <- function(id, cards, matchup, selected_code,
+                                  traits = NULL,
                                   on_add_ice = function() NULL,
                                   on_add_breaker = function() NULL) {
   shiny::moduleServer(id, function(input, output, session) {
@@ -153,6 +159,21 @@ mod_lane_board_server <- function(id, cards, matchup, selected_code,
     # pick; the modal itself stays ignorant of lanes.
     pending_lane <- shiny::reactiveVal(NULL)
 
+    # Pairs the operator has asserted are breakable despite the subtypes
+    # saying otherwise, as "<ice_code>|<breaker_code>" keys -- the same
+    # composite key remove_breaker already uses, because the same breaker
+    # can sit in several lanes and an assertion about one lane is not an
+    # assertion about the others.
+    #
+    # SESSION-ONLY, deliberately. An override here means "in the game I am
+    # looking at, something has changed what this ice is" -- a
+    # Deep Data Mining giving it a subtype, an AI breaker effect, a
+    # one-off. That is a statement about a board state, not about the
+    # cards, so it must not outlive the session or leak into
+    # matchup_overrides.csv, which is for corrections that are true of the
+    # cards themselves.
+    overridden <- shiny::reactiveVal(character(0))
+
     output$lanes <- shiny::renderUI({
       safe_render(function() {
         codes <- ice_codes()
@@ -162,7 +183,7 @@ mod_lane_board_server <- function(id, cards, matchup, selected_code,
           class = "nr-lanes",
           lapply(codes, function(ice_code) {
             lane_ui(session, ice_code, by_ice[[ice_code]] %||% character(0),
-                    cards, matchup)
+                    cards, matchup, traits, overridden())
           }),
           add_lane_ui(session)
         )
@@ -190,6 +211,14 @@ mod_lane_board_server <- function(id, cards, matchup, selected_code,
       by_ice <- breakers()
       by_ice[[code]] <- NULL
       breakers(by_ice)
+    })
+
+    # Toggles rather than sets, so the same control turns the assumption
+    # back off -- an override you cannot withdraw is a trap.
+    shiny::observeEvent(input$override_toggled, {
+      key <- input$override_toggled
+      current <- overridden()
+      overridden(if (key %in% current) setdiff(current, key) else c(current, key))
     })
 
     shiny::observeEvent(input$remove_breaker, {
@@ -222,7 +251,8 @@ mod_lane_board_server <- function(id, cards, matchup, selected_code,
 
 #' One lane: an ice card, then every breaker with its stat strip
 #' @keywords internal
-lane_ui <- function(session, ice_code, breaker_codes, cards, matchup) {
+lane_ui <- function(session, ice_code, breaker_codes, cards, matchup,
+                    traits = NULL, overridden = character(0)) {
   ice <- cards[cards$code == ice_code, ]
   if (nrow(ice) == 0) return(NULL)
 
@@ -233,9 +263,10 @@ lane_ui <- function(session, ice_code, breaker_codes, cards, matchup) {
       breaker <- cards[cards$code == bc, ]
       if (nrow(breaker) == 0) return(NULL)
       pair <- matchup[matchup$ice_code == ice_code & matchup$breaker_code == bc, ]
+      state <- matchup_pair_state(ice, breaker, pair, traits, overridden)
       shiny::tagList(
         breaker_card_ui(session, breaker, ice_code),
-        stat_strip_ui(pair)
+        stat_strip_ui(state, session)
       )
     }),
     shiny::div(
@@ -312,23 +343,160 @@ remove_button <- function(session, input_id, value, label) {
   )
 }
 
+#' What the strip under one breaker is actually saying
+#'
+#' compute_ice_breaker_matchups() emits a row only for SUBTYPE-COMPATIBLE
+#' pairs, so on this board -- where the operator stacks whatever cards
+#' they like -- an absent row is the common case and it has two entirely
+#' different meanings:
+#'
+#' * the breaker declares what it breaks and this ice is not that, so the
+#'   filter dropped the pair ON PURPOSE. That is knowledge, and the
+#'   strongest kind: a Fracter cannot break a Code Gate, ever. Saying
+#'   "not computable" here understates what we know to nothing.
+#' * the breaker's break clause could not be read at all, so we do not
+#'   know what it breaks. That really is "we cannot tell you".
+#'
+#' This module used to render both as `not_computable`, on the reasoning
+#' that an absent row and an uncomputable one are equally "we cannot tell
+#' you". That holds only while nothing can distinguish them; `traits` can.
+#'
+#' The first case is OVERRIDABLE, because subtype is not immutable during
+#' a game -- effects add subtypes to ice, and an AI breaker or a one-off
+#' can break something its printed clause does not name. The override is
+#' an assertion by the operator about the board in front of them, so the
+#' arithmetic it unlocks is badged `assumed` rather than `formula`: the
+#' numbers are real, the premise is theirs.
+#'
+#' @param ice,breaker One-row card frames.
+#' @param pair That pair's matchup row, or a zero-row frame.
+#' @param traits `ice_breaker_traits`, or NULL. NULL collapses the two
+#'   absent-row cases back into one, rather than guessing which applies.
+#' @param overridden Character vector of "<ice>|<breaker>" keys.
+#' @return A list with `kind` ("known", "cannot_break", "assumed",
+#'   "unknown"), `pair` (a matchup-shaped row, possibly zero-row), `key`
+#'   and `overridable`.
+#' @keywords internal
+matchup_pair_state <- function(ice, breaker, pair, traits = NULL,
+                               overridden = character(0)) {
+  key <- paste(ice$code, breaker$code, sep = "|")
+  out <- function(kind, pair, overridable = FALSE) {
+    list(kind = kind, pair = pair, key = key, overridable = overridable,
+         overridden = key %in% overridden)
+  }
+
+  if (nrow(pair) == 1) return(out("known", pair))
+  if (is.null(traits)) return(out("unknown", pair))
+
+  bt <- traits[traits$code == breaker$code, , drop = FALSE]
+  subtype <- if (nrow(bt) == 1) bt$break_subtype[[1]] else NA_character_
+  # No readable break clause: we do not know what it breaks, so we cannot
+  # say it cannot break this.
+  if (is.na(subtype)) return(out("unknown", pair))
+
+  # Asked rather than inferred from the row's absence. The two agree, but
+  # a reader should not have to reconstruct the filter's reasoning from a
+  # missing row to see why this says what it says.
+  if (breaker_matches_ice(ice$keywords, subtype)) return(out("unknown", pair))
+
+  if (!(key %in% overridden)) return(out("cannot_break", pair, overridable = TRUE))
+  out("assumed", assumed_pair_cost(ice, breaker, traits), overridable = TRUE)
+}
+
+#' Price a pair the subtype filter excluded, on the operator's say-so
+#'
+#' Runs exactly the same arithmetic compute_ice_breaker_matchups() would
+#' have, for the one pair it declined to emit. Nothing here reaches into
+#' the matchup table or writes to it: the assumption belongs to one
+#' session and one lane, and baking it into the shared table would make
+#' one operator's board state everybody's data.
+#'
+#' `source` comes back "assumed", never "formula". The subtraction is the
+#' same either way; what differs is that a person supplied the premise,
+#' and the badge has to keep saying so.
+#'
+#' @param ice,breaker One-row card frames.
+#' @param traits `ice_breaker_traits`.
+#' @return A one-row matchup-shaped tibble.
+#' @keywords internal
+assumed_pair_cost <- function(ice, breaker, traits) {
+  it <- traits[traits$code == ice$code, , drop = FALSE]
+  bt <- traits[traits$code == breaker$code, , drop = FALSE]
+
+  empty <- tibble::tibble(
+    ice_code = ice$code, breaker_code = breaker$code,
+    cost_to_break = NA_integer_, stealth_credits = NA_integer_,
+    credit_differential = NA_integer_, source = "not_computable"
+  )
+  if (nrow(it) != 1 || nrow(bt) != 1) return(empty)
+
+  # Same tolerance as compute_ice_breaker_matchups(): a release built
+  # before these columns existed must degrade to NA, not abort a render.
+  bt <- fill_missing_columns(bt, list(
+    pump_stealth = NA_integer_,
+    pump_resource_type = NA_character_,
+    pump_resource_qty = NA_integer_
+  ))
+
+  cost <- compute_cost_to_break_formula(
+    ice$strength, it$subroutine_count, breaker$strength,
+    bt$break_cost, bt$break_qty, bt$pump_cost, bt$pump_amount,
+    bt$pump_resource_type
+  )
+  if (is.na(cost)) return(empty)
+
+  pumps <- strength_pump_applications(ice$strength, breaker$strength, bt$pump_amount)
+  stealth <- if (is.na(bt$pump_stealth) || is.na(pumps) || pumps == 0L) {
+    NA_integer_
+  } else {
+    as.integer(pumps * bt$pump_stealth)
+  }
+
+  tibble::tibble(
+    ice_code = ice$code, breaker_code = breaker$code,
+    cost_to_break = as.integer(cost),
+    stealth_credits = stealth,
+    credit_differential = as.integer(ice$cost - cost),
+    source = "assumed"
+  )
+}
+
 #' The stat strip under a breaker: break cost, differential, provenance
 #'
 #' `source` is rendered as a badge rather than a bare word because the
-#' three states mean genuinely different things to a reader: "formula" is
-#' derived, "override" is hand-curated, and "not_computable" is the honest
-#' admission that `compute_cost_to_break_formula()` is still a stub for
-#' this pair (see R/views-matchups.R). An absent row is the same statement
-#' as `not_computable`, so it renders identically rather than collapsing
-#' to a blank -- a missing pair and an uncomputable one are equally "we
-#' cannot tell you", and showing nothing would read as "zero".
+#' states mean genuinely different things to a reader: "formula" is
+#' derived, "override" is hand-curated, "assumed" is derived from a
+#' premise the operator supplied, "cannot break" is a definite negative,
+#' and "not computable" is the honest admission that we do not know.
+#'
+#' Nothing here collapses to a blank: a blank strip would read as "zero
+#' cost to break", which is the opposite of every one of those.
+#'
+#' CANNOT BREAK IS NOT NOT-COMPUTABLE. This used to render an absent
+#' matchup row as `not_computable`, reasoning that a missing pair and an
+#' uncomputable one are equally "we cannot tell you". They are not: the
+#' subtype filter drops a Fracter/Code Gate pair on purpose, and that is
+#' the most definite thing this app can say about a pairing. See
+#' matchup_pair_state(), which is where the two are told apart.
+#'
+#' @param state The list matchup_pair_state() returns.
+#' @param session The module session, for the override control's
+#'   click_sets_input(). NULL renders the strip without that control,
+#'   which is what a test asserting only the text wants.
 #' @keywords internal
-stat_strip_ui <- function(pair) {
+stat_strip_ui <- function(state, session = NULL) {
   dash <- "\u2014"
   minus <- "\u2212"
 
-  src <- if (nrow(pair) == 1) pair$source else "not_computable"
-  known <- !identical(src, "not_computable")
+  pair <- state$pair
+  src <- if (identical(state$kind, "cannot_break")) {
+    "cannot_break"
+  } else if (nrow(pair) == 1) {
+    pair$source
+  } else {
+    "not_computable"
+  }
+  known <- src %in% c("formula", "override", "assumed")
 
   break_cost <- if (known && !is.na(pair$cost_to_break)) {
     as.character(pair$cost_to_break)
@@ -353,14 +521,55 @@ stat_strip_ui <- function(pair) {
   badge <- switch(src,
     formula  = shiny::tags$span(class = "nr-badge nr-badge-formula", "FORMULA"),
     override = shiny::tags$span(class = "nr-badge nr-badge-override", "OVERRIDE"),
+    assumed  = shiny::tags$span(class = "nr-badge nr-badge-assumed", "ASSUMED"),
+    cannot_break = shiny::tags$span(class = "nr-badge nr-badge-cannot", "CANNOT BREAK"),
     shiny::tags$span(class = "nr-badge nr-badge-unknown", "NOT COMPUTABLE")
   )
 
-  shiny::div(
-    class = "nr-strip",
-    shiny::tags$span(class = "nr-strip-break", "BREAK ", shiny::tags$b(break_cost)),
-    diff_ui,
-    badge
+  shiny::tagList(
+    shiny::div(
+      class = "nr-strip",
+      shiny::tags$span(class = "nr-strip-break", "BREAK ", shiny::tags$b(break_cost)),
+      diff_ui,
+      badge
+    ),
+    # Only where the subtypes are what stands in the way. There is nothing
+    # for an operator to assert about a breaker whose break clause we
+    # could not read in the first place -- overriding that would just
+    # produce NA under a badge claiming a premise.
+    if (isTRUE(state$overridable) && !is.null(session)) {
+      override_control_ui(session, state)
+    }
+  )
+}
+
+#' The "assume it breaks this" control under an incompatible pair
+#'
+#' A real checkbox, not a link, because it is a persistent two-state
+#' assertion about this lane rather than an action -- and because its
+#' state has to survive the board re-rendering, which it does by being
+#' redrawn from `overridden` each time rather than by the browser
+#' remembering it.
+#'
+#' `event.stopPropagation()` for the same reason remove_button() needs it:
+#' the strip sits under a card whose own onclick opens the card detail
+#' modal, and a click that both ticks the box and opens a modal is a
+#' click that did something the operator did not ask for.
+#' @keywords internal
+override_control_ui <- function(session, state) {
+  shiny::tags$label(
+    class = "nr-override",
+    shiny::tags$input(
+      type = "checkbox",
+      # NULL omits the attribute entirely; "checked" is not a value that
+      # can be set to false.
+      checked = if (isTRUE(state$overridden)) "checked",
+      onclick = paste0("event.stopPropagation(); ",
+                       click_sets_input(session, "override_toggled", state$key))
+    ),
+    shiny::tags$span(
+      if (isTRUE(state$overridden)) "assuming it breaks this" else "compute anyway"
+    )
   )
 }
 

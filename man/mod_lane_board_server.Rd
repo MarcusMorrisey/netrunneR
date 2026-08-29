@@ -9,6 +9,7 @@ mod_lane_board_server(
   cards,
   matchup,
   selected_code,
+  traits = NULL,
   on_add_ice = function() NULL,
   on_add_breaker = function() NULL
 )
@@ -22,6 +23,12 @@ mod_lane_board_server(
 
 \item{selected_code}{The shared card-detail \code{reactiveVal} owned by
 \code{app_server()}; this module only ever sets it.}
+
+\item{traits}{The implementation release's \code{ice_breaker_traits}, used
+ONLY to tell a pair the subtype filter removed ON PURPOSE from one it
+removed because the breaker could not be read. Optional: without it
+both collapse to "not computable", which is what this module said
+before it could tell them apart -- weaker, but not wrong.}
 
 \item{on_add_ice}{Zero-argument function invoked when the operator asks
 to add an ice. \code{app_server()} supplies the one that opens the search
