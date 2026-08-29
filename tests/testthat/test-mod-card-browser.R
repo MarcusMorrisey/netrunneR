@@ -452,3 +452,28 @@ test_that("a picker mounted over one side's pool renders no Side control", {
 
   expect_error(mod_card_browser_ui("b", side = "nonsense"))
 })
+
+test_that("grid tiles carry an intrinsic size, so lazy loading can defer them", {
+  # loading = "lazy" is inert unless the browser can size the box before
+  # the image arrives. Without width/height the grid collapsed to a few
+  # pixels tall, every tile counted as on-screen, and the whole ice pool
+  # (390 images) was fetched on open. The attributes are the fix; this
+  # pins them so a later tidy-up cannot quietly reintroduce the stall.
+  cards <- mini_pool_cardpool()
+  selected_code <- shiny::reactiveVal(NULL)
+  rendered <- NULL
+
+  shiny::testServer(
+    mod_card_browser_server, args = list(cards = cards, selected_code = selected_code),
+    {
+      session$setInputs(query = "", format = "", side = "", faction = character(0),
+                        subtype = character(0))
+      session$flushReact()
+      rendered <<- output$card_grid$html
+    }
+  )
+
+  expect_match(rendered, 'loading="lazy"')
+  expect_match(rendered, 'width="300"')
+  expect_match(rendered, 'height="418"')
+})

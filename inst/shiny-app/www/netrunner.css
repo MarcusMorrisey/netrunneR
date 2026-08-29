@@ -110,6 +110,15 @@ h1, h2, h3, h4, h5 { color: var(--nr-ink-bright); }
 }
 .nr-card {
   width: 150px;
+  /* height: auto against the img's width/height attributes (set in
+   * card_grid_tags(), R/mod_card_browser.R) makes each tile reserve its
+   * full height before the image loads. That is what lets
+   * loading = "lazy" work at all: with no height the grid had none
+   * either, so every tile was on-screen and nothing was deferred. */
+  height: auto;
+  /* A visible placeholder while the image is still coming, so a
+   * half-loaded grid reads as loading rather than as broken. */
+  background: var(--nr-panel);
   border-radius: var(--nr-radius);
   cursor: pointer;
   transition: transform 120ms ease, box-shadow 120ms ease;

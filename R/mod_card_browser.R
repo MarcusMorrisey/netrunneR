@@ -268,6 +268,21 @@ mod_card_browser_server <- function(id, cards, selected_code, legality = NULL) {
     shiny::observeEvent(input$card_clicked, {
       selected_code(input$card_clicked)
     })
+
+    # This module's outputs are bound when the session starts, but
+    # app_server() mounts it inside a modal, so their elements do not
+    # exist in the DOM until someone opens the picker. Shiny suspends an
+    # output whose element it cannot see and, on this path, does not
+    # reliably resume it when the element finally appears -- the grid
+    # then sits in `recalculating` forever, with the R process idle,
+    # which reads exactly like a slow query and is not one.
+    #
+    # Computing unconditionally is cheap here: the whole grid is ~0.1s
+    # and ~90KB of markup for the largest pool (390 ice), built once and
+    # only recomputed when a filter changes.
+    for (output_id in c("card_grid", "query_feedback")) {
+      shiny::outputOptions(output, output_id, suspendWhenHidden = FALSE)
+    }
   })
 }
 
@@ -293,6 +308,17 @@ card_grid_tags <- function(session, d) {
     shiny::tags$img(
       src = card_image_url(code),
       title = note,
+      # The intrinsic size of every NetrunnerDB v2/large image, so the
+      # browser can reserve each tile's box BEFORE the bytes arrive.
+      # Without it an unloaded <img> is 150px wide and zero tall (CSS
+      # gives .nr-card a width and no height, and there is no ratio to
+      # infer yet), so the whole grid collapsed to a few pixels, every
+      # tile counted as on-screen, and loading = "lazy" below dutifully
+      # fetched all 390 ice at once -- roughly ten seconds before the
+      # picker painted. These attributes only supply the ratio; CSS
+      # still decides the rendered size (see .nr-card).
+      width = 300,
+      height = 418,
       # Classes, not inline style: the grid is themed in
       # inst/shiny-app/www/netrunner.css, and a size or a dimming rule
       # that only exists here cannot be changed with the rest of the
