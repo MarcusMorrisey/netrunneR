@@ -4,10 +4,19 @@
 \alias{mod_card_browser_ui}
 \title{Pool browsing: side/faction/subtype filters, image grid, code-keyed.}
 \usage{
-mod_card_browser_ui(id)
+mod_card_browser_ui(id, side = "corp")
 }
 \arguments{
 \item{id}{Module id.}
+
+\item{side}{Character. Which side the Side control starts on:
+\code{"corp"} (the browsing default), \code{"runner"}, or \code{""} for Any.
+\code{NULL} omits the control altogether, for a caller that has already
+narrowed the pool to one side -- there the control cannot do
+anything except contradict the data it was handed, since the only
+states it offers are "the side you already have" and "nothing".
+\code{filtered()} reads \code{input$side \%||\% ""}, so an absent control is
+already the Any state and the server needs no matching change.}
 }
 \description{
 \code{card.title} is not used as an identity key anywhere below -- only

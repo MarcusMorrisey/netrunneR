@@ -2,17 +2,53 @@
 % Please edit documentation in R/views-matchups.R
 \name{compute_cost_to_break_formula}
 \alias{compute_cost_to_break_formula}
-\title{Real cost-to-break formula (NOT YET IMPLEMENTED)}
+\title{The real cost-to-break formula}
 \usage{
-compute_cost_to_break_formula(ice_codes, breaker_codes, ice_breaker_traits)
+compute_cost_to_break_formula(
+  ice_strength,
+  ice_subroutines,
+  breaker_strength,
+  break_cost,
+  break_qty,
+  pump_cost,
+  pump_amount
+)
+}
+\arguments{
+\item{ice_strength, ice_subroutines}{Integer vectors, from cardpool and
+the implementation lineage respectively.}
+
+\item{breaker_strength, break_cost, break_qty, pump_cost, pump_amount}{Integer vectors for the breaker side.}
 }
 \value{
-An integer vector the same length as \code{ice_codes}, all NA.
+An integer vector of credit costs, \code{NA_integer_} where any
+input needed for that pair is unknown.
 }
 \description{
-Always returns NA_integer_ until extract_ice_breaker_traits()
-(R/build-implementation.R) parses real per-card subtype/strength/cost
-values out of the mtgred/netrunner Clojure source -- see the note on
-compute_ice_breaker_matchups() above.
+What a runner pays to get through one piece of ice with one breaker,
+once: raise the breaker to the ice's strength, then break every
+subroutine.
 }
-\keyword{internal}
+\details{
+\if{html}{\out{<div class="sourceCode">}}\preformatted{pumps  = ceiling(max(0, ice_strength - breaker_strength) / pump_amount)
+breaks = ceiling(subroutine_count / break_qty)
+cost   = pumps * pump_cost + breaks * break_cost
+}\if{html}{\out{</div>}}
+
+\code{break_qty == 0} means "break all subroutines" (how this codebase
+writes cards like Begemot), so it costs one application whatever the
+subroutine count.
+
+This is the standard encounter, not the cheapest line of play. It does
+not model paying a subroutine's own cost instead of breaking it,
+letting a subroutine fire, derezzing, or any card-specific trick --
+those are decisions, not arithmetic. It is the number that makes two
+breakers comparable against the same ice, which is what the board asks
+for.
+
+EVERY UNKNOWN PROPAGATES TO NA, and NA becomes \code{not_computable}
+upstream. A breaker with no \code{strength-pump} cannot reach ice above its
+own strength at all, and a strength it cannot reach is \code{NA} rather
+than a large number -- "you cannot do this" and "this is expensive"
+are different answers.
+}

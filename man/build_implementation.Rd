@@ -2,7 +2,7 @@
 % Please edit documentation in R/build-implementation.R
 \name{build_implementation}
 \alias{build_implementation}
-\title{Extract normalized ice/breaker trait rows from the implementation tree}
+\title{Extract ice/breaker economics from the implementation tree}
 \usage{
 build_implementation(lineage, staged_raw)
 }
@@ -12,25 +12,13 @@ build_implementation(lineage, staged_raw)
 \item{staged_raw}{The value returned by fetch_lineage.netrunneR_git_mirror().}
 }
 \description{
-Extracts a normalized ice_breaker_traits tibble from the Jinteki
-implementation tree, one row per card-definition file, carrying
-subtypes, base strength and per-subtype break cost. Cross-checks codes
-against cardpool in both directions as a counted warning that never
-blocks promotion, since implementation and cardpool are fetched
-independently and are expected to drift briefly around a new card's
-release.
+The mtgred/netrunner tree is a Clojure project with card definitions
+grouped one file per card CATEGORY under src/clj/game/cards/. Only
+ice.clj and programs.clj matter here; the other categories define
+cards that never take part in an ice/breaker encounter.
 }
 \details{
-The real mtgred/netrunner tree (confirmed live this session) is a
-Clojure project with card definitions grouped one file per card
-\emph{category} under src/clj/game/cards/ (agendas.clj, ice.clj,
-programs.clj, ...) -- there is no server/cards/*.js per-card layout.
-extract_ice_breaker_traits() below is still the pre-existing stub (it
-has never parsed real trait data out of a definition file's contents,
-only derived a placeholder \code{code} from the filename), so pointed at
-the real path it now produces one placeholder row per category file
-rather than per card. Real per-card trait extraction would mean
-parsing individual defcard forms out of Clojure source and is future
-work, not something this fix invents.
+See extract_traits_from_file() below for what is read and what is
+deliberately left NA.
 }
 \keyword{internal}
