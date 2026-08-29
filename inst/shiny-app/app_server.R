@@ -63,8 +63,8 @@ app_server <- function(input, output, session, app_data) {
 
   board <- netrunneR::mod_lane_board_server(
     "board", cards, matchup, selected_code,
-    on_add_ice = function() show_picker_modal(session, "pick_ice", "Add ice"),
-    on_add_breaker = function() show_picker_modal(session, "pick_breaker", "Add breaker")
+    on_add_ice = function() show_picker_modal(session, "pick_ice", "Add ice", "corp"),
+    on_add_breaker = function() show_picker_modal(session, "pick_breaker", "Add breaker", "runner")
   )
 
   shiny::observeEvent(picked_ice(), {
@@ -92,10 +92,10 @@ app_server <- function(input, output, session, app_data) {
 #' sidebar of filters plus an image grid, which is unreadable at the
 #' default modal width.
 #' @keywords internal
-show_picker_modal <- function(session, module_id, title) {
+show_picker_modal <- function(session, module_id, title, default_side) {
   shiny::showModal(shiny::modalDialog(
     title = title,
-    netrunneR::mod_card_browser_ui(session$ns(module_id)),
+    netrunneR::mod_card_browser_ui(session$ns(module_id), default_side),
     size = "xl", easyClose = TRUE,
     footer = shiny::modalButton("Cancel")
   ))

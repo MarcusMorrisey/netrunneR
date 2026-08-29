@@ -320,17 +320,26 @@ summary:focus-visible {
   margin-top: 14px;
   background: linear-gradient(155deg, #16202c, #0b1117);
 }
-/* Ice art is a portrait scan shown in a landscape frame: crop to the
- * middle rather than letterboxing, so the frame stays the wireframe's
- * shape and the title band below stays legible. */
+/* Both scans are portrait; both frames are not. Crop rather than
+ * letterbox, so the frames keep the wireframe's shapes.
+ *
+ * The two object-positions are NOT symmetric, and the difference is not
+ * a taste call. ICE is printed to be read rotated, so NetrunnerDB's
+ * portrait scan puts the title and rules text at the top and the art in
+ * the BOTTOM third; a centred crop of an ice card shows a wall of rules
+ * text. Programs are printed portrait and read portrait, so their art is
+ * where you would expect it, near the top. Verified against live NRDB
+ * images (01061 Heimdall 1.0, 01007 Corroder) in the running app, not
+ * inferred from the frame geometry. */
 .nr-lane-art {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 28%;
 }
+.nr-lane-card-ice .nr-lane-art { object-position: center 78%; }
+.nr-lane-card-breaker .nr-lane-art { object-position: center 22%; }
 .nr-lane-hatch {
   position: absolute;
   inset: 0;
