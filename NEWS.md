@@ -1,5 +1,24 @@
 # netrunneR (development)
 
+* The lane board distinguishes "cannot break" from "not computable". A
+  Fracter stacked under a Code Gate produced no matchup row, and an
+  absent row rendered as `not_computable` -- which says we do not know,
+  when the subtype filter dropped that pair ON PURPOSE and it is the most
+  definite statement the app can make about a pairing. A breaker whose
+  break clause could not be read still reads `not computable`, because
+  there we genuinely do not know what it breaks.
+* An incompatible pairing can be overridden per lane, with a checkbox.
+  Subtypes are not immutable during a game -- effects add them to ice --
+  so the operator can assert that this ice, here, is breakable. The
+  arithmetic that unlocks is badged `ASSUMED`, never `FORMULA`: the
+  numbers are ours and the premise is theirs. The override is
+  session-only and lane-specific, and is deliberately NOT written to
+  `matchup_overrides.csv`, which is for corrections true of the cards
+  themselves rather than of one board state.
+* `mod_lane_board_server()` takes an optional `traits`. Without it both
+  absent-row cases collapse back to `not computable`, which is what the
+  board said before it could tell them apart.
+
 * `mod_matchup_explorer` is reachable again. It had been exported, tested
   and mounted nowhere since the lane board replaced the navbar that
   hosted it. It is now a modal opened from the card detail modal, so no

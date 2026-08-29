@@ -4,16 +4,31 @@
 \alias{stat_strip_ui}
 \title{The stat strip under a breaker: break cost, differential, provenance}
 \usage{
-stat_strip_ui(pair)
+stat_strip_ui(state, session = NULL)
+}
+\arguments{
+\item{state}{The list matchup_pair_state() returns.}
+
+\item{session}{The module session, for the override control's
+click_sets_input(). NULL renders the strip without that control,
+which is what a test asserting only the text wants.}
 }
 \description{
 \code{source} is rendered as a badge rather than a bare word because the
-three states mean genuinely different things to a reader: "formula" is
-derived, "override" is hand-curated, and "not_computable" is the honest
-admission that \code{compute_cost_to_break_formula()} is still a stub for
-this pair (see R/views-matchups.R). An absent row is the same statement
-as \code{not_computable}, so it renders identically rather than collapsing
-to a blank -- a missing pair and an uncomputable one are equally "we
-cannot tell you", and showing nothing would read as "zero".
+states mean genuinely different things to a reader: "formula" is
+derived, "override" is hand-curated, "assumed" is derived from a
+premise the operator supplied, "cannot break" is a definite negative,
+and "not computable" is the honest admission that we do not know.
+}
+\details{
+Nothing here collapses to a blank: a blank strip would read as "zero
+cost to break", which is the opposite of every one of those.
+
+CANNOT BREAK IS NOT NOT-COMPUTABLE. This used to render an absent
+matchup row as \code{not_computable}, reasoning that a missing pair and an
+uncomputable one are equally "we cannot tell you". They are not: the
+subtype filter drops a Fracter/Code Gate pair on purpose, and that is
+the most definite thing this app can say about a pairing. See
+matchup_pair_state(), which is where the two are told apart.
 }
 \keyword{internal}

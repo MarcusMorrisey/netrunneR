@@ -106,6 +106,9 @@ app_server <- function(input, output, session, app_data) {
 
   board <- netrunneR::mod_lane_board_server(
     "board", cards, matchup, selected_code,
+    # Only so the board can tell a pair the subtype filter dropped ON
+    # PURPOSE from one it dropped because the breaker could not be read.
+    traits = app_data$traits,
     on_add_ice = function() show_picker_modal(session, "pick_ice", "Add ice", ice_choices),
     on_add_breaker = function() show_picker_modal(session, "pick_breaker", "Add breaker", breaker_choices)
   )
