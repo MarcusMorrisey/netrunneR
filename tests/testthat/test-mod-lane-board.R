@@ -324,3 +324,54 @@ test_that("a picked breaker with no lane pending is dropped, not guessed at", {
     }
   )
 })
+
+test_that("a breaker known to declare more subtypes than we stored never says CANNOT BREAK", {
+  # Penrose and Lobisomem each break two subtypes and this table records
+  # one, so the dropped subtype's pairings are absent -- and an absent
+  # pairing is what renders as a definite negative. Claiming Penrose
+  # cannot break a Code Gate is false for 133 pairings. Partial evidence
+  # cannot support a definite negative, so it falls back to "we do not
+  # know".
+  traits <- mini_pool_ice_breaker_traits()
+  traits$break_subtype_count <- 1L
+  traits$break_subtype_count[traits$code == "brk01"] <- 2L
+
+  ice <- mini_pool_cardpool()[mini_pool_cardpool()$code == "ice02", ]   # Code Gate
+  brk <- mini_pool_cardpool()[mini_pool_cardpool()$code == "brk01", ]   # records Barrier
+  state <- matchup_pair_state(ice, brk, build_mini_matchup()[0, ], traits)
+
+  expect_equal(state$kind, "unknown")
+  expect_false(state$overridable)
+  rendered <- as.character(stat_strip_ui(state))
+  expect_match(rendered, "NOT COMPUTABLE")
+  expect_no_match(rendered, "CANNOT BREAK")
+})
+
+test_that("a breaker whose single recorded subtype is complete still says CANNOT BREAK", {
+  # The guard must not swallow the state for the 171 breakers whose one
+  # subtype is the whole story -- suppressing everywhere to spare two
+  # would trade a false negative for a useless view.
+  traits <- mini_pool_ice_breaker_traits()
+  traits$break_subtype_count <- 1L
+
+  ice <- mini_pool_cardpool()[mini_pool_cardpool()$code == "ice02", ]
+  brk <- mini_pool_cardpool()[mini_pool_cardpool()$code == "brk01", ]
+  state <- matchup_pair_state(ice, brk, build_mini_matchup()[0, ], traits)
+
+  expect_equal(state$kind, "cannot_break")
+  expect_match(as.character(stat_strip_ui(state)), "CANNOT BREAK")
+})
+
+test_that("a release predating the count keeps the definite negative rather than losing it", {
+  # The column is absent for EVERY card on such a release, so treating the
+  # absence as partial evidence would disable the state for all of them to
+  # spare two. The asymmetry resolves at the next implementation re-sync.
+  traits <- mini_pool_ice_breaker_traits()
+  expect_false("break_subtype_count" %in% names(traits))
+
+  ice <- mini_pool_cardpool()[mini_pool_cardpool()$code == "ice02", ]
+  brk <- mini_pool_cardpool()[mini_pool_cardpool()$code == "brk01", ]
+  state <- matchup_pair_state(ice, brk, build_mini_matchup()[0, ], traits)
+
+  expect_equal(state$kind, "cannot_break")
+})

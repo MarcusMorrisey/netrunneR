@@ -399,6 +399,35 @@ matchup_pair_state <- function(ice, breaker, pair, traits = NULL,
   # missing row to see why this says what it says.
   if (breaker_matches_ice(ice$keywords, subtype)) return(out("unknown", pair))
 
+  # A DEFINITE NEGATIVE NEEDS COMPLETE EVIDENCE, and for two cards it is
+  # not complete. A defcard may carry several break clauses naming
+  # different subtypes, and ice_breaker_traits records only one: Penrose
+  # breaks Code Gates and also Barriers the turn it is installed,
+  # Lobisomem breaks Code Gates and X Barrier subroutines. The dropped
+  # subtype's pairings are absent from the matchup table, and this
+  # function would read that absence as "cannot break" -- stating
+  # confidently that Penrose cannot break a Code Gate, which is false for
+  # 133 pairings, and the same for 101 of Lobisomem's.
+  #
+  # So where the card is KNOWN to declare more subtypes than we stored,
+  # the answer falls back to "we do not know". That is the honest reading
+  # of partial evidence, and it is what this rendered before the
+  # cannot_break state existed.
+  #
+  # This is a guard, not the fix. Recording every clause with its own
+  # subtype and cost is the fix; until then this stops us asserting
+  # something false. See break_subtype_count() in R/build-implementation.R.
+  #
+  # A release predating the column leaves the count NA, and that case
+  # KEEPS the definite negative rather than suppressing it everywhere:
+  # the column is absent for every card on such a release, so treating NA
+  # as incomplete would disable the state for all 171 breakers whose
+  # single recorded subtype is complete, in order to spare 2. The
+  # asymmetry resolves itself the moment the implementation lineage is
+  # re-synced, after which the count is always present.
+  count <- if ("break_subtype_count" %in% names(bt)) bt$break_subtype_count[[1]] else NA_integer_
+  if (!is.na(count) && count > 1L) return(out("unknown", pair))
+
   if (!(key %in% overridden)) return(out("cannot_break", pair, overridable = TRUE))
   out("assumed", assumed_pair_cost(ice, breaker, traits), overridable = TRUE)
 }

@@ -115,3 +115,47 @@ test_that("a pump is still read when the BREAK cost is the unreadable half", {
   expect_equal(e$pump_cost, 1L)
   expect_equal(e$pump_amount, 7L)
 })
+
+# ---- break-clause subtypes ------------------------------------------
+# Bodies copied verbatim from the mtgred/netrunner tree, as above.
+
+test_that("the subtype is read positionally, not as the last string in the form", {
+  # Endless Hunger recorded a break_subtype of " subroutine" -- the tail of
+  # a :msg -- which matches no ice, so the card had no pairings at all.
+  # The subtype is the third POSITIONAL argument; cost and quantity are
+  # never strings, so the first literal is the subtype and any later one
+  # belongs to a label, a message or a :req.
+  body <- paste0(
+    '(defcard "Endless Hunger" {:abilities [(break-sub [(->c :trash-installed 1)] 1 "All" ',
+    '{:msg "break 1 subroutine"})]})')
+
+  expect_equal(break_sub_subtype(body), "All")
+})
+
+test_that("a label mentioning the subtype does not displace the real one", {
+  body <- '(break-sub 1 1 "Barrier" {:label "Break 1 Barrier subroutine"})'
+  expect_equal(break_sub_subtype(body), "Barrier")
+})
+
+test_that("break_subtype_count counts DISTINCT subtypes, not clauses", {
+  # Odore, BlacKat, Euler and Revolver each carry two clauses naming the
+  # same subtype. One record of it is complete, so they must not be
+  # flagged as partial -- doing so would suppress a correct definite
+  # negative for cards that deserve one.
+  body <- '{:abilities [(break-sub 2 0 "Sentry") (break-sub 0 1 "Sentry")]}'
+  expect_equal(break_subtype_count(body), 1L)
+})
+
+test_that("break_subtype_count sees a card that breaks two different subtypes", {
+  # Penrose: Code Gates generally, Barriers only the turn it is installed.
+  # Exactly the shape whose second subtype this table drops.
+  body <- paste0(
+    '{:abilities [(break-sub 1 1 "Barrier" {:req (req (= :this-turn (installed? card)))}) ',
+    '(break-sub 1 1 "Code Gate") (strength-pump 1 3)]}')
+
+  expect_equal(break_subtype_count(body), 2L)
+})
+
+test_that("break_subtype_count is 0 for a card with no break clause", {
+  expect_equal(break_subtype_count('{:abilities [{:label "not a breaker"}]}'), 0L)
+})
