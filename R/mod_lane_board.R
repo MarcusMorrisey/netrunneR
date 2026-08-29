@@ -15,12 +15,14 @@
 #' question and is kept for that purpose; this view is what the wireframe
 #' specifies as the landing screen.
 #'
-#' WHY A SHARED BREAKER SET: the wireframe sketches a different breaker in
-#' each lane, but stat strips are only comparable across lanes when the
-#' breaker rows line up. One breaker set applied to every lane is what
-#' makes the side-by-side readable; the per-lane "+" in the wireframe adds
-#' to that shared set. This is an interpretation of the sketch, not a
-#' literal transcription of it.
+#' BREAKERS ARE PER LANE. Each ice gets its own stack, and each lane's
+#' "+" adds to that lane only. An earlier draft shared one breaker set
+#' across every lane, on the theory that stat strips are only comparable
+#' when the breaker rows line up -- that was wrong twice over. Cards and
+#' strips are fixed-size, so the Nth row of every lane sits at the same
+#' height either way; and reading ACROSS rows is not the question this
+#' board answers. It answers "for this ice, which of my breakers handles
+#' it, and at what cost", which is read down a single lane.
 #'
 #' This view renders BOTH cardpool data (titles, images, strength,
 #' keywords) and implementation-derived data (cost_to_break /
@@ -125,23 +127,27 @@ mod_lane_board_server <- function(id, cards, matchup, selected_code,
     require_cardpool_disclaimer(CARDPOOL_DISCLAIMER_CONFIRMED)
     require_implementation_license_notice(IMPLEMENTATION_MIT_NOTICE_CONFIRMED)
 
-    ice_codes     <- shiny::reactiveVal(character(0))
-    breaker_codes <- shiny::reactiveVal(character(0))
+    ice_codes <- shiny::reactiveVal(character(0))
+    # Breakers are held PER LANE: a named list, ice code -> the breakers
+    # stacked under that ice. Each lane's "+" adds to that lane and no
+    # other, which is what the wireframe draws and the only reading in
+    # which the button means what it looks like it means.
+    breakers <- shiny::reactiveVal(list())
+    # Which lane's "+" was last pressed, so the code coming back from the
+    # search modal knows where to land. Set on the click, read on the
+    # pick; the modal itself stays ignorant of lanes.
+    pending_lane <- shiny::reactiveVal(NULL)
 
     output$lanes <- shiny::renderUI({
       safe_render(function() {
         codes <- ice_codes()
         if (length(codes) == 0) return(empty_board_ui(session))
+        by_ice <- breakers()
         shiny::div(
           class = "nr-lanes",
-          # The add-breaker slot is drawn in the FIRST lane only. The
-          # wireframe puts one at the foot of every lane, which follows
-          # from its per-lane breakers; with one shared breaker set those
-          # would be N copies of a single button, all doing the same
-          # thing. One slot, in the leftmost lane, is that button.
-          lapply(seq_along(codes), function(i) {
-            lane_ui(session, codes[[i]], breaker_codes(), cards, matchup,
-                    show_add_breaker = i == 1L)
+          lapply(codes, function(ice_code) {
+            lane_ui(session, ice_code, by_ice[[ice_code]] %||% character(0),
+                    cards, matchup)
           }),
           add_lane_ui(session)
         )
@@ -149,7 +155,12 @@ mod_lane_board_server <- function(id, cards, matchup, selected_code,
     })
 
     shiny::observeEvent(input$add_ice, on_add_ice())
-    shiny::observeEvent(input$add_breaker, on_add_breaker())
+
+    shiny::observeEvent(input$add_breaker, {
+      # The slot carries its own lane's ice code as the click value.
+      pending_lane(input$add_breaker)
+      on_add_breaker()
+    })
 
     shiny::observeEvent(input$card_clicked, {
       selected_code(input$card_clicked)
@@ -160,7 +171,16 @@ mod_lane_board_server <- function(id, cards, matchup, selected_code,
         if (!code %in% ice_codes()) ice_codes(c(ice_codes(), code))
       },
       add_breaker = function(code) {
-        if (!code %in% breaker_codes()) breaker_codes(c(breaker_codes(), code))
+        lane <- pending_lane()
+        # No pending lane means nothing asked for a breaker -- dropping
+        # the pick is better than guessing a lane to put it in.
+        if (is.null(lane)) return(invisible(NULL))
+        by_ice <- breakers()
+        current <- by_ice[[lane]] %||% character(0)
+        if (!code %in% current) {
+          by_ice[[lane]] <- c(current, code)
+          breakers(by_ice)
+        }
       }
     )
   })
@@ -168,8 +188,7 @@ mod_lane_board_server <- function(id, cards, matchup, selected_code,
 
 #' One lane: an ice card, then every breaker with its stat strip
 #' @keywords internal
-lane_ui <- function(session, ice_code, breaker_codes, cards, matchup,
-                    show_add_breaker = TRUE) {
+lane_ui <- function(session, ice_code, breaker_codes, cards, matchup) {
   ice <- cards[cards$code == ice_code, ]
   if (nrow(ice) == 0) return(NULL)
 
@@ -185,13 +204,11 @@ lane_ui <- function(session, ice_code, breaker_codes, cards, matchup,
         stat_strip_ui(pair)
       )
     }),
-    if (show_add_breaker) {
-      shiny::div(
-        class = "nr-slot nr-slot-portrait",
-        onclick = click_sets_input(session, "add_breaker", "slot"),
-        shiny::tags$span(class = "nr-slot-plus", "+")
-      )
-    }
+    shiny::div(
+      class = "nr-slot nr-slot-portrait",
+      onclick = click_sets_input(session, "add_breaker", ice_code),
+      shiny::tags$span(class = "nr-slot-plus", "+")
+    )
   )
 }
 
