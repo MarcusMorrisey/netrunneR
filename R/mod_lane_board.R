@@ -24,6 +24,15 @@
 #' board answers. It answers "for this ice, which of my breakers handles
 #' it, and at what cost", which is read down a single lane.
 #'
+#' NOTHING IS PAINTED OVER THE CARD. An earlier version drew a title
+#' band and a cost pip on top of each image, carried over from the
+#' wireframe -- where the tile was an art crop with no card text on it.
+#' Now that whole cards are shown, every one of those values is already
+#' printed on the card itself, in the publisher's own layout, and the
+#' overlay only covered the art it duplicated. The title survives as the
+#' element's `title` and the image's `alt`, which is where a name belongs
+#' for a clickable image anyway.
+#'
 #' This view renders BOTH cardpool data (titles, images, strength,
 #' keywords) and implementation-derived data (cost_to_break /
 #' credit_differential), so it renders -- and its server guards -- both
@@ -215,28 +224,16 @@ lane_ui <- function(session, ice_code, breaker_codes, cards, matchup) {
 #' The landscape ice card that anchors a lane
 #' @keywords internal
 ice_card_ui <- function(session, ice) {
-  # Middle dot as a \u escape, not the literal character: R CMD check
-  # warns on any non-ASCII byte in R source outside comments. Same for
-  # the em dash standing in for an absent value.
-  separator <- "\u00b7"
-  dash <- "\u2014"
-  subtitle <- paste(
-    toupper(if (is.na(ice$keywords)) ice$type_code else ice$keywords),
-    separator,
-    paste0("STR ", if (is.na(ice$strength)) dash else ice$strength)
-  )
   shiny::div(
     class = "nr-lane-card nr-lane-card-ice",
+    # The title is the accessible name for a clickable image with no text
+    # of its own; it is also what a hover reveals, which is why the card
+    # needs no caption painted over it.
+    title = ice$title,
     onclick = click_sets_input(session, "card_clicked", ice$code),
     shiny::tags$img(class = "nr-lane-art", src = card_image_url(ice$code),
-                    loading = "lazy", alt = ""),
-    shiny::div(class = "nr-lane-hatch"),
-    cost_pip_ui(ice$cost),
-    shiny::div(
-      class = "nr-lane-label",
-      shiny::div(class = "nr-lane-title", ice$title),
-      shiny::div(class = "nr-lane-sub", subtitle)
-    )
+                    loading = "lazy", alt = ice$title),
+    shiny::div(class = "nr-lane-hatch")
   )
 }
 
@@ -245,24 +242,10 @@ ice_card_ui <- function(session, ice) {
 breaker_card_ui <- function(session, breaker) {
   shiny::div(
     class = "nr-lane-card nr-lane-card-breaker",
+    title = breaker$title,
     onclick = click_sets_input(session, "card_clicked", breaker$code),
     shiny::tags$img(class = "nr-lane-art", src = card_image_url(breaker$code),
-                    loading = "lazy", alt = ""),
-    cost_pip_ui(breaker$cost),
-    shiny::div(
-      class = "nr-lane-label",
-      shiny::div(class = "nr-lane-title", breaker$title),
-      shiny::div(class = "nr-lane-sub", "ICEBREAKER")
-    )
-  )
-}
-
-#' The cost pip in a card's top-left corner
-#' @keywords internal
-cost_pip_ui <- function(cost) {
-  shiny::div(
-    class = "nr-pip",
-    if (length(cost) == 0 || is.na(cost)) "\u2014" else as.character(cost)
+                    loading = "lazy", alt = breaker$title)
   )
 }
 

@@ -209,6 +209,13 @@ load_ice_breaker_app_data <- function() {
   cards <- ice_breaker_pool(cardpool_result$tables$card)
   legality <- cardpool_result$tables[CARDPOOL_LEGALITY_TABLES]
 
+  # Rulings are OPTIONAL, unlike cardpool and implementation: the app is
+  # about ice/breaker economics and works without them. A missing nrdb
+  # release therefore degrades the card-detail panel rather than joining
+  # the missing_lineages list and blocking startup.
+  nrdb_result <- query_active_release("nrdb", "nrdb.sqlite", "SELECT * FROM ruling")
+  rulings <- if (is.null(nrdb_result)) NULL else nrdb_result$data
+
   matchup_overrides <- read_matchup_overrides()
 
   matchup_result <- compute_ice_breaker_matchups(
@@ -221,6 +228,7 @@ load_ice_breaker_app_data <- function() {
     cards = cards,
     legality = legality,
     matchup = matchup_result$matchups,
+    rulings = rulings,
     missing_lineages = NULL
   )
 }

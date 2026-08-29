@@ -28,6 +28,7 @@ Imports:
     dbplyr,
     digest,
     jsonlite,
+    commonmark,
     PlayerRatings,
     optparse,
     cli,

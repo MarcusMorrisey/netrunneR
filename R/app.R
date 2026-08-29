@@ -202,6 +202,50 @@ require_cardpool_disclaimer <- function(has_disclaimer) {
   invisible(TRUE)
 }
 
+#' The NetrunnerDB non-affiliation and copyright disclaimer, as UI
+#'
+#' Both statements netrunnerdb.com/en/about makes about reuse, reproduced
+#' verbatim, plus a backlink. Rulings are authored content hosted by
+#' NetrunnerDB -- rules-team posts, official FAQ entries, release-note
+#' errata -- rather than raw card data, so the site is named as their
+#' source rather than silently absorbed.
+#'
+#' @return A shiny tag.
+#' @export
+nrdb_disclaimer_ui <- function() {
+  shiny::tags$p(
+    class = "text-muted small",
+    paste0(
+      "Rulings via NetrunnerDB. The information presented on that site ",
+      "about Android: Netrunner, both literal and graphical, is ",
+      "copyrighted by Fantasy Flight Games and/or Null Signal Games. ",
+      "That website is not produced, endorsed, supported, or affiliated ",
+      "with Fantasy Flight Games."
+    ),
+    shiny::tags$a(href = "https://netrunnerdb.com", target = "_blank",
+                  rel = "noopener noreferrer", "netrunnerdb.com")
+  )
+}
+
+#' Guard an nrdb-sourced view with a required disclaimer flag
+#'
+#' Any view rendering nrdb-sourced text -- rulings, FAQ entries, errata --
+#' must render nrdb_disclaimer_ui() and assert this with stopifnot(),
+#' rather than leaving it to a documentation convention, so the
+#' disclaimer cannot be silently dropped by a future UI change. This is
+#' the fourth such guard; see the note in inst/shiny-app/CLAUDE.md about
+#' adding a constant defaulting to FALSE rather than hardcoding TRUE at
+#' the call site.
+#'
+#' @param has_disclaimer Logical. TRUE if the view renders the
+#'   NetrunnerDB copyright and non-affiliation disclaimer.
+#'
+#' @export
+require_nrdb_attribution <- function(has_disclaimer) {
+  stopifnot(isTRUE(has_disclaimer))
+  invisible(TRUE)
+}
+
 #' Guard a rules-sourced view with a required non-affiliation disclaimer flag
 #'
 #' nullsignal.games' own Comprehensive Rules hub carries a footer
