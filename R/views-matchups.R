@@ -67,24 +67,19 @@ ice_breaker_pool <- function(cards) {
 #' re-run of the same inputs at a different wall-clock time still resolves
 #' to the same cache identity.
 #'
-#' NOTE ON SCOPE: `cost_to_break` cannot be computed from real per-card
-#' data yet -- `extract_ice_breaker_traits()` (R/build-implementation.R)
-#' is still a stub that has never parsed real subtype/strength/cost values
-#' out of a mtgred/netrunner Clojure card definition; it emits one
-#' placeholder row per *file* (currently one per card *category*, not per
-#' card). `compute_cost_to_break_formula()` below always returns `NA`
-#' until that extraction work lands, so every non-override pair correctly
-#' reports `source == "not_computable"` today -- that is the honest
-#' current state, not a bug this change introduces.
+#' SCOPE. `cost_to_break` is the standard encounter: raise the breaker to
+#' the ice's strength, then break every subroutine. It is not the
+#' cheapest line of play -- it does not model paying a subroutine's cost
+#' instead of breaking it, letting a subroutine fire, or any
+#' card-specific trick. It is the number that makes two breakers
+#' comparable against the same ice.
 #'
-#' There is no separate "matchup release": this function is a plain,
-#' repeatedly-callable computation over already-loaded `cardpool` and
-#' `implementation` release data, exactly like `compute_identity_ratings()`
-#' (R/views-ratings.R) -- it is not promoted, versioned, or resolved via
-#' `lineage()`/`resolve_release()`, and `matchup` is not one of the five
-#' `BUILTIN_LINEAGES`. The `cardpool_release_id`/`implementation_release_id`
-#' parameters below exist purely as cache/provenance metadata in the
-#' sidecar manifest, not as inputs to a promote/rollback mechanism.
+#' Any pair whose inputs are not all known stays `source ==
+#' "not_computable"`: an ice whose subroutine count is variable by design
+#' (Ashigaru counts cards in HQ), a breaker whose break cost is a virus
+#' or power counter rather than credits, or a breaker with no
+#' strength-pump facing ice above its strength -- which it cannot break
+#' at all, an answer that is NA rather than a large number.
 #'
 #' @param ice_breaker_traits A tibble from the active implementation release.
 #' @param cardpool A tibble of cards from the active cardpool release.
@@ -124,13 +119,23 @@ compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_o
   )
 
   pairs <- dplyr::cross_join(
-    dplyr::select(ice, ice_code = "code", ice_subtypes = "subtypes", ice_rez_cost = "cost"),
-    dplyr::select(breakers, breaker_code = "code", breaker_subtypes = "subtypes")
+    dplyr::select(ice, ice_code = "code", ice_keywords = "keywords",
+                  ice_rez_cost = "cost", ice_strength = "strength",
+                  ice_subroutines = "subroutine_count"),
+    dplyr::select(breakers, breaker_code = "code", breaker_strength = "strength",
+                  "break_cost", "break_qty", "break_subtype",
+                  "pump_cost", "pump_amount")
   )
 
-  pairs <- dplyr::filter(pairs, purrr::map2_lgl(.data$ice_subtypes, .data$breaker_subtypes, subtype_compatible))
+  # Filtered on the breaker's OWN declared break subtype, not on a shared
+  # word between the two cards' printed keywords -- see
+  # breaker_matches_ice().
+  pairs <- dplyr::filter(pairs, breaker_matches_ice(.data$ice_keywords, .data$break_subtype))
 
-  pairs$cost_to_break <- compute_cost_to_break_formula(pairs$ice_code, pairs$breaker_code, ice_breaker_traits)
+  pairs$cost_to_break <- compute_cost_to_break_formula(
+    pairs$ice_strength, pairs$ice_subroutines, pairs$breaker_strength,
+    pairs$break_cost, pairs$break_qty, pairs$pump_cost, pairs$pump_amount
+  )
   pairs$source <- dplyr::if_else(is.na(pairs$cost_to_break), "not_computable", "formula")
 
   override_lookup <- dplyr::transmute(
@@ -168,23 +173,95 @@ compute_ice_breaker_matchups <- function(ice_breaker_traits, cardpool, matchup_o
   list(matchups = matchups, manifest = manifest)
 }
 
-#' Real cost-to-break formula (NOT YET IMPLEMENTED)
+#' The real cost-to-break formula
 #'
-#' Always returns NA_integer_ until extract_ice_breaker_traits()
-#' (R/build-implementation.R) parses real per-card subtype/strength/cost
-#' values out of the mtgred/netrunner Clojure source -- see the note on
-#' compute_ice_breaker_matchups() above.
-#' @return An integer vector the same length as `ice_codes`, all NA.
-#' @keywords internal
-compute_cost_to_break_formula <- function(ice_codes, breaker_codes, ice_breaker_traits) {
-  rep(NA_integer_, length(ice_codes))
+#' What a runner pays to get through one piece of ice with one breaker,
+#' once: raise the breaker to the ice's strength, then break every
+#' subroutine.
+#'
+#'     pumps  = ceiling(max(0, ice_strength - breaker_strength) / pump_amount)
+#'     breaks = ceiling(subroutine_count / break_qty)
+#'     cost   = pumps * pump_cost + breaks * break_cost
+#'
+#' `break_qty == 0` means "break all subroutines" (how this codebase
+#' writes cards like Begemot), so it costs one application whatever the
+#' subroutine count.
+#'
+#' This is the standard encounter, not the cheapest line of play. It does
+#' not model paying a subroutine's own cost instead of breaking it,
+#' letting a subroutine fire, derezzing, or any card-specific trick --
+#' those are decisions, not arithmetic. It is the number that makes two
+#' breakers comparable against the same ice, which is what the board asks
+#' for.
+#'
+#' EVERY UNKNOWN PROPAGATES TO NA, and NA becomes `not_computable`
+#' upstream. A breaker with no `strength-pump` cannot reach ice above its
+#' own strength at all, and a strength it cannot reach is `NA` rather
+#' than a large number -- "you cannot do this" and "this is expensive"
+#' are different answers.
+#'
+#' @param ice_strength,ice_subroutines Integer vectors, from cardpool and
+#'   the implementation lineage respectively.
+#' @param breaker_strength,break_cost,break_qty,pump_cost,pump_amount
+#'   Integer vectors for the breaker side.
+#' @return An integer vector of credit costs, `NA_integer_` where any
+#'   input needed for that pair is unknown.
+compute_cost_to_break_formula <- function(ice_strength, ice_subroutines,
+                                          breaker_strength, break_cost,
+                                          break_qty, pump_cost, pump_amount) {
+  gap <- pmax(0L, ice_strength - breaker_strength)
+
+  # A breaker already at or above the ice's strength pays nothing to get
+  # there, even if it has no pump at all -- so the pump columns are only
+  # required where the gap is positive.
+  # The divisors are made NA BEFORE dividing, not tested inside ifelse():
+  # ifelse() evaluates both branches over the whole vector, so a guard in
+  # the condition does not stop the division happening, and x/0 is Inf,
+  # which as.integer() then warns about while quietly producing NA.
+  safe_pump_amount <- ifelse(is.na(pump_amount) | pump_amount <= 0L, NA_integer_, pump_amount)
+  pumps <- ifelse(gap == 0L, 0L, as.integer(ceiling(gap / safe_pump_amount)))
+  pump_total <- ifelse(pumps == 0L, 0L, pumps * pump_cost)
+
+  # break_qty 0 is "all subroutines at once", so one application. A
+  # subroutine count of 0 costs nothing to break, which is right: there
+  # is nothing there.
+  safe_break_qty <- ifelse(is.na(break_qty) | break_qty <= 0L, NA_integer_, break_qty)
+  applications <- ifelse(
+    is.na(break_qty) | is.na(ice_subroutines), NA_integer_,
+    ifelse(break_qty == 0L, 1L, as.integer(ceiling(ice_subroutines / safe_break_qty)))
+  )
+  applications <- ifelse(!is.na(ice_subroutines) & ice_subroutines == 0L, 0L, applications)
+  break_total <- applications * break_cost
+
+  as.integer(pump_total + break_total)
 }
 
+#' Can this breaker break this ice at all?
+#'
+#' Uses the breaker's OWN declared break subtype, read from the
+#' implementation source, rather than intersecting the two cards'
+#' printed keyword strings. The old check looked for any shared word
+#' between an ice's keywords and a breaker's, which is not what breaking
+#' means: it counted "AP" or "Bioroid" as a match, and it had no way to
+#' express an AI breaker that breaks anything.
+#'
+#' `"All"` is how the source writes an AI breaker (Atman, Aumakua), and
+#' it matches every ice.
+#'
+#' @param ice_keywords Character vector of the ice's `" - "`-delimited
+#'   keyword string, from cardpool.
+#' @param break_subtype Character vector of the breaker's declared break
+#'   subtype, from the implementation lineage.
+#' @return A logical vector. `NA` break_subtype is FALSE: a breaker whose
+#'   break clause could not be read is not assumed to break anything.
 #' @keywords internal
-subtype_compatible <- function(ice_subtypes, breaker_subtypes) {
-  ice_set <- strsplit(if (is.na(ice_subtypes)) "" else ice_subtypes, " - ")[[1]]
-  breaker_set <- strsplit(if (is.na(breaker_subtypes)) "" else breaker_subtypes, " - ")[[1]]
-  length(intersect(ice_set, breaker_set)) > 0
+breaker_matches_ice <- function(ice_keywords, break_subtype) {
+  vapply(seq_along(break_subtype), function(i) {
+    st <- break_subtype[[i]]
+    if (is.na(st)) return(FALSE)
+    if (identical(st, "All")) return(TRUE)
+    has_card_subtype(ice_keywords[[i]], st)
+  }, logical(1))
 }
 
 #' Build a derived-view sidecar manifest

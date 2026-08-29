@@ -75,7 +75,7 @@ store_base <- function() {
   rules = list(source_type = "web_archive", schedule = "monthly", schema_version = 1L,
                pacing = NULL, build_module_path = "R/build-rules.R",
                hub_url = "https://nullsignal.games/rules/comp-rules/"),
-  implementation = list(source_type = "git_mirror", schedule = "daily", schema_version = 1L,
+  implementation = list(source_type = "git_mirror", schedule = "daily", schema_version = 2L,
                         pacing = NULL, build_module_path = "R/build-implementation.R",
                         repo_url = "https://github.com/mtgred/netrunner.git", ref = "master")
 )
