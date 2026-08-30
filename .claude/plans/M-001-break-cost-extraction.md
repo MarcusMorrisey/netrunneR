@@ -6,9 +6,16 @@ that M-001 supersedes is merged too. Read this whole document before
 touching anything — several of the obvious moves are traps that have
 already been hit once.
 
-The plan is at `C:\Users\marcu\AppData\Local\Temp\planner-ih7losns\plan.json`.
-It is authoritative for decisions (DL-011..DL-030), risks and acceptance
-criteria. This document is orientation, not a replacement for it.
+The plan is at `.claude/plans/step-3-cost-model/plan.json`, in this
+repository. It is authoritative for decisions (DL-011..DL-030), risks and
+acceptance criteria. This document is orientation, not a replacement for
+it.
+
+It used to live in a temp directory, which is where the planner writes
+its state -- and this document cited that path. A prompt whose
+authoritative reference is one `%TEMP%` sweep from disappearing is a
+prompt with a short shelf life, so the plan moved into the repo and this
+line moved with it.
 
 ---
 

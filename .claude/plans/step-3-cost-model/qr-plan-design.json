@@ -1,0 +1,144 @@
+{
+  "phase": "plan-design",
+  "iteration": 4,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every code_intent's decision_refs cite the decision that actually governs the intent's behavior",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3,
+      "finding": "M-001 schema code_intent (inst/sql/schema/implementation.sql) declares break_stealth and break_cost_status columns but decision_refs list only DL-012, DL-015 -- omits DL-014 (governs the stealth column) and DL-016 (governs the cost_status column)."
+    },
+    {
+      "id": "qa-002",
+      "scope": "DL-019",
+      "check": "DL-019 (one shared chip renderer) is cited by the code_intents that implement it",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "CI-M-003-001..CI-M-003-004",
+      "check": "M-003 intents cite DL-019 rather than DL-018 (spec_id bump)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "Every architectural assumption about cost-form shape has a decision or risk backing it",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-004a",
+      "parent_id": "qa-004",
+      "scope": "CI-M-001-001",
+      "check": "parse_cost_form's taxonomy matches the source-extracted cost taxonomy exactly",
+      "status": "PASS",
+      "severity": "MUST"
+    },
+    {
+      "id": "qa-004b",
+      "parent_id": "qa-004",
+      "scope": "DL-017",
+      "check": "The five (break-sub nil ...) sites are resolved by reading source, not classified by shape",
+      "status": "PASS",
+      "severity": "MUST"
+    },
+    {
+      "id": "qa-004c",
+      "parent_id": "qa-004",
+      "scope": "CI-M-001-004",
+      "check": "Resource cardinality per break cost is established, not assumed",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "CI-M-001-004",
+      "check": "Single break_resource_type/break_resource_qty column pair is justified: no break cost carries two distinct non-credit resource types, or an overflow status exists",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "M-001.acceptance_criteria",
+      "check": "A criterion closes the set of 17 previously discarded-cost cards, not only the ~10 named",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "*",
+      "check": "Each user-specified constraint is owned by a milestone step (roxygen-after-@export, require_*() gate)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 3
+    },
+    {
+      "id": "qa-008",
+      "scope": "DL-020",
+      "check": "The temporary scalar credits accessor has a retirement or permanence decision",
+      "status": "PASS",
+      "severity": "COULD",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "planning_context.decisions",
+      "check": "Decision records use one schema (reasoning vs reasoning_chain; version present)",
+      "status": "PASS",
+      "severity": "COULD",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "planning_context.constraints",
+      "check": "Constraints carry IDs so intents and risks can reference them",
+      "status": "FAIL",
+      "severity": "COULD",
+      "version": 3,
+      "finding": "Constraints in context.json are plain strings with no ID field, so intents/risks cannot reference them."
+    },
+    {
+      "id": "qa-011",
+      "scope": "planning_context.risks",
+      "check": "Every risk has a mitigation, a resolvable decision_ref, and an anchor",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-012",
+      "scope": "diagram_graphs",
+      "check": "No orphan nodes, no edges referencing missing nodes, scopes resolve to real milestones",
+      "status": "PASS",
+      "severity": "MUST"
+    },
+    {
+      "id": "qa-013",
+      "scope": "waves",
+      "check": "Wave ordering M-001 -> M-002 -> M-003 leaves the tree buildable at each wave boundary",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-014",
+      "scope": "invisible_knowledge.invariants",
+      "check": "Each invariant is enforced by an acceptance criterion or test in some milestone",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    }
+  ]
+}

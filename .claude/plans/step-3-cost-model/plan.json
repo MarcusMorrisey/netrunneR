@@ -1,0 +1,881 @@
+{
+  "plan_id": "8b592779-5358-4e9a-85d3-380e52777678",
+  "created_at": "2026-08-29T19:04:13.529347",
+  "frozen_at": null,
+  "overview": {
+    "problem": "The matchup views price an encounter in credits alone, and only when the break cost is a bare integer. Seventeen breakers carry a break-sub cost in a form the parser does not read, and their cost is discarded rather than recorded, so pairs the game resolves routinely -- Switchblade on a Sentry, Propeller, Hantu, Audrey v2, Faust -- read as not computable. Costs denominated in power counters, virus counters or a trashed card have nowhere to live, the stealth restriction on credits is invisible, and the five ice that charge the Corp a tag, a bad publicity or a forfeited agenda to rez show none of it.",
+    "approach": "One ->c grammar reader serves both the pump side and the break side, so the two cannot understand different cost vocabularies. A cost decomposes into credits (stealth-qualified credits included in the total, annotated separately), a typed non-credit resource with its quantity, and a status. Credits and resources never mix: no exchange rate exists, so credit_differential stays rez_cost minus cost_to_break and every non-credit cost, Runner-side or Corp-side, rides beside the number as a chip. A wholly non-credit cost prices at zero credits plus a chip, because zero is the true credit cost. A cost the game fixes at play time is variable by design and carries its own status, distinct from both a zero cost and an unread form. Cost forms reached through the Conspiracy and Central suite helpers are extracted at their defcard call sites, where the literal cost sits, while the helper definitions themselves are skipped. One chip renderer feeds both the lane board strip and the explorer table so the two views cannot disagree about one pair. Plan decisions continue the netrunneR decision log above its DL-010 high-water mark."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-011",
+        "version": 1,
+        "decision": "A single parse_cost_form() reader serves both strength-pump and break-sub cost extraction",
+        "reasoning": "break-sub and strength-pump both carry costs in the same ->c grammar with the same qualifier vocabulary -> a second independent reader drifts the moment a qualifier appears in one form and not the other, and a silent parse gap is exactly what made 11 breakers report they could not reach ice they reach routinely -> extract one reader and call it from both economics functions"
+      },
+      {
+        "id": "DL-012",
+        "version": 1,
+        "decision": "Non-credit break costs are recorded as a typed (resource, quantity) pair, never summed into credits",
+        "reasoning": "no conversion rate exists between a power counter and a credit -> any fold picks an arbitrary exchange rate and buries it inside a number the UI presents as authoritative -> the resource travels as its own columns and is priced nowhere"
+      },
+      {
+        "id": "DL-013",
+        "version": 1,
+        "decision": "A breaker whose break cost is entirely non-credit prices at cost_to_break = 0 credits carrying a resource chip, not NA",
+        "reasoning": "the credit component is known and it is zero -> NA asserts we do not know, which would be false and would hide a fully understood card behind the unknown state -> zero plus a chip is the complete answer, and NA stays reserved for cost forms that cannot be read"
+      },
+      {
+        "id": "DL-014",
+        "version": 1,
+        "decision": "Stealth credits stay inside cost_to_break and are annotated by a separate stealth column",
+        "reasoning": "a stealth credit is a credit carrying a sourcing restriction, not a different currency -> excluding it understates the encounter while promoting it to its own currency overstates it -> keep it in the credit total and annotate where it must come from"
+      },
+      {
+        "id": "DL-015",
+        "version": 1,
+        "decision": "Ice :additional-cost surfaces as a Corp-side chip and never enters credit_differential",
+        "reasoning": "a tag, a bad publicity, and a forfeited agenda are not credits -> folding them into rez_cost would invent an exchange rate on the Corp side after refusing to invent one on the Runner side -> the differential stays rez_cost minus cost_to_break and the additional cost rides beside it as a chip"
+      },
+      {
+        "id": "DL-016",
+        "version": 1,
+        "decision": "Every NA cost carries a cost_status value naming the reason",
+        "reasoning": "the distinction the codebase defends is that cannot-do-this, expensive, and we-do-not-know are three different answers -> an unqualified NA collapses two of them and lets a parse failure masquerade as a rules fact -> each NA names its own reason so the UI can render the right one of the five states"
+      },
+      {
+        "id": "DL-017",
+        "version": 1,
+        "decision": "Unread break-sub cost forms yield cost_status = unreadable_cost_form rather than an inferred cost",
+        "reasoning": "the five (break-sub nil ...) forms and the two card-local binding forms are ambiguous from shape alone -> inferring a plausible number is the precise failure mode that put wrong answers in honest NA clothing -> the nil forms are resolved by reading the five cards at source and the binding forms are gated as unknown until a per-card reading exists"
+      },
+      {
+        "id": "DL-018",
+        "version": 1,
+        "decision": "Matchup spec_id advances to v4",
+        "reasoning": "the matchup output gains resource, status, and Corp-side columns -> a manifest cached under v3 deserialises into a frame missing them and the tolerance helper would silently fill honest data with placeholders -> the identity bump forces a rebuild rather than a quiet degradation"
+      },
+      {
+        "id": "DL-019",
+        "version": 1,
+        "decision": "One chip renderer is shared by the lane board stat strip and the matchup explorer table",
+        "reasoning": "both views price the same pair from the same row -> two independent renderers drift and the two views then disagree about one encounter, which reads as a data bug rather than a display bug -> a single renderer with two call sites keeps them identical by construction"
+      },
+      {
+        "id": "DL-020",
+        "version": 1,
+        "decision": "compute_cost_to_break_formula() returns a structured cost record while a scalar credit accessor preserves the existing call shape",
+        "reasoning": "the cost model milestone and the UI milestone touch disjoint files, yet assumed_pair_cost() in the lane board mirrors the formula call -> a bare signature change would leave the tree broken between the two milestones -> the structured record ships alongside a credits accessor so each milestone is independently deployable"
+      },
+      {
+        "id": "DL-021",
+        "version": 1,
+        "decision": "A break cost the game fixes at play time carries status variable_break_cost, distinct from a zero cost and from an unread form",
+        "reasoning": "four (break-sub nil (cost-value eid :x-credits) ...) sites and Paperclip's :x-credits ability take their cost from how much X the Runner paid, so the cost is known to be variable rather than unknown to us -> pricing it at zero asserts a free break and calling it unreadable discards the fact that we know exactly why no number exists, and both collapse a fourth answer into an existing one -> variable_break_cost names it, mirroring the ice side's existing variable_subroutines status"
+      },
+      {
+        "id": "DL-022",
+        "version": 1,
+        "decision": "Cost forms are extracted at defcard call sites; occurrences inside defn- helper bodies are skipped as definition sites",
+        "reasoning": "the three odd-looking forms at programs.clj:153, :164 and :312 sit inside the pump-and-break and central-only helper definitions where cost, strength and subtype are parameters, while the defcard bodies pass literals -- Alias, Breach and Passport pass a whole (break-sub 1 1 \"Sentry\") form, and Black Orchestra and MKUltra pass [(->c :credit 3)] 2 \"Code Gate\" positionally to pump-and-break -> treating the definition sites as unreadable cards would abandon five breakers whose costs are literals in plain sight, while scanning only for break-sub forms would still miss the two Conspiracy breakers -> the reader skips defn- bodies and reads both the nested break-sub form and the positional pump-and-break call shape from defcard bodies"
+      },
+      {
+        "id": "DL-023",
+        "version": 1,
+        "decision": "One (resource_type, resource_qty) pair per cost is sufficient, and the reader fails loudly rather than silently keeping the first if that ever stops being true",
+        "reasoning": "a census of programs.clj reading every break-sub and strength-pump cost vector as a balanced form finds a maximum of one distinct non-credit resource type per vector and zero vectors carrying more than one ->c form -> a single typed pair therefore loses nothing today, while a general resource list would add a shape every consumer must handle for a case that does not exist -> the pair stays, and the reader asserts the census invariant so an upstream cost gaining a second resource surfaces as a multi_resource_cost status instead of a quietly truncated cost"
+      },
+      {
+        "id": "DL-024",
+        "version": 1,
+        "decision": "The break-side reader treats a quantity-less ->c form as an implicit quantity of 1 rather than requiring a digit",
+        "reasoning": "four break-sub costs are exactly [(->c :trash-can)] and the file carries 38 quantity-less forms overall (:trash-can 23, :x-credits 10, :remove-from-game 2, :return-to-hand 2, :gain-tag 1) -> the merged step-1 pump reader matches a trailing digit, so reusing it verbatim on the break side would skip those four costs and drop them into unreadable, manufacturing a gap where the source is explicit -> quantity is optional in the grammar and defaults to 1; no strength-pump cost vector uses a quantity-less form, so the pump reader is correct as it stands and needs no change"
+      },
+      {
+        "id": "DL-025",
+        "version": 1,
+        "decision": "The scalar credits accessor is retired in the milestone that consumes the structured record",
+        "reasoning": "the accessor exists only so the cost model and the UI can land as separately deployable milestones -> a shim with no retirement step becomes a second way to read a cost, and the next reader cannot tell which is authoritative -> the UI milestone moves its last caller to the record and deletes the accessor in the same change, so the transition cannot outlive itself"
+      },
+      {
+        "id": "DL-026",
+        "version": 1,
+        "decision": "A column absent because the loaded release predates the schema is signalled by a separate row-level flag (cost_fields_backfilled), not by any cost_status value, and never by unreadable_cost_form",
+        "reasoning": "fill_missing_columns() back-fills a column the release never wrote -> nothing about a cost was read, attempted, or failed there, so unreadable_cost_form would assert a parse event that never occurred and would be indistinguishable, downstream, from a genuinely unreadable break-sub form -> that is exactly the collapse the cost_status vocabulary exists to prevent ('we could not read this cost' vs 'this release does not carry this column' are different claims) -> nor does a new cost_status value fix it: cost_status is a claim about a cost read from a card, and admitting a deployment artefact into that vocabulary forces every consumer's status switch to handle schema provenance alongside card facts -> therefore the schema fact travels in its own field: cost_status stays NA for a back-filled row, cost_fields_backfilled marks why, and the UI renders the em dash from the flag with 'not carried by this release' as its reason"
+      },
+      {
+        "id": "DL-027",
+        "version": 1,
+        "decision": "Back-filled resource and Corp-side columns default to NA rather than none",
+        "reasoning": "none is a factual negative meaning the card carries no non-credit resource and the ice carries no additional cost -> a release that predates the column supports no such claim -> defaulting to none would print a confident 'no extra cost' for every pair served from an older image, which is a wrong answer wearing an honest gap's clothing"
+      },
+      {
+        "id": "DL-028",
+        "version": 1,
+        "decision": "A breaker is a variable-cost breaker only when it has NO fixed break clause; carrying a variable clause is not sufficient",
+        "reasoning": "Lobisomem and Utae each carry a variable X-credit clause AND a fixed (break-sub 1 1 \"Code Gate\" ...) clause, and today parse as ordinary fixed-cost breakers, which for their fixed mode is correct -> a predicate of 'contains a variable clause' would convert two correct fixed prices into NA, which is the wrong answer in honest NA clothing this plan exists to remove -> the predicate is 'has no fixed clause', which selects Paperclip and Matryoshka alone"
+      },
+      {
+        "id": "DL-029",
+        "version": 1,
+        "decision": "Every break clause is recorded with its own subtype and cost, replacing one clause per card, and breaker_matches_ice() tests any recorded clause",
+        "reasoning": "PR #28 recorded break_subtype_count and made matchup_pair_state() decline a definite negative where it exceeds 1, and its own comment names that a guard rather than the fix -> the guard suppresses a false CANNOT BREAK but still leaves 234 Penrose and Lobisomem pairings absent from the matchup table entirely -> recording each clause and matching against any of them emits those pairings instead of hiding them, and the guard retires in the same change because once every clause is recorded it would convert a correct negative against a third subtype into a false unknown"
+      },
+      {
+        "id": "DL-030",
+        "version": 1,
+        "decision": "Clause selection lives in the cost model at pair-pricing time, keyed by the ice subtype that made the pair compatible, and a fixed clause outranks a variable one when both match that subtype",
+        "reasoning": "a trait row is a property of one card and cannot know which ice it faces, while a clause is only selectable once a pair exists -> selection therefore cannot live in extraction, and putting it in the UI would let the lane board and the explorer pick differently for one pair -> it lives in compute_cost_to_break_formula(), which already receives both sides. Utae carries a fixed and a variable clause naming the SAME subtype (programs.clj:3587 and :3589), so subtype alone does not resolve to one clause: the fixed clause wins because it is a complete answer the operator can act on and Utae prices correctly at 1 credit today, and NA-ing it to signal ambiguity would trade a right answer for an unknown"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Replace cost_to_break with a full cost vector",
+        "rejection_reason": "Rejected by the user: it changes the lane board's whole visual language, and the wireframe strip assumes one number on each side.",
+        "decision_ref": "DL-012"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Price credits only and flag everything else incomplete",
+        "rejection_reason": "Rejected by the user: it leaves misparsed breakers showing no cost at all, which is the state this work exists to remove.",
+        "decision_ref": "DL-013"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Fold ice additional rez costs into rez_cost as credits",
+        "rejection_reason": "A tag, a bad publicity and a forfeited agenda are not credits; folding them invents an exchange rate on the Corp side after refusing to invent one on the Runner side.",
+        "decision_ref": "DL-015"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Give the unreadable break-sub binding forms an inferred cost",
+        "rejection_reason": "A plausible guess wearing an honest NA's clothing is the worst outcome and is precisely the defect the earlier pump-cost work corrected.",
+        "decision_ref": "DL-017"
+      },
+      {
+        "id": "RA-005",
+        "alternative": "Acquire external Netrunner rules text",
+        "rejection_reason": "The implementation lineage already encodes every cost structurally; the rules lineage is gated closed and costs are card-specific, so it would not help.",
+        "decision_ref": "DL-011"
+      },
+      {
+        "id": "RA-006",
+        "alternative": "Record break subtypes in matchup_overrides.csv",
+        "rejection_reason": "That file holds corrections true of the CARDS, not of one board state.",
+        "decision_ref": "DL-016"
+      },
+      {
+        "id": "RA-007",
+        "alternative": "Change compute_cost_to_break_formula()'s signature outright",
+        "rejection_reason": "assumed_pair_cost() mirrors the call from a file in a later milestone; a bare signature change leaves the tree broken between the two.",
+        "decision_ref": "DL-020"
+      },
+      {
+        "id": "RA-008",
+        "alternative": "Treat the pump-and-break and central-only cost forms as unreadable and out of scope",
+        "rejection_reason": "The defcard call sites pass literal costs: Alias, Breach and Passport pass a complete break-sub form and Black Orchestra and MKUltra pass a ->c cost positionally. Declaring them out of scope would leave five breakers unpriced whose costs are fully readable.",
+        "decision_ref": "DL-022"
+      },
+      {
+        "id": "RA-009",
+        "alternative": "Record the X-credit break costs as zero, or as unreadable_cost_form",
+        "rejection_reason": "Zero asserts a free break, and unreadable discards the fact that the cost is variable by design and we know precisely why no fixed number exists.",
+        "decision_ref": "DL-021"
+      },
+      {
+        "id": "RA-010",
+        "alternative": "Carry a general list of non-credit resources per cost",
+        "rejection_reason": "The source census finds at most one distinct resource type per cost vector and no vector with more than one ->c form, so a list adds a shape every consumer must handle for a case that does not occur.",
+        "decision_ref": "DL-023"
+      },
+      {
+        "id": "RA-011",
+        "alternative": "Reuse the step-1 pump cost reader verbatim on the break side",
+        "rejection_reason": "Its pattern requires a trailing digit, which silently skips the four [(->c :trash-can)] break costs. The pump side is unaffected because no strength-pump vector uses a quantity-less form.",
+        "decision_ref": "DL-024"
+      }
+    ],
+    "constraints": [
+      "C-001: No non-ASCII bytes in R source outside comments; use \\uXXXX escapes (R CMD check warns). [technical, user-specified]",
+      "C-002: roxygen runs after any @export change; pkgload::load_all hides export mistakes and the installed app then fails to boot. [technical, user-specified]",
+      "C-003: A release built before the columns exist loads through fill_missing_columns(); the sync image is built from a pinned package SHA and data and code deploy separately. [technical, user-specified]",
+      "C-004: spec_id bumps whenever the matchup output gains columns (cache identity). [technical, user-specified]",
+      "C-005: No literal TRUE is passed to a require_*() pre-ship gate; opening a gate is a human attestation. [organizational, user-specified]",
+      "C-006: Controls are never painted over card art. [organizational, user-specified]",
+      "C-007: Parser tests use card bodies copied verbatim from the mtgred/netrunner tree, not paraphrased fixtures. [technical, user-specified]",
+      "C-008: Comments explain WHY and document rejected alternatives at the point of decision, matching the codebase register. [organizational, user-specified]",
+      "C-009: All costs come from the implementation lineage; the rules lineage is gated closed (RULES_DISCLAIMER_CONFIRMED is FALSE). [organizational, user-specified]",
+      "C-010: The package lives on a remote host at ~/src/netrunneR, reached over ssh; no R is installed on the host itself. [dependency, user-specified]",
+      "C-011: The test suite runs only inside netrunner-mirror-sync:latest with its ENTRYPOINT overridden to Rscript, RENV_CONFIG_AUTOLOADER_ENABLED=FALSE, the package bind-mounted at /pkg, via pkgload::load_all then testthat::test_dir; 740 tests pass on master. [dependency, user-specified]",
+      "C-012: roxygen2 is absent from the image and lives in /tmp/rlib, reached with .libPaths(c(\"/rlib\", .libPaths())). [dependency, user-specified]",
+      "C-013: Edit scripts are written locally and copied with scp; apostrophes in roxygen comments break single-quoted inline ssh arguments. [technical, user-specified]",
+      "C-014: Authoritative cost source is the pinned release tree at /srv/netrunner-mirror/data/implementation/releases/a395d44c13fba31a46737336f94c0b483f9b1bb6-bad32763e17e7/raw/src/clj/game/cards/. [technical, user-specified]"
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "The helper-mediated cost forms are read at the wrong site, so a defn- parameter name is captured as a cost or a defcard call site is missed.",
+        "mitigation": "The reader skips defn- bodies and is tested against verbatim bodies for Alias, Breach, Passport, Black Orchestra and MKUltra, each asserting the literal from the call site.",
+        "anchor": "R/build-implementation.R:breaker_economics",
+        "decision_ref": "DL-022",
+        "constraint_refs": [
+          "C-007",
+          "C-014"
+        ]
+      },
+      {
+        "id": "R-002",
+        "risk": "assumed_pair_cost() and compute_cost_to_break_formula() drift, so overridden pairs price differently from formula pairs without any visible failure.",
+        "mitigation": "A test asserts both paths produce the same cost record for one pair; the scalar accessor keeps the existing call valid until the UI milestone updates it.",
+        "anchor": "R/mod_lane_board.R:assumed_pair_cost",
+        "decision_ref": "DL-020",
+        "constraint_refs": [
+          "C-011"
+        ]
+      },
+      {
+        "id": "R-003",
+        "risk": "The traits work is invisible until the sync image is rebuilt and the implementation re-synced, so the app appears unchanged and the change looks ineffective.",
+        "mitigation": "fill_missing_columns() keeps the older image correct; the rebuild and release promotion stay a separate production action for the user.",
+        "anchor": "R/views-matchups.R:fill_missing_columns",
+        "decision_ref": "DL-018",
+        "constraint_refs": [
+          "C-003",
+          "C-005"
+        ]
+      },
+      {
+        "id": "R-004",
+        "risk": "Chips crowd the 240px stat strip or overlap card art, a layout fault already corrected twice.",
+        "mitigation": "Chip styling is sized to the strip and checked against the wireframe's BREAK n, differential and badge language, with no chip positioned over the art region.",
+        "anchor": "inst/shiny-app/www/netrunner.css",
+        "decision_ref": "DL-019",
+        "constraint_refs": [
+          "C-006"
+        ]
+      },
+      {
+        "id": "R-005",
+        "risk": "The multi-clause change is the largest behavioural step in M-001: it alters how many rows the matchup table holds, so a fault in it either restores the 234 missing pairings wrongly or drops pairings that are correct today.",
+        "mitigation": "Clause recording is tested per card against verbatim bodies for Penrose and Lobisomem, asserting both subtypes are recorded and the previously absent pairings appear; a case asserts no breaker loses a pairing it emits today. The PR #28 guard in matchup_pair_state() is retired in the same change, since once every clause is recorded it would convert a correct CANNOT BREAK against a third subtype into a false unknown.",
+        "anchor": "R/build-implementation.R:breaker_economics",
+        "decision_ref": "DL-029",
+        "constraint_refs": [
+          "C-011"
+        ],
+        "version": 2
+      },
+      {
+        "id": "R-006",
+        "risk": "An edit script carrying apostrophes in roxygen comments is sent inline over ssh and the shell mangles it.",
+        "mitigation": "Edit scripts are written locally and copied to the host with scp rather than passed as single-quoted inline arguments or heredocs.",
+        "anchor": "R/build-implementation.R",
+        "decision_ref": "DL-011",
+        "constraint_refs": [
+          "C-010",
+          "C-013"
+        ]
+      },
+      {
+        "id": "R-007",
+        "risk": "An upstream cost gains a second non-credit resource and the single pair silently keeps only the first.",
+        "mitigation": "The reader asserts the one-resource census invariant and emits multi_resource_cost rather than truncating; the census is cited in DL-023 so the assumption is auditable.",
+        "anchor": "R/build-implementation.R:parse_cost_form",
+        "decision_ref": "DL-023",
+        "constraint_refs": [
+          "C-007"
+        ]
+      },
+      {
+        "id": "R-008",
+        "risk": "A function added to the traits or cost model is exported without roxygen being run, so pkgload::load_all masks the mistake and the installed app fails to boot.",
+        "mitigation": "Each milestone that adds an exported function carries a roxygen and NAMESPACE regeneration step in its acceptance criteria.",
+        "anchor": "NAMESPACE",
+        "decision_ref": "DL-011",
+        "constraint_refs": [
+          "C-002",
+          "C-012"
+        ]
+      },
+      {
+        "id": "R-009",
+        "version": 1,
+        "risk": "break_subtype_count becomes redundant once every clause is recorded, and a redundant column plus its guard becomes a second, stale authority on what a card breaks.",
+        "mitigation": "The column is KEPT deliberately and its consumer is retired. Post-change it is derived from the recorded clauses rather than parsed independently, because how many subtypes a card breaks stays a true fact about the card, it is already in the shipped schema, and dropping a shipped column would force a fill_missing_columns() interaction for no gain. What goes is its USE: the count > 1 guard in matchup_pair_state() is deleted, because complete clause evidence makes a definite negative sound again and the guard would suppress it.",
+        "anchor": "R/mod_lane_board.R:matchup_pair_state",
+        "decision_ref": "DL-029",
+        "constraint_refs": [
+          "C-003"
+        ]
+      },
+      {
+        "id": "R-010",
+        "version": 1,
+        "risk": "A (break-sub ...) occurrence that is not a break clause is recorded as one. Utae binds (:break-req (break-sub 1 1 \"Code Gate\")) in a let at programs.clj:3568 purely to extract a :break-req, so the card shows three occurrences and two real clauses.",
+        "mitigation": "Harmless under today's per-card reader and under break_subtype_count(), since all three name Code Gate and the distinct count stays 1; it stops being harmless the moment each occurrence becomes its own row with its own cost. The recorder takes clauses from :abilities positions rather than from every textual occurrence, and a verbatim Utae case pins exactly two clauses.",
+        "anchor": "R/build-implementation.R:breaker_economics",
+        "decision_ref": "DL-029",
+        "constraint_refs": [
+          "C-007",
+          "C-014"
+        ]
+      }
+    ],
+    "decision_id_start": 1
+  },
+  "invisible_knowledge": {
+    "system": "Card source in the pinned implementation release feeds a cost-form reader, which writes typed cost columns onto ice_breaker_traits inside the sync container. The Shiny app reads those traits from a separately deployed image and prices each compatible pair into a structured cost record, which one chip renderer draws into both the lane board stat strip and the matchup explorer table. Data and code deploy independently, so the app routinely serves traits built before the columns it expects.",
+    "invariants": [
+      "A non-credit resource is never summed into a credit total; no conversion rate exists and inventing one hides an arbitrary choice inside an authoritative-looking number.",
+      "Cannot break, expensive, variable by design, and could not be read are four distinct answers and never collapse into one another; the break side names the variable case variable_break_cost, mirroring the ice side's variable_subroutines.",
+      "Every NA cost carries a cost_status naming its reason; an unqualified NA lets a parse gap pass as a rules fact.",
+      "not_computable renders as an em dash, never a blank: a blank reads as zero cost, the opposite of what is meant.",
+      "Stealth credits are credits with a sourcing restriction; they stay inside cost_to_break and are annotated, never promoted to a separate currency.",
+      "credit_differential is rez_cost minus cost_to_break and absorbs nothing else on either side.",
+      "assumed_pair_cost() and compute_cost_to_break_formula() price one pair the same way; a change to one that is not mirrored in the other makes overridden pairs diverge silently.",
+      "source badges carry provenance, not confidence: formula, override, assumed, cannot_break, not_computable.",
+      "Matchup output gaining columns requires a spec_id bump, or manifests cached under the old identity deserialise short.",
+      "matchup_overrides.csv is header-only in practice; override handling never assumes rows exist.",
+      "A wholly non-credit break cost renders its chip in BOTH the lane board strip and the explorer table; a bare 0 with no visible chip reads as a free break and is the failure this work exists to remove.",
+      "A cost form's meaning depends on where it sits: inside a defn- helper the symbols are parameters, and the literal cost lives at the defcard call site."
+    ],
+    "tradeoffs": [
+      "Credits plus separate resource chips keeps every cost honest but gives the operator two things to compare instead of one number; a single fused cost would rank pairs more easily and would be fiction.",
+      "Chips in both the strip and the table cost horizontal room in a 240px layout; showing them in one view only makes the two views contradict each other about the same encounter.",
+      "The structured cost record ships alongside a scalar credits accessor so the cost model and the UI land as independently deployable milestones, at the price of two accessors coexisting until the UI milestone lands.",
+      "The seven breakers with multiple break-sub clauses stay mispriced: only one subtype is recorded per card, and correcting that is a schema change of its own.",
+      "Reading the two helper call shapes couples the parser to the Conspiracy and Central suite helper names; a new helper suite needs a reader change rather than being picked up generically, which is accepted because the alternative leaves five breakers unpriced."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 2,
+      "number": 1,
+      "name": "Break-side and ice-side cost extraction",
+      "files": [
+        "R/build-implementation.R",
+        "inst/sql/schema/implementation.sql",
+        "R/views-matchups.R",
+        "R/mod_lane_board.R",
+        "tests/testthat/test-build-implementation.R",
+        "tests/testthat/test-views-matchups.R",
+        "tests/testthat/test-mod-lane-board.R"
+      ],
+      "flags": [
+        "needs-rationale"
+      ],
+      "requirements": [
+        "breaker_economics() reads break-sub cost forms through the shared ->c grammar reader and retains the cost instead of discarding it",
+        "Break costs decompose into credits, stealth-qualified credits, and a typed non-credit resource with quantity",
+        "A breaker with no fixed break clause records status variable_break_cost with a NA quantity; a breaker carrying both a variable and a fixed clause keeps its fixed cost",
+        "Every break clause is recorded with its own subtype and cost, replacing the single clause per card",
+        "breaker_matches_ice() tests any recorded clause, so a card's second subtype yields matchup rows instead of absent ones",
+        "The PR #28 count > 1 guard in matchup_pair_state() is removed once every clause is recorded, and break_subtype_count becomes a value derived from the recorded clauses",
+        "The schema work extends the post-#28 ice_breaker_traits shape, which already carries break_subtype_count",
+        "Cost forms are read from defcard bodies, including the break-sub form nested inside a central-only call and the positional cost argument of a pump-and-break call; occurrences inside defn- helper bodies are skipped",
+        "Ice traits carry the additional cost a Corp pays beyond the rez credits",
+        "ice_breaker_traits schema holds the break-side and Corp-side cost columns",
+        "A quantity-less ->c form carries an implicit quantity of 1",
+        "The reader asserts at most one non-credit resource per cost and emits multi_resource_cost rather than truncating if that is ever violated",
+        "Exported functions are accompanied by regenerated roxygen documentation and NAMESPACE (C-002)"
+      ],
+      "acceptance_criteria": [
+        "Switchblade, Audrey v2 and Faust each record a credit cost with the stealth qualifier preserved rather than a non_credit_break_cost status",
+        "Propeller records a zero credit cost with a power resource of the correct quantity",
+        "Hantu records both a credit cost and a virus resource",
+        "Alias records 1 credit against Sentry, Breach 2 against Barrier and Passport 1 against Code Gate, read from the break-sub form nested in each central-only call",
+        "Black Orchestra and MKUltra each record 3 credits, read from the positional cost argument of their pump-and-break call",
+        "No trait row derives a cost from programs.clj lines 153, 164 or 312, which are helper definition sites",
+        "The five ice carrying an additional cost record its type and every other ice records none",
+        "The four [(->c :trash-can)] break costs record a trash-can resource of quantity 1 rather than falling through to unreadable_cost_form",
+        "Paperclip records variable_break_cost, read rather than inferred: its (break-sub nil (cost-value eid :x-credits) \"Barrier\" {:repeatable false}) sits in its own defcard body at programs.clj:2569, the same shape as the other sites, and its :cost [(->c :x-credits)] states the same cost at the ability level",
+        "Of the four X-credit break-sub sites -- Lobisomem (programs.clj:2059), Matryoshka (:2181), Paperclip (:2569) and Utae (:3587) -- only Paperclip and Matryoshka record variable_break_cost, because only they have no fixed clause. Lobisomem keeps 1 credit against Code Gate from its clause at :2043 and Utae keeps 1 credit against Code Gate from its clause at :3589",
+        "programs.clj:164 contributes no trait row: it sits inside the heap-breaker pump-and-break helper with subtype as a parameter and has no enclosing defcard, so it is a definition site and not a fifth X-credit card",
+        "Penrose records both Barrier and Code Gate clauses and Lobisomem both Code Gate and Barrier, and the 234 pairings currently absent from the matchup table are emitted",
+        "Utae records exactly two break clauses, not three: the (break-sub 1 1 \"Code Gate\") at programs.clj:3568 is bound in a let to read its :break-req and is not a break clause",
+        "Endless Hunger keeps the subtype PR #28 gave it and does not regress to \" subroutine\"; no breaker loses a pairing it emits today",
+        "matchup_pair_state() contains no count > 1 guard, and a breaker with complete clause evidence still reports cannot_break against a subtype none of its clauses names",
+        "A cost carrying both a variable quantity and a stealth qualifier, as in (->c :x-credits 0 {:stealth 1}), records the stealth annotation alongside the variable status; the two are orthogonal",
+        "No trait row carries non_credit_break_cost after the change: each of the 17 cards that held it resolves to a priced cost, variable_break_cost, or a named unreadable status",
+        "Every remaining NA break cost falls into a named status, and the count in each status matches the source census recorded at the point of decision",
+        "roxygen documentation and NAMESPACE are regenerated for any function this milestone exports, and the package loads from an installed build rather than only under pkgload::load_all (C-002)",
+        "No literal TRUE is passed to a require_*() pre-ship gate (C-005)",
+        "Every parser fixture is a card body copied verbatim from the pinned release tree at /srv/netrunner-mirror/data/implementation/releases/a395d44c.../raw/src/clj/game/cards/ (C-007, C-014)"
+      ],
+      "tests": [
+        "unit tests in tests/testthat/test-build-implementation.R with card bodies copied verbatim from the pinned release tree, covering each observed break-sub shape, each cost type in the taxonomy, both stealth qualifier spellings, the X-credit variable sites, and the Conspiracy and Central suite call sites",
+        "a case asserting a defn- helper body contributes no trait row",
+        "a case pinning [(->c :trash-can)] to a quantity of 1, and a case asserting a synthetic two-resource cost vector yields multi_resource_cost rather than the first resource alone",
+        "a case per multi-clause card -- Penrose, Lobisomem, Utae -- built from verbatim defcard bodies, asserting the clause count and each clause's subtype and cost",
+        "a case asserting Lobisomem and Utae are NOT variable-cost breakers while Paperclip and Matryoshka are",
+        "a case in test-mod-lane-board.R asserting a breaker whose clauses name neither of an ice's subtypes still reports cannot_break after the guard is removed"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 1,
+          "file": "R/build-implementation.R",
+          "function": "parse_cost_form",
+          "behavior": "Read one ->c cost form and return its decomposition: credit quantity, stealth qualifier (none, a stealth count, or all-stealth), non-credit resource type drawn from the taxonomy (power, virus, any-virus-counter, trash-can, trash-from-hand, trash-installed), resource quantity, and a status. Quantity is optional in the grammar: a form such as (->c :trash-can) carries an implicit 1, and requiring a trailing digit would skip the four break costs written that way. At most one non-credit resource occurs per cost vector in the source, so a single typed pair carries it; a vector violating that returns multi_resource_cost rather than keeping the first resource, because a truncated cost is worse than a named gap. A form outside the grammar returns status unreadable_cost_form with NA quantities rather than a zero, because a zero would read as a known free cost. Variable and stealth are orthogonal, so a variable cost can still carry a stealth annotation.",
+          "decision_refs": [
+            "DL-011",
+            "DL-012",
+            "DL-014",
+            "DL-017",
+            "DL-021",
+            "DL-023",
+            "DL-024"
+          ],
+          "constraint_refs": [
+            "C-007",
+            "C-008"
+          ]
+        },
+        {
+          "id": "CI-M-001-002",
+          "version": 2,
+          "file": "R/build-implementation.R",
+          "function": "breaker_economics",
+          "behavior": "Extract EVERY break clause from a defcard body, each with its own subtype and its own cost through parse_cost_form(), rather than one clause per card. Each clause records break_credits, break_stealth, break_resource_type, break_resource_qty, break_cost_status and its subtype. Clauses are taken from :abilities positions rather than from every textual (break-sub ...) occurrence, because Utae binds one in a let purely to read its :break-req and it is not a clause. Forms are read from defcard bodies only: the break-sub form nested inside a central-only call carries Alias, Breach and Passport's costs, and the positional cost argument of a pump-and-break call carries Black Orchestra and MKUltra's. Occurrences inside defn- helper bodies are skipped, because there cost, strength and subtype are parameters rather than values. variable_break_cost is a property of the CARD, not of a clause: it is recorded only when no clause carries a fixed cost, so Paperclip and Matryoshka take it while Lobisomem and Utae keep the fixed cost of their other clause. break_subtype_count becomes a count derived from the recorded clauses rather than a separate parse of the body.",
+          "decision_refs": [
+            "DL-011",
+            "DL-012",
+            "DL-014",
+            "DL-016",
+            "DL-021",
+            "DL-022",
+            "DL-028",
+            "DL-029"
+          ],
+          "constraint_refs": [
+            "C-007",
+            "C-014"
+          ]
+        },
+        {
+          "id": "CI-M-001-003",
+          "version": 1,
+          "file": "R/build-implementation.R",
+          "function": "ice_parse_status",
+          "behavior": "Read the :additional-cost key from each ice definition and record its type (tag-or-bad-pub, forfeit, derez-other-harmonic) on the ice trait row, with none for ice that carry no such key. The cost is recorded as a type only and never as a credit quantity, since none of these costs is denominated in credits.",
+          "decision_refs": [
+            "DL-015"
+          ],
+          "constraint_refs": [
+            "C-009",
+            "C-014"
+          ]
+        },
+        {
+          "id": "CI-M-001-004",
+          "version": 2,
+          "file": "inst/sql/schema/implementation.sql",
+          "function": "ice_breaker_traits",
+          "behavior": "The traits table holds break_credits, break_stealth, break_resource_type, break_resource_qty, break_cost_status on the breaker side and ice_additional_cost on the ice side, extending the post-#28 shape that already carries break_subtype_count rather than the shape that predates it. The break side becomes one row per clause keyed by card and subtype, since a card may break two subtypes at two different costs and a single row per card cannot hold both. Resource type and quantity sit in separate columns rather than one encoded string so a consumer cannot accidentally arithmetic on a resource.",
+          "decision_refs": [
+            "DL-012",
+            "DL-014",
+            "DL-015",
+            "DL-016",
+            "DL-029"
+          ],
+          "constraint_refs": [
+            "C-009"
+          ]
+        },
+        {
+          "id": "CI-M-001-005",
+          "version": 1,
+          "file": "R/build-implementation.R",
+          "function": "ice_subroutine_count",
+          "behavior": "The break-side variable_break_cost status is named and handled in parallel with the existing ice-side variable_subroutines status, so one vocabulary describes design-variable quantities on both sides of an encounter and a consumer cannot learn two spellings for one idea.",
+          "decision_refs": [
+            "DL-021"
+          ],
+          "constraint_refs": [
+            "C-008"
+          ]
+        },
+        {
+          "id": "CI-M-001-006",
+          "version": 1,
+          "file": "R/views-matchups.R",
+          "function": "breaker_matches_ice",
+          "behavior": "Test the ice's keywords against ANY of the breaker's recorded clauses rather than the single recorded subtype, so a card's second subtype produces matchup rows instead of absent ones. NA still matches nothing: a clause that could not be read is not assumed to break anything. The pair filter carries through which clause matched, because the cost model prices that clause and re-deriving the match there would let the two disagree.",
+          "decision_refs": [
+            "DL-029",
+            "DL-030"
+          ],
+          "constraint_refs": [
+            "C-011"
+          ]
+        },
+        {
+          "id": "CI-M-001-007",
+          "version": 1,
+          "file": "R/mod_lane_board.R",
+          "function": "matchup_pair_state",
+          "behavior": "Remove the break_subtype_count > 1 guard. It was PR #28's stopgap against asserting a false CANNOT BREAK for Penrose and Lobisomem while only one of their subtypes was stored; once every clause is recorded the evidence is complete, and keeping the guard would convert a correct negative against a third subtype into a false unknown. The comment records that the guard existed and why it went, rather than deleting the reasoning along with the code.",
+          "decision_refs": [
+            "DL-029"
+          ],
+          "constraint_refs": [
+            "C-008"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 2,
+      "number": 2,
+      "name": "Encounter cost model",
+      "files": [
+        "R/views-matchups.R",
+        "tests/testthat/test-views-matchups.R"
+      ],
+      "flags": [
+        "needs-rationale"
+      ],
+      "requirements": [
+        "compute_cost_to_break_formula() prices a pair from both the pump-side and break-side cost records and returns a structured cost with a credits accessor preserving the existing scalar call shape",
+        "compute_cost_to_break_formula() selects which break clause applies to a pair, keyed by the ice subtype that made the pair compatible, and prices that clause; a fixed clause outranks a variable one where both name that subtype",
+        "A pair whose break cost is wholly non-credit prices at zero credits carrying its resource rather than NA",
+        "A pair whose break cost is variable by design prices at NA credits with cost_status variable_break_cost",
+        "compute_ice_breaker_matchups() emits the break-side resource type and quantity, the Corp-side additional cost, and a cost_status naming the reason behind every NA",
+        "credit_differential remains rez_cost minus cost_to_break and absorbs no non-credit cost from either side",
+        "fill_missing_columns() tolerates a release built before the columns exist",
+        "spec_id advances to v4",
+        "Exported functions are accompanied by regenerated roxygen documentation and NAMESPACE (C-002)",
+        "spec_id v4 is the identity manifests cache under, so a manifest built at v3 is never reused for the wider column set (C-004)",
+        "Override merging runs against a matchup_overrides.csv holding only its header row, the file's state in practice"
+      ],
+      "acceptance_criteria": [
+        "Switchblade against a Sentry prices with a credit total and a stealth annotation instead of not_computable",
+        "Propeller against a compatible ice reports zero credits and a power resource",
+        "Hantu reports both credits and a virus resource",
+        "Alias, Breach, Passport, Black Orchestra and MKUltra each price against a compatible ice instead of reading not_computable",
+        "Lobisomem prices at 1 credit against a Code Gate and NA with variable_break_cost against a Barrier, from the same trait rows, so a pair's cost follows the clause that applies rather than the card",
+        "Utae, whose fixed and variable clauses both name Code Gate, prices at 1 credit rather than NA: the fixed clause is selected and the pair does not become unknown because a second clause exists",
+        "A Paperclip pair reports NA credits with cost_status variable_break_cost, distinguishable in the output from both a zero cost and an unreadable form",
+        "A pair on ice carrying an additional cost reports the Corp chip while its credit_differential matches the same pair computed without one",
+        "Every NA cost_to_break carries a non-empty cost_status",
+        "A frame lacking the columns loads unchanged through fill_missing_columns()",
+        "roxygen documentation and NAMESPACE are regenerated for any function this milestone exports (C-002)",
+        "No literal TRUE is passed to a require_*() pre-ship gate (C-005)",
+        "The manifest cache key computed for the new matchup output differs from the key computed for the pre-change output, so a v3 manifest cannot be served for a v4 column set (C-004)",
+        "compute_ice_breaker_matchups() run against a header-only matchup_overrides.csv returns the same rows as a run with no override file: source formula throughout, and no error raised by the zero-row merge",
+        "A manifest built from a release predating the new columns loads with cost_fields_backfilled TRUE, cost_status NA and NA resource and Corp-side values, and no row reports unreadable_cost_form or none on that path (C-003)",
+        "The matchup spec_id advances so manifests cached against the narrower column set rebuild (C-004)"
+      ],
+      "tests": [
+        "unit tests in tests/testthat/test-views-matchups.R covering credit-only, stealth-qualified, resource-only, mixed credit-plus-resource, variable, unreadable, and Corp-additional-cost pairs",
+        "a schema-tolerance case built from a column set predating the change",
+        "a cache-identity case asserting the spec_id change alters the manifest key, failing if a column is added without a bump",
+        "an override case built from a header-only overrides frame carrying zero data rows",
+        "a clause-selection case asserting one breaker prices differently against two ice of different subtypes, and a case pinning the fixed-over-variable rule for a card whose clauses share a subtype"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 2,
+          "file": "R/views-matchups.R",
+          "function": "compute_cost_to_break_formula",
+          "behavior": "Select the break clause that applies to the pair -- keyed by the ice subtype that made it compatible, the fixed clause winning where a card names one subtype in both a fixed and a variable clause -- then price one pair from the pump-side and that clause's break-side cost record and return a structured record carrying credits (stealth credits included in the total), stealth quantity, resource type, resource quantity, and cost_status. A wholly non-credit break cost yields credits zero with the resource attached, because the credit component is known and it is zero. Credits are NA when a cost form could not be read and when the cost is variable by design, and each NA travels with the status that separates the two. A credits accessor returns the scalar so existing callers keep their shape while the richer record becomes available; assumed_pair_cost() in the lane board mirrors this call and moves to the record in the same change that consumes it.",
+          "decision_refs": [
+            "DL-012",
+            "DL-013",
+            "DL-014",
+            "DL-016",
+            "DL-017",
+            "DL-020",
+            "DL-021",
+            "DL-030"
+          ],
+          "constraint_refs": [
+            "C-008"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 1,
+          "file": "R/views-matchups.R",
+          "function": "compute_ice_breaker_matchups",
+          "behavior": "Emit break_resource_type, break_resource_qty, ice_additional_cost and cost_status beside the existing cost_to_break, stealth_credits, credit_differential and source columns. credit_differential stays rez_cost minus cost_to_break: a single subtraction stops meaning anything once a counter and a tag are folded into it, so the non-credit costs on both sides ride beside the number rather than inside it. The matchup spec_id advances so manifests cached against the narrower column set rebuild rather than deserialising short.",
+          "decision_refs": [
+            "DL-012",
+            "DL-015",
+            "DL-016",
+            "DL-018"
+          ],
+          "constraint_refs": [
+            "C-004"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 2,
+          "file": "R/views-matchups.R",
+          "function": "fill_missing_columns",
+          "behavior": "Supply the resource, status and Corp-side columns when a release predating them loads. The back-filled resource type, resource quantity and Corp additional cost default to NA rather than none, because none is a factual negative about the card and a release that never wrote the column supports no such claim. cost_status is left NA and a separate row-level flag, cost_fields_backfilled, marks the row as carrying schema-absent rather than card-derived gaps: nothing was parsed here, so reusing unreadable_cost_form would assert a parse failure that never happened, and admitting a column-absent value into cost_status would put a deployment artefact into a vocabulary that describes costs read from cards. Data and code deploy separately from a pinned package SHA, so the app serves an older image routinely and must not read an absent column as a factual negative.",
+          "decision_refs": [
+            "DL-026",
+            "DL-027"
+          ],
+          "constraint_refs": [
+            "C-003"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 2,
+      "number": 3,
+      "name": "Resource chips in lane board and explorer",
+      "files": [
+        "R/mod_lane_board.R",
+        "R/mod_matchup_explorer.R",
+        "inst/shiny-app/www/netrunner.css",
+        "tests/testthat/test-mod-lane-board.R"
+      ],
+      "flags": [
+        "needs-rationale"
+      ],
+      "requirements": [
+        "A shared chip renderer turns a cost record into stealth, resource, and Corp-side chips",
+        "stat_strip_ui() renders the chips beside BREAK n and the differential within the 240px strip without covering card art",
+        "assumed_pair_cost() reads the structured cost record so overridden pairs carry the same chips as formula-priced ones",
+        "mod_matchup_explorer_server() column_defs expose the resource and Corp-side columns through the shared renderer",
+        "not_computable and variable_break_cost each render their own state, an em dash rather than a blank, with the cost_status reason available",
+        "The scalar credits accessor is removed once its last caller reads the structured record",
+        "Exported functions are accompanied by regenerated roxygen documentation and NAMESPACE (C-002)",
+        "No literal TRUE is passed to a require_*() pre-ship gate (C-005)",
+        "Each source value renders its own badge, and the badge states provenance rather than confidence"
+      ],
+      "acceptance_criteria": [
+        "A pair with a resource cost shows identical chips in the lane board strip and the explorer row",
+        "A zero-credit resource-only pair never renders a bare 0 without its resource chip in either view",
+        "assumed_pair_cost() and compute_cost_to_break_formula() produce the same cost record for one pair, so an overridden pair and a formula pair render identical chips",
+        "The stat strip keeps the wireframe BREAK n and differential and badge language at 240px",
+        "No chip element overlaps the card art region",
+        "A variable_break_cost pair is visually distinguishable from a not_computable pair",
+        "No caller of the scalar credits accessor remains and the accessor itself is gone, so one way to read a cost survives",
+        "roxygen documentation and NAMESPACE are regenerated for cost_chip_ui and any other function this milestone exports, and the package loads from an installed build rather than only under pkgload::load_all (C-002)",
+        "No literal TRUE is passed to a require_*() pre-ship gate (C-005)",
+        "A not_computable pair renders an em dash in the BREAK slot of both the strip and the explorer row: the rendered output contains the em dash character and is neither empty, nor whitespace-only, nor the string NA",
+        "Each of formula, override, assumed, cannot_break and not_computable renders its own distinct badge for a representative pair, and no two of the five share a rendering",
+        "Chips render inside the 240px strip and inside a table cell with no chip positioned over card art (C-006)",
+        "A pair whose cost fields were back-filled prints an em dash whose reason reads as not carried by this release, distinct from the reason shown for an unreadable cost form (C-003)",
+        "R source added by this milestone contains no non-ASCII bytes outside comments; chip glyphs use unicode escapes (C-001)"
+      ],
+      "tests": [
+        "unit tests in tests/testthat/test-mod-lane-board.R asserting the chip renderer output for each cost-record shape, including a zero-credit resource-only record",
+        "a test asserting assumed_pair_cost() and the formula path produce the same record for one pair",
+        "a rendering case asserting a not_computable record yields an em dash rather than an empty string, whitespace, or NA, in both the strip and the explorer cell",
+        "a badge case covering all five source values, asserting each renders a distinct badge"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 2,
+          "file": "R/mod_lane_board.R",
+          "function": "cost_chip_ui",
+          "behavior": "Turn one cost record into the chip set for a pair: a stealth chip naming how many of the credits must come from stealth, a resource chip naming type and quantity, and a Corp chip naming an additional rez cost. The renderer is the single source both the stat strip and the explorer draw from, so the two views cannot describe one encounter differently.",
+          "decision_refs": [
+            "DL-012",
+            "DL-014",
+            "DL-015",
+            "DL-019"
+          ],
+          "constraint_refs": [
+            "C-001"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 1,
+          "file": "R/mod_lane_board.R",
+          "function": "stat_strip_ui",
+          "behavior": "Place the chips beside BREAK n, the differential and the badge inside the 240px strip, keeping the wireframe language and leaving the card art region clear. A not_computable pair prints an em dash rather than an empty slot, since a blank reads as zero cost, the opposite of what is meant. assumed_pair_cost() reads the structured cost record so an overridden pair carries the same chips as a formula-priced one and the two paths cannot silently diverge.",
+          "decision_refs": [
+            "DL-013",
+            "DL-016",
+            "DL-019",
+            "DL-020"
+          ],
+          "constraint_refs": [
+            "C-006"
+          ]
+        },
+        {
+          "id": "CI-M-003-003",
+          "version": 1,
+          "file": "R/mod_matchup_explorer.R",
+          "function": "mod_matchup_explorer_server",
+          "behavior": "The reactable column_defs expose the break resource, its quantity and the Corp additional cost, rendered through the shared chip renderer, with cost_status available as the reason behind an em dash. The explorer lists only compatible pairs, so its unknowns are parse gaps rather than the subtype exclusions the lane board shows.",
+          "decision_refs": [
+            "DL-012",
+            "DL-015",
+            "DL-016",
+            "DL-019"
+          ],
+          "constraint_refs": [
+            "C-001"
+          ]
+        },
+        {
+          "id": "CI-M-003-004",
+          "version": 1,
+          "file": "inst/shiny-app/www/netrunner.css",
+          "function": "cost-chip",
+          "behavior": "Chip styling sized to sit within the 240px strip and inside a table cell, distinguishing the Runner-side resource chip from the Corp-side additional-cost chip, and laid out so no chip is positioned over the card art.",
+          "decision_refs": [
+            "DL-019"
+          ],
+          "constraint_refs": [
+            "C-006"
+          ]
+        },
+        {
+          "id": "CI-M-003-005",
+          "version": 1,
+          "file": "R/views-matchups.R",
+          "function": "compute_cost_to_break_formula",
+          "behavior": "The scalar credits accessor is removed once assumed_pair_cost() and the explorer read the structured record directly. It exists only to let the cost model and the UI land as separately deployable milestones, and a shim that outlives its transition becomes a second authority on what a cost is.",
+          "decision_refs": [
+            "DL-020",
+            "DL-025"
+          ],
+          "constraint_refs": [
+            "C-008"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [
+    {
+      "id": "W-001",
+      "milestones": [
+        "M-001"
+      ]
+    },
+    {
+      "id": "W-002",
+      "milestones": [
+        "M-002"
+      ]
+    },
+    {
+      "id": "W-003",
+      "milestones": [
+        "M-003"
+      ]
+    }
+  ],
+  "diagram_graphs": [
+    {
+      "id": "DIAG-001",
+      "type": "dataflow",
+      "scope": "overview",
+      "title": "Encounter cost pipeline",
+      "nodes": [
+        {
+          "id": "clj",
+          "label": "programs.clj / ice.clj",
+          "type": "datastore"
+        },
+        {
+          "id": "parser",
+          "label": "parse_cost_form()",
+          "type": "service"
+        },
+        {
+          "id": "traits",
+          "label": "ice_breaker_traits",
+          "type": "datastore"
+        },
+        {
+          "id": "model",
+          "label": "compute_ice_breaker_matchups()",
+          "type": "service"
+        },
+        {
+          "id": "chips",
+          "label": "cost_chip_ui()",
+          "type": "service"
+        },
+        {
+          "id": "views",
+          "label": "lane board strip + explorer table",
+          "type": "service"
+        }
+      ],
+      "edges": [
+        {
+          "source": "clj",
+          "target": "parser",
+          "label": "break-sub and additional-cost forms",
+          "protocol": null
+        },
+        {
+          "source": "parser",
+          "target": "traits",
+          "label": "credits + stealth + typed resource + status",
+          "protocol": null
+        },
+        {
+          "source": "traits",
+          "target": "model",
+          "label": "pinned-SHA sync image, columns may be absent",
+          "protocol": null
+        },
+        {
+          "source": "model",
+          "target": "chips",
+          "label": "structured cost record per pair",
+          "protocol": null
+        },
+        {
+          "source": "chips",
+          "target": "views",
+          "label": "one renderer, two call sites",
+          "protocol": null
+        }
+      ],
+      "ascii_render": null
+    }
+  ],
+  "readme_entries": []
+}
