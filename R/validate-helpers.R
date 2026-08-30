@@ -113,5 +113,24 @@ check_deny_pattern <- function(df, deny_pattern = DEFAULT_DENY_PATTERN) {
 #' build_abr() must pass before any DBI::dbWriteTable() call -- each is
 #' a complete, independent fail-closed check on its own, not a partial
 #' contribution to one combined check. (ref: DL-002)
+#'
+#' THE COORDINATE ALTERNATIVES WERE REMOVED, deliberately. This pattern
+#' once rejected `lat(itude)?` and `lon(gitude)?`, which is why
+#' `location_lat` was blocked here as well as omitted from the
+#' allowlist. Venue coordinates are now admitted -- see
+#' ABR_TOURNAMENT_ALLOWLIST for the reasoning, which is that a venue is
+#' a property of an event and not of a person.
+#'
+#' Note what the old pattern actually did, because it flatters itself:
+#' `lat(itude)?` matched `location_lat`, but `lon(gitude)?` never
+#' matched `location_lng` -- there is no "lon" in that name. Layer two
+#' was therefore blocking one coordinate and missing the other, and only
+#' the allowlist was keeping `location_lng` out. A second layer that
+#' half-works is worth knowing about; it is recorded here rather than
+#' quietly tidied away.
+#'
+#' DEFAULT_DENY_PATTERN above is UNCHANGED and still rejects both
+#' coordinate spellings. This widening is scoped to the abr lineage,
+#' where the venue argument applies, and to nothing else.
 #' @export
-ABR_DENY_PATTERN <- "(?i)(contact|e[-_]?mail|player[-_]?(name|handle)|user[-_]?(name|handle)|creator|importer|uploader|organizer|address|lat(itude)?|lon(gitude)?|\\bbio\\b|notes?|description)"
+ABR_DENY_PATTERN <- "(?i)(contact|e[-_]?mail|player[-_]?(name|handle)|user[-_]?(name|handle)|creator|importer|uploader|organizer|address|\\bbio\\b|notes?|description)"
