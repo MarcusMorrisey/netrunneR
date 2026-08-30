@@ -157,6 +157,56 @@ test_that("the rules gate stays closed until a rules-sourced view exists", {
   }
 })
 
+test_that("the ABR notice is a real link, not the site's name as text", {
+  # ABR's terms require a BACKLINK. A rendered string reading
+  # "alwaysberunning.net" satisfies a reader looking for a credit while
+  # satisfying nothing the terms actually ask for, and it is the exact
+  # shape a well-meaning restyle would leave behind.
+  txt <- squish(abr_attribution_ui())
+
+  expect_match(txt, "href=\"https://alwaysberunning.net\"", fixed = TRUE)
+  expect_match(txt, "alwaysberunning.net")
+})
+
+test_that("the ABR link is not hidden behind a disclosure triangle", {
+  # The licence notices collapse into <details> because they are long.
+  # This is one sentence, and folding a required link away is the closest
+  # thing to not rendering it.
+  txt <- squish(abr_attribution_ui())
+
+  expect_no_match(txt, "<details", fixed = TRUE)
+})
+
+test_that("the ABR gate stays closed until an ABR-sourced view exists", {
+  # Same reasoning as the rules gate: a guard with nothing behind it
+  # still passes, so attesting that the app renders a backlink it has
+  # nowhere to render is what this catches. The gate was added ahead of
+  # the Meta Maps and Meta Stats views precisely so their author has
+  # something other than a literal TRUE to pass.
+  rendered_anywhere <- any(grepl(
+    "require_abr_attribution",
+    unlist(lapply(list.files(test_path("..", ".."), pattern = "[.]R$",
+                             recursive = TRUE, full.names = TRUE),
+                  readLines, warn = FALSE))
+  ))
+  if (!isTRUE(SHIPPED_GATE_DEFAULTS$ABR_ATTRIBUTION_CONFIRMED)) {
+    succeed()
+  } else {
+    expect_true(rendered_anywhere)
+  }
+})
+
+test_that("an open ABR gate would mean the backlink actually renders", {
+  # The attestation is about the app SHOWING the link, not about someone
+  # having once read the terms. If the gate is ever opened, the notice
+  # must carry the anchor -- otherwise the attestation is about nothing.
+  if (!isTRUE(SHIPPED_GATE_DEFAULTS$ABR_ATTRIBUTION_CONFIRMED)) {
+    succeed()
+    return(invisible(NULL))
+  }
+  expect_match(squish(abr_attribution_ui()), "href=", fixed = TRUE)
+})
+
 # ---- per-publisher copyright notices -------------------------------
 # The licence changed hands: Fantasy Flight cards carry an FFG/Wizards
 # line on the card face, Null Signal cards carry a Null Signal line and

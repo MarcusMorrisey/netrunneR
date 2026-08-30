@@ -38,6 +38,40 @@ require_abr_attribution <- function(has_attribution) {
   invisible(TRUE)
 }
 
+#' The AlwaysBeRunning backlink, as UI
+#'
+#' One definition, rendered by every ABR-sourced view, for the same
+#' reason cardpool_disclaimer_ui() is one definition: wording copied into
+#' several modules drifts, and here the thing that would drift is the
+#' link itself.
+#'
+#' A REAL ANCHOR, NOT TEXT. ABR's terms require a backlink, and a
+#' rendered string reading "alwaysberunning.net" satisfies a reader
+#' looking for a credit while satisfying nothing the terms actually ask
+#' for. The one assertion test-preship-gates.R makes about this notice is
+#' that it contains an href to the site.
+#'
+#' Deliberately not wrapped in a <details> like the licence notices. Those
+#' collapse because they are long; this is one sentence, and hiding a
+#' required link behind a disclosure triangle is the closest thing to not
+#' rendering it.
+#'
+#' @return A shiny tag.
+#' @export
+abr_attribution_ui <- function() {
+  shiny::tags$p(
+    class = "small text-muted",
+    "Tournament data from ",
+    shiny::tags$a(
+      href = "https://alwaysberunning.net",
+      rel = "noopener",
+      target = "_blank",
+      "alwaysberunning.net"
+    ),
+    ", used with attribution as its terms of use require."
+  )
+}
+
 #' The cardpool non-affiliation and copyright disclaimer, as UI
 #'
 #' One definition, rendered by every cardpool-sourced view. The wording

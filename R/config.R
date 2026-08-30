@@ -104,6 +104,37 @@ CARDPOOL_DISCLAIMER_CONFIRMED <- TRUE
 #' @export
 IMPLEMENTATION_MIT_NOTICE_CONFIRMED <- TRUE
 
+#' Pre-ship dependency gate: AlwaysBeRunning attribution
+#'
+#' Passed to require_abr_attribution() by any ABR-sourced view. The guard
+#' has existed since before any such view did, and unlike the other three
+#' it had no constant to be passed -- so the first author of an
+#' ABR-sourced view would have had nothing to hand it but a literal TRUE,
+#' which is the exact failure the gates exist to prevent. Added here
+#' ahead of the Meta Maps and Meta Stats views for that reason.
+#'
+#' WHAT FLIPPING THIS TO TRUE ATTESTS. AlwaysBeRunning's terms of use
+#' require a BACKLINK to alwaysberunning.net in anything built on the
+#' data -- not a credit line, not a mention in documentation, a link the
+#' reader can follow, rendered in the view itself. Setting this TRUE
+#' attests that every ABR-sourced view renders that link where a person
+#' looking at the data can see it.
+#'
+#' It is deliberately narrower than the other three gates, because the
+#' obligation is narrower: there is no licence text to reproduce and no
+#' non-affiliation wording to carry. A link is the whole requirement, and
+#' overstating it would invite someone to satisfy a longer notice and
+#' still omit the one thing actually asked for.
+#'
+#' SEPARATELY FROM THIS GATE, ABR data carries a privacy obligation that
+#' no attestation can discharge: ABR_TOURNAMENT_ALLOWLIST
+#' (R/build-abr.R) admits ten fields and DEFAULT_DENY_PATTERN
+#' (R/validate-helpers.R) independently rejects organiser, player and
+#' contact fields, along with latitude and longitude. A view may show
+#' only what those two fail-closed layers already let into the store.
+#' @export
+ABR_ATTRIBUTION_CONFIRMED <- FALSE
+
 #' Pre-ship dependency gate: rules non-affiliation disclaimer
 #'
 #' Passed to require_rules_disclaimer() by any rules-sourced view. There
