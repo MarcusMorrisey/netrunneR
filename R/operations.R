@@ -201,14 +201,21 @@ read_matchup_overrides <- function(path = system.file("extdata", "matchup_overri
 #'   each NULL when the release predates that schema), `matchup` and
 #'   `traits` (the `ice_breaker_traits` the matchup table was built
 #'   from), `tournaments` (the abr `tournament` table, NULL when no abr
-#'   release is active), or
+#'   release is active), `identities` and `factions` (the cardpool
+#'   identity cards and the faction lookup, which the meta stats view
+#'   needs and `cards` cannot supply), or
 #'   `missing_lineages` (character vector, non-NULL) if either required
 #'   release is unavailable -- callers branch on `missing_lineages`
 #'   before touching the rest.
 #' @export
 load_ice_breaker_app_data <- function() {
   cardpool_result <- read_active_release_tables(
-    "cardpool", "cardpool.sqlite", c("card", CARDPOOL_LEGALITY_TABLES)
+    # `faction` is read alongside `card` and is neither of those things:
+    # it is a 12-row lookup of code -> display name -> side, which is
+    # what turns a faction_code into "Weyland Consortium" on the meta
+    # stats charts. The notebook it replaces did that with str_to_title()
+    # and then a repair for "Nbn"; the data already knows.
+    "cardpool", "cardpool.sqlite", c("card", "faction", CARDPOOL_LEGALITY_TABLES)
   )
   implementation_result <- query_active_release("implementation", "implementation.sqlite", "SELECT * FROM ice_breaker_traits")
 
@@ -229,6 +236,16 @@ load_ice_breaker_app_data <- function() {
   # disagree about what the app's pool is (see ice_breaker_pool()).
   cards <- ice_breaker_pool(cardpool_result$tables$card)
   legality <- cardpool_result$tables[CARDPOOL_LEGALITY_TABLES]
+
+  # IDENTITIES ARE CARRIED SEPARATELY, not reachable from `cards`. The
+  # meta stats view counts tournament wins by the winning identity's
+  # faction, and `cards` above is the ice/breaker pool -- an identity is
+  # in neither of those two types, so that view handed `cards` would join
+  # nothing and draw an empty chart. An empty chart reads as a quiet meta
+  # rather than as a wrong argument, which is the kind of failure worth
+  # making structurally impossible rather than documenting.
+  all_cards <- cardpool_result$tables$card
+  identities <- all_cards[all_cards$type_code == "identity", , drop = FALSE]
 
   # Rulings are OPTIONAL, unlike cardpool and implementation: the app is
   # about ice/breaker economics and works without them. A missing nrdb
@@ -265,6 +282,8 @@ load_ice_breaker_app_data <- function() {
     traits = implementation_result$data,
     rulings = rulings,
     tournaments = tournaments,
+    identities = identities,
+    factions = cardpool_result$tables$faction,
     missing_lineages = NULL
   )
 }

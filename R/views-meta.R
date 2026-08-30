@@ -129,13 +129,21 @@ tournament_venues <- function(tournaments, digits = 1L) {
 #' a filter built on it would quietly match nothing and look like a data
 #' problem rather than a parsing one.
 #'
+#' THE FORMAT IS STATED, not guessed. as.Date() with no format tries a
+#' short list of layouts and THROWS on anything that matches none of them
+#' -- "character string is not in a standard unambiguous format" -- which
+#' is the opposite of what the paragraph above promises. One malformed
+#' date anywhere in a release would have aborted the whole view rather
+#' than dropping a row. Naming the format makes the failure an NA, which
+#' every caller already handles, and removes the guessing besides.
+#'
 #' @param x Character vector of abr dates.
 #' @return A Date vector, NA where unparseable.
 #' @keywords internal
 parse_abr_date <- function(x) {
   cleaned <- sub("[.]$", "", as.character(x))
   cleaned <- gsub("[.]", "-", cleaned)
-  suppressWarnings(as.Date(cleaned))
+  suppressWarnings(as.Date(cleaned, format = "%Y-%m-%d"))
 }
 
 #' The rotation periods, as ranges a date filter can use
