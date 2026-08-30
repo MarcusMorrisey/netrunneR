@@ -21,7 +21,24 @@ DOCKER_RUN := docker run --rm \
 # from source here need their headers too (git/gert, sqlite/RSQLite,
 # curl/httr2, plus libicu/libxml2/libx11 pulled in transitively by
 # stringi/xml2/clipr when no matching binary is available).
-APT_INSTALL := apt-get update -qq && apt-get install -y --no-install-recommends -qq curl git libgit2-dev libsqlite3-dev libcurl4-openssl-dev libssl-dev libicu-dev libxml2-dev libx11-dev libuv1-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libwebp-dev > /dev/null
+#
+# libglpk-dev is here for igraph, which arrives as a dependency of
+# treemap, which arrives as one of d3treeR -- the interactive treemap on
+# the meta stats view. The p3m BINARY of igraph links libglpk.so.40, so
+# this is needed even though nothing is compiled: without it restore
+# fails at the load test with "unable to load shared object", several
+# minutes into a run, naming a library nobody asked for.
+#
+# The last four are the spatial runtime libraries the Dockerfile already
+# carries for sf, terra and tmap. THIS LIST HAD DRIFTED FROM THE
+# DOCKERFILE: the map work added them there and not here, so a restore
+# into a cold cache died on terra with "libproj.so.22: cannot open
+# shared object file". It went unseen because a warm cache links terra
+# straight from it and never runs renv's load test -- so the gap only
+# appears once something else in the lockfile changes. Runtime packages
+# rather than -dev, for the reason the Dockerfile gives at length: p3m
+# serves these as binaries, so no header is ever needed.
+APT_INSTALL := apt-get update -qq && apt-get install -y --no-install-recommends -qq curl git libgit2-dev libsqlite3-dev libcurl4-openssl-dev libssl-dev libicu-dev libxml2-dev libx11-dev libuv1-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libwebp-dev libglpk-dev libgdal30 libgeos-c1v5 libproj22 libudunits2-0 > /dev/null
 
 # The container runs as root, unlike the production sync container, which
 # runs 1000:1000 (ref: DL-002). It has to: APT_INSTALL above runs at

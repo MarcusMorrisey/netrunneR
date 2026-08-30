@@ -27,12 +27,11 @@ mod_meta_map_ui <- function(id) {
       shiny::h4("Tournament map"),
       shiny::uiOutput(ns("summary"))
     ),
-    # THE FILTER IS SERVER-RENDERED, unlike the card browser's, whose
-    # choices are built into its UI precisely because pushing them from
-    # the server left every filter empty inside a modal. The difference
-    # is that this one's bounds are not static: they come from the date
-    # range of an abr release this function has no access to at UI time.
-    shiny::uiOutput(ns("date_filter")),
+    # The filter is a MODULE, shared with the meta stats view. It was
+    # written inline here first; it moved out the moment a second view
+    # needed "the same filter", because two copies of a filter cannot
+    # make that claim honestly -- they can only drift.
+    mod_date_filter_ui(ns("dates")),
     shiny::uiOutput(ns("map_slot")),
     # ABR's terms require a backlink, and it renders whether or not the
     # map above it managed to draw -- the obligation attaches to using
@@ -74,89 +73,17 @@ mod_meta_map_server <- function(id, tournaments = NULL, rotation = NULL) {
     # here, it is the thing working at all.
     if (have_spatial) tmap::tmap_mode("view")
 
-    # Parsed ONCE, not per filter change: abr writes dates as
-    # "2026.08.27." and re-parsing 4,400 of those on every slider drag is
-    # work with no answer attached to it.
-    dated <- if (is.null(tournaments) || !nrow(tournaments)) NULL else {
-      t <- tournaments
-      t$.date <- parse_abr_date(t$date)
-      t
-    }
-
-    bounds <- if (is.null(dated)) NULL else {
-      d <- dated$.date[!is.na(dated$.date)]
-      if (!length(d)) NULL else range(d)
-    }
-
+    dated <- with_parsed_dates(tournaments)
+    bounds <- date_bounds(dated)
     periods <- rotation_periods(
       rotation,
       max_date = if (is.null(bounds)) Sys.Date() else bounds[[2]]
     )
-
-    output$date_filter <- shiny::renderUI({
-      safe_render(function() {
-        if (is.null(bounds)) return(NULL)
-        shiny::div(
-          class = "nr-map-filter",
-          shiny::sliderInput(
-            session$ns("dates"), NULL,
-            min = bounds[[1]], max = bounds[[2]],
-            value = bounds, timeFormat = "%b %Y", width = "100%"
-          ),
-          # Presets MOVE THE SLIDER rather than replacing it. The slider
-          # stays the single source of truth for what is shown, so a
-          # preset is a shortcut to a range and never a second, competing
-          # filter whose disagreement with the slider a reader would have
-          # to resolve.
-          if (nrow(periods)) {
-            shiny::div(
-              class = "nr-map-presets",
-              shiny::tags$span(class = "nr-preset-label", "Jump to:"),
-              shiny::actionLink(session$ns("preset_all"), "All time",
-                                class = "nr-preset"),
-              lapply(seq_len(nrow(periods)), function(i) {
-                shiny::actionLink(
-                  session$ns(paste0("preset_", i)), periods$label[[i]],
-                  class = "nr-preset"
-                )
-              })
-            )
-          }
-        )
-      })
-    })
-
-    shiny::observeEvent(input$preset_all, {
-      shiny::req(bounds)
-      shiny::updateSliderInput(session, "dates", value = bounds)
-    })
-
-    # One observer per period rather than a shared input, because
-    # actionLink() has no value to carry -- local() so each closure keeps
-    # its own i, which a bare for loop would not: every observer would
-    # see the last one.
-    for (i in seq_len(nrow(periods))) {
-      local({
-        idx <- i
-        shiny::observeEvent(input[[paste0("preset_", idx)]], {
-          shiny::req(bounds)
-          shiny::updateSliderInput(session, "dates", value = c(
-            max(periods$start[[idx]], bounds[[1]]),
-            min(periods$end[[idx]], bounds[[2]])
-          ))
-        })
-      })
-    }
+    selected <- mod_date_filter_server("dates", bounds, periods)
 
     # Everything below reads THIS, so the slider and the map cannot
     # disagree about which tournaments are in view.
-    in_range <- shiny::reactive({
-      if (is.null(dated)) return(NULL)
-      r <- input$dates
-      if (is.null(r)) return(dated)
-      keep <- !is.na(dated$.date) & dated$.date >= r[[1]] & dated$.date <= r[[2]]
-      dated[keep, , drop = FALSE]
-    })
+    in_range <- shiny::reactive(filter_by_date(dated, selected()))
 
     shaped <- shiny::reactive({
       d <- in_range()

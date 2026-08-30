@@ -86,9 +86,10 @@ mod_lane_board_ui <- function(id) {
 
 #' The suite nav strip
 #'
-#' The wireframe's top strip advertises sibling apps. "Meta Maps" now
-#' exists and is real navigation; "Meta Stats" still does not, and stays
-#' an inert label rather than a link that would go nowhere.
+#' The wireframe's top strip advertises sibling apps. All three now
+#' exist and all three are real navigation. Anything added to `built`
+#' becomes a link; anything left out stays an inert label rather than a
+#' link that would go nowhere.
 #'
 #' SETS A NON-NAMESPACED INPUT. Every other click in this file is
 #' namespaced to a module, because it belongs to that module. This one
@@ -99,7 +100,7 @@ mod_lane_board_ui <- function(id) {
 #' @param active Character. Key of the current view.
 #' @keywords internal
 suite_nav_ui <- function(active = "iceBreaker") {
-  built <- c("iceBreaker", "metaMaps")
+  built <- c("iceBreaker", "metaMaps", "metaStats")
   item <- function(key, label) {
     is_active <- identical(key, active)
     is_built <- key %in% built

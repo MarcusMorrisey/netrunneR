@@ -138,15 +138,26 @@ app_server <- function(input, output, session, app_data) {
   # rebuilding them on every click.
   view <- shiny::reactiveVal("iceBreaker")
   shiny::observeEvent(input$nav_view, {
-    if (input$nav_view %in% c("iceBreaker", "metaMaps")) view(input$nav_view)
+    if (input$nav_view %in% c("iceBreaker", "metaMaps", "metaStats")) {
+      view(input$nav_view)
+    }
   })
 
   netrunneR::mod_meta_map_server("meta_map", app_data$tournaments,
                                  rotation = app_data$legality$rotation)
 
+  # `identities`, NOT `cards`. Tournament winners are recorded as
+  # identity codes and `cards` is the ice/breaker pool, which contains no
+  # identity at all -- see load_ice_breaker_app_data().
+  netrunneR::mod_meta_stats_server("meta_stats", app_data$tournaments,
+                                   identities = app_data$identities,
+                                   factions = app_data$factions,
+                                   rotation = app_data$legality$rotation)
+
   output$main <- shiny::renderUI({
     switch(view(),
       metaMaps = netrunneR::mod_meta_map_ui("meta_map"),
+      metaStats = netrunneR::mod_meta_stats_ui("meta_stats"),
       netrunneR::mod_lane_board_ui("board")
     )
   })

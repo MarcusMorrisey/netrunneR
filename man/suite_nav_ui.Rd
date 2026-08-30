@@ -10,9 +10,10 @@ suite_nav_ui(active = "iceBreaker")
 \item{active}{Character. Key of the current view.}
 }
 \description{
-The wireframe's top strip advertises sibling apps. "Meta Maps" now
-exists and is real navigation; "Meta Stats" still does not, and stays
-an inert label rather than a link that would go nowhere.
+The wireframe's top strip advertises sibling apps. All three now
+exist and all three are real navigation. Anything added to \code{built}
+becomes a link; anything left out stays an inert label rather than a
+link that would go nowhere.
 }
 \details{
 SETS A NON-NAMESPACED INPUT. Every other click in this file is

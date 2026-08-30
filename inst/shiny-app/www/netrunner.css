@@ -638,3 +638,24 @@ a.nr-preset:hover, a.nr-preset:focus {
  * exist. */
 .nr-suite-item-link { cursor: pointer; }
 .nr-suite-item-link:hover { color: var(--nr-accent); }
+
+/* Meta stats. Each chart gets its own block with its own heading and its
+   own one-line explanation, because the two charts answer the same
+   question in different shapes and a reader needs to know that before
+   trying to reconcile them. */
+.nr-stats-block {
+  margin: 22px 0 8px;
+  padding: 16px 18px;
+  background: var(--nr-panel, #ffffff);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+}
+.nr-stats-block h5 {
+  margin: 0 0 2px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.nr-stats-block > p {
+  margin: 0 0 12px;
+}

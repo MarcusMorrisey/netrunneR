@@ -11,7 +11,9 @@ A list with \code{cards}, \code{legality} (the CARDPOOL_LEGALITY_TABLES,
 each NULL when the release predates that schema), \code{matchup} and
 \code{traits} (the \code{ice_breaker_traits} the matchup table was built
 from), \code{tournaments} (the abr \code{tournament} table, NULL when no abr
-release is active), or
+release is active), \code{identities} and \code{factions} (the cardpool
+identity cards and the faction lookup, which the meta stats view
+needs and \code{cards} cannot supply), or
 \code{missing_lineages} (character vector, non-NULL) if either required
 release is unavailable -- callers branch on \code{missing_lineages}
 before touching the rest.
