@@ -582,3 +582,59 @@ body > .container-fluid > .shiny-html-output {
 /* Never invisible to the keyboard: opacity 0 still takes focus, so the
  * focus ring has to be able to bring it back into view. */
 .nr-remove:focus-visible { outline: 2px solid var(--nr-accent); }
+
+/* ---- the tournament map --------------------------------------------- */
+.nr-map-page { padding: 18px 22px 28px; }
+.nr-map-head h4 {
+  margin: 0 0 2px;
+  font-family: 'Titillium Web', sans-serif;
+  letter-spacing: 0.01em;
+}
+
+/* The filter reads as a strip across the top, above the map it governs,
+ * because a control that sits beside or below what it changes invites
+ * the reader to look at a map first and discover the filter after. */
+.nr-map-filter {
+  background: var(--nr-panel);
+  border: 1px solid var(--nr-panel-edge);
+  border-radius: 3px;
+  padding: 6px 16px 2px;
+  margin-bottom: 14px;
+}
+.nr-map-filter .irs { font-family: inherit; }
+
+.nr-map-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 2px 0 10px;
+}
+.nr-preset-label {
+  font-size: 11px;
+  color: var(--nr-ink-faint);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+/* Presets are links, not buttons: they move the slider rather than
+ * applying a filter of their own, and a button implies a state the
+ * reader would then look for a way out of. */
+a.nr-preset {
+  font-size: 11.5px;
+  color: var(--nr-ink-quiet);
+  border: 1px solid var(--nr-panel-edge);
+  border-radius: 99px;
+  padding: 2px 10px;
+  text-decoration: none;
+}
+a.nr-preset:hover, a.nr-preset:focus {
+  color: var(--nr-accent);
+  border-color: var(--border-hi, rgba(255, 166, 0, 0.55));
+}
+
+/* A nav item that goes somewhere, as distinct from one that is merely
+ * not the current page -- .nr-suite-item-inert stays unclickable and
+ * unhighlighted, so the strip never implies a view that does not
+ * exist. */
+.nr-suite-item-link { cursor: pointer; }
+.nr-suite-item-link:hover { color: var(--nr-accent); }

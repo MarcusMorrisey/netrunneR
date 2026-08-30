@@ -43,6 +43,7 @@ Imports:
     tools,
     utils
 Suggests:
+    leaflet,
     sf,
     tmap,
     testthat (>= 3.0.0),

@@ -86,22 +86,34 @@ mod_lane_board_ui <- function(id) {
 
 #' The suite nav strip
 #'
-#' The wireframe's top strip advertises sibling apps ("Meta Maps", "Meta
-#' Stats") that do not exist. They are rendered as plainly inert labels
-#' rather than links, so the strip reads as the wireframe drew it without
-#' implying navigation that would 404.
+#' The wireframe's top strip advertises sibling apps. "Meta Maps" now
+#' exists and is real navigation; "Meta Stats" still does not, and stays
+#' an inert label rather than a link that would go nowhere.
 #'
-#' @param active Character. Key of the current app.
+#' SETS A NON-NAMESPACED INPUT. Every other click in this file is
+#' namespaced to a module, because it belongs to that module. This one
+#' does not: the strip switches which VIEW the app shows, which is
+#' app_server()'s business and not the lane board's. The strip is drawn
+#' here only because the wireframe puts it above the board.
+#'
+#' @param active Character. Key of the current view.
 #' @keywords internal
 suite_nav_ui <- function(active = "iceBreaker") {
+  built <- c("iceBreaker", "metaMaps")
   item <- function(key, label) {
+    is_active <- identical(key, active)
+    is_built <- key %in% built
     shiny::tags$span(
-      class = if (identical(key, active)) {
-        "nr-suite-item nr-suite-item-active"
-      } else {
-        "nr-suite-item nr-suite-item-inert"
+      class = paste(
+        "nr-suite-item",
+        if (is_active) "nr-suite-item-active"
+        else if (is_built) "nr-suite-item-link"
+        else "nr-suite-item-inert"
+      ),
+      title = if (is_active || is_built) NULL else "Not built yet",
+      onclick = if (!is_active && is_built) {
+        sprintf("Shiny.setInputValue('nav_view', '%s', {priority: 'event'})", key)
       },
-      title = if (identical(key, active)) NULL else "Not built yet",
       label
     )
   }

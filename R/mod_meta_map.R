@@ -1,0 +1,357 @@
+#' The tournament map
+#'
+#' A country choropleth of tournaments per million people, with a point
+#' layer of venue density over it. Adapted from the mapping notebook that
+#' already existed, so the composition is the one that was already
+#' wanted; what changed is where the data comes from.
+#'
+#' SF AND TMAP ARE SUGGESTS, NOT IMPORTS, and this module is why. In
+#' Imports the whole package fails to load anywhere the spatial stack is
+#' absent -- pkgload aborts before a single test runs -- which couples
+#' the package to an image rebuild for a view most sessions never open.
+#' So every entry point here checks and degrades, in the same way
+#' card_rulings_ui() degrades without an nrdb release.
+#'
+#' @param id Module id.
+#' @export
+mod_meta_map_ui <- function(id) {
+  ns <- shiny::NS(id)
+  shiny::tagList(
+    # The same strip the board carries, so this view is somewhere you can
+    # leave as well as arrive at. Marked active here, which is what makes
+    # Ice::Breaker the clickable one.
+    suite_nav_ui("metaMaps"),
+    shiny::div(
+    class = "nr-map-page",
+    shiny::div(class = "nr-map-head",
+      shiny::h4("Tournament map"),
+      shiny::uiOutput(ns("summary"))
+    ),
+    # THE FILTER IS SERVER-RENDERED, unlike the card browser's, whose
+    # choices are built into its UI precisely because pushing them from
+    # the server left every filter empty inside a modal. The difference
+    # is that this one's bounds are not static: they come from the date
+    # range of an abr release this function has no access to at UI time.
+    shiny::uiOutput(ns("date_filter")),
+    shiny::uiOutput(ns("map_slot")),
+    # ABR's terms require a backlink, and it renders whether or not the
+    # map above it managed to draw -- the obligation attaches to using
+    # the data, not to the drawing succeeding.
+    abr_attribution_ui(),
+    shiny::uiOutput(ns("notes"))
+    )
+  )
+}
+
+#' Tournament map module server
+#'
+#' @param id Module id.
+#' @param tournaments The abr `tournament` table, or NULL when no abr
+#'   release is active. NULL renders an explanation rather than an empty
+#'   map, for the reason given on mod_card_detail_server()'s `rulings`.
+#' @param rotation The cardpool `rotation` table, or NULL. NULL drops the
+#'   named-period shortcuts and leaves the slider, rather than inventing
+#'   rotation dates -- there are seven and they are not guessable.
+#' @export
+mod_meta_map_server <- function(id, tournaments = NULL, rotation = NULL) {
+  shiny::moduleServer(id, function(input, output, session) {
+
+    # The gate, passed the constant and never a literal TRUE. With it
+    # closed this view aborts, which is the intended behaviour: the
+    # backlink above is what the attestation is about, and nobody but a
+    # person can attest that it renders.
+    require_abr_attribution(ABR_ATTRIBUTION_CONFIRMED)
+
+    have_spatial <- requireNamespace("sf", quietly = TRUE) &&
+      requireNamespace("tmap", quietly = TRUE) &&
+      requireNamespace("leaflet", quietly = TRUE)
+
+    # VIEW MODE, or there is no map. tmap defaults to "plot", which
+    # renders a static image -- and tmapOutput() then builds a
+    # plotOutput() rather than a leaflet widget, which fails outright
+    # with "invalid width argument" inside a fluid layout. The map is
+    # meant to be panned and zoomed, so view mode is not a preference
+    # here, it is the thing working at all.
+    if (have_spatial) tmap::tmap_mode("view")
+
+    # Parsed ONCE, not per filter change: abr writes dates as
+    # "2026.08.27." and re-parsing 4,400 of those on every slider drag is
+    # work with no answer attached to it.
+    dated <- if (is.null(tournaments) || !nrow(tournaments)) NULL else {
+      t <- tournaments
+      t$.date <- parse_abr_date(t$date)
+      t
+    }
+
+    bounds <- if (is.null(dated)) NULL else {
+      d <- dated$.date[!is.na(dated$.date)]
+      if (!length(d)) NULL else range(d)
+    }
+
+    periods <- rotation_periods(
+      rotation,
+      max_date = if (is.null(bounds)) Sys.Date() else bounds[[2]]
+    )
+
+    output$date_filter <- shiny::renderUI({
+      safe_render(function() {
+        if (is.null(bounds)) return(NULL)
+        shiny::div(
+          class = "nr-map-filter",
+          shiny::sliderInput(
+            session$ns("dates"), NULL,
+            min = bounds[[1]], max = bounds[[2]],
+            value = bounds, timeFormat = "%b %Y", width = "100%"
+          ),
+          # Presets MOVE THE SLIDER rather than replacing it. The slider
+          # stays the single source of truth for what is shown, so a
+          # preset is a shortcut to a range and never a second, competing
+          # filter whose disagreement with the slider a reader would have
+          # to resolve.
+          if (nrow(periods)) {
+            shiny::div(
+              class = "nr-map-presets",
+              shiny::tags$span(class = "nr-preset-label", "Jump to:"),
+              shiny::actionLink(session$ns("preset_all"), "All time",
+                                class = "nr-preset"),
+              lapply(seq_len(nrow(periods)), function(i) {
+                shiny::actionLink(
+                  session$ns(paste0("preset_", i)), periods$label[[i]],
+                  class = "nr-preset"
+                )
+              })
+            )
+          }
+        )
+      })
+    })
+
+    shiny::observeEvent(input$preset_all, {
+      shiny::req(bounds)
+      shiny::updateSliderInput(session, "dates", value = bounds)
+    })
+
+    # One observer per period rather than a shared input, because
+    # actionLink() has no value to carry -- local() so each closure keeps
+    # its own i, which a bare for loop would not: every observer would
+    # see the last one.
+    for (i in seq_len(nrow(periods))) {
+      local({
+        idx <- i
+        shiny::observeEvent(input[[paste0("preset_", idx)]], {
+          shiny::req(bounds)
+          shiny::updateSliderInput(session, "dates", value = c(
+            max(periods$start[[idx]], bounds[[1]]),
+            min(periods$end[[idx]], bounds[[2]])
+          ))
+        })
+      })
+    }
+
+    # Everything below reads THIS, so the slider and the map cannot
+    # disagree about which tournaments are in view.
+    in_range <- shiny::reactive({
+      if (is.null(dated)) return(NULL)
+      r <- input$dates
+      if (is.null(r)) return(dated)
+      keep <- !is.na(dated$.date) & dated$.date >= r[[1]] & dated$.date <= r[[2]]
+      dated[keep, , drop = FALSE]
+    })
+
+    shaped <- shiny::reactive({
+      d <- in_range()
+      if (is.null(d) || !nrow(d)) return(NULL)
+      world <- world_polygons()
+      tournament_country_counts(
+        d,
+        map_names = if (is.null(world)) NULL else world$name
+      )
+    })
+
+    output$summary <- shiny::renderUI({
+      safe_render(function() {
+        s <- shaped()
+        if (is.null(s)) return(NULL)
+        v <- tournament_venues(in_range())
+        shiny::tags$p(class = "small text-muted", sprintf(
+          "%s tournaments across %s countries%s.",
+          format(sum(s$counts$tournaments), big.mark = ","),
+          nrow(s$counts),
+          if (nrow(v)) sprintf(", %s distinct venues", format(nrow(v), big.mark = ",")) else ""
+        ))
+      })
+    })
+
+    output$map_slot <- shiny::renderUI({
+      safe_render(function() {
+        if (!have_spatial) {
+          return(alert_box(paste(
+            "The map needs the sf, tmap and leaflet packages, which are not installed",
+            "in this environment. Everything else on this page still reads",
+            "the same data."
+          ), "info"))
+        }
+        if (is.null(shaped())) {
+          return(alert_box(
+            "No active abr release, so there are no tournaments to map.", "info"
+          ))
+        }
+        leaflet::leafletOutput(session$ns("map"), height = "560px")
+      })
+    })
+
+    if (have_spatial) {
+      # leaflet::renderLeaflet() over tmap_leaflet(), NOT tmap::renderTmap().
+      #
+      # renderTmap() routes through print.tmap(), which computes scale
+      # defaults against the output device -- and inside Shiny that failed
+      # with "missing value where TRUE/FALSE needed" from
+      # get_scale_defaults(), while the identical map object printed
+      # perfectly in a plain R session and in shiny::testServer(). A
+      # failure that appears only in the running app and not in any test
+      # is worth routing around rather than living with.
+      #
+      # tmap_leaflet() converts the same object to a leaflet widget
+      # directly, so the composition below is still entirely tmap's; only
+      # the handoff to Shiny changes.
+      #
+      # safe_render() is NOT used here. It returns an alert_box() tag on
+      # error, and a widget renderer cannot display a shiny.tag -- the
+      # same trap documented on mod_matchup_explorer_ui()'s separate
+      # status slot. The message belongs in the status output above,
+      # which has one.
+      output$map <- leaflet::renderLeaflet({
+        s <- shaped()
+        shiny::req(!is.null(s))
+        tmap::tmap_leaflet(
+          build_tournament_map(s$counts, tournament_venues(in_range()))
+        )
+      })
+    }
+
+    output$notes <- shiny::renderUI({
+      safe_render(function() {
+        s <- shaped()
+        if (is.null(s)) return(NULL)
+        v <- tournament_venues(in_range())
+
+        shiny::tagList(
+          # A country the map cannot place is invisible once drawn, and
+          # invisible looks exactly like "no tournaments here". Named
+          # rather than dropped.
+          if (length(s$unmatched)) {
+            alert_box(sprintf(
+              "Not drawn, because the world map has no polygon under these names: %s.",
+              paste(s$unmatched, collapse = ", ")
+            ), "warning")
+          },
+          # The point layer is absent on a release built before venue
+          # coordinates were admitted. Saying so beats a map that looks
+          # complete and is missing half its composition.
+          if (!nrow(v)) {
+            alert_box(paste(
+              "No venue points: the active abr release predates venue",
+              "coordinates. The country layer is unaffected; the points",
+              "appear after the next abr sync."
+            ), "info")
+          }
+        )
+      })
+    })
+  })
+}
+
+#' The world polygons the choropleth draws on
+#'
+#' Wrapped so the module has one place to fail gracefully. tmap ships
+#' `World` as a dataset; loading it by name into a local environment
+#' rather than the global one keeps utils::data()'s side effect where it
+#' can be reasoned about.
+#'
+#' @return An sf data frame with `name` and `pop_est`, or NULL when tmap
+#'   is unavailable.
+#' @keywords internal
+world_polygons <- function() {
+  if (!requireNamespace("tmap", quietly = TRUE)) return(NULL)
+  e <- new.env(parent = emptyenv())
+  utils::data("World", package = "tmap", envir = e)
+  get("World", envir = e)
+}
+
+#' Draw the tournament map
+#'
+#' Kept apart from the module so the composition can be built and
+#' inspected without a Shiny session.
+#'
+#' PER MILLION, NOT RAW COUNTS. A raw-count choropleth of anything is a
+#' population map wearing a different label -- the United States would be
+#' darkest because it is large, which says nothing about Netrunner.
+#' Dividing by population asks the question actually worth asking: where
+#' is the game played, relative to how many people there are to play it.
+#'
+#' The raw count rides along in the hover, because per-million is
+#' unstable for a small country -- one tournament in a country of two
+#' million outranks two hundred in the United States -- and a reader
+#' needs to see the numerator to know that.
+#'
+#' @param counts A data frame from tournament_country_counts()$counts.
+#' @param venues A data frame from tournament_venues().
+#' @return A tmap object.
+#' @keywords internal
+build_tournament_map <- function(counts, venues) {
+  world <- world_polygons()
+
+  # AN INNER JOIN: countries with no tournaments are not drawn at all.
+  #
+  # An earlier version kept every country and set its count to 0, which
+  # put the whole world in the palette's lowest band. That reads as "we
+  # measured here and found almost nothing" for about 130 countries where
+  # the truth is that Netrunner tournaments are not reported there -- and
+  # it drowns the countries that do have data in a wash of near-identical
+  # pale blue. Undrawn countries fall through to the base map, which says
+  # nothing, which is the correct amount to say.
+  joined <- merge(world, counts, by = "name", all.x = FALSE)
+
+  pop <- as.numeric(joined$pop_est)
+  joined$per_million <- ifelse(
+    is.na(pop) | pop <= 0, NA_real_,
+    round((joined$tournaments / pop) * 1e6, 3)
+  )
+
+  p <- tmap::tm_shape(joined) +
+    tmap::tm_polygons(
+      fill = "per_million",
+      # THE SCALE IS SPECIFIED, NOT INFERRED. tmap's interval defaults
+      # are computed in get_scale_defaults(), which inside the running
+      # app failed with "missing value where TRUE/FALSE needed" while
+      # inferring perfectly in a plain session and under testServer().
+      # Naming the style and the class count asks it to infer nothing,
+      # and a fixed classification is better for this map anyway: the
+      # bands stay put as the date filter moves, so two periods can
+      # actually be compared by colour.
+      fill.scale = tmap::tm_scale_intervals(style = "fixed",
+                                            breaks = c(0, 1, 2, 4, 8, 16, Inf)),
+      fill.legend = tmap::tm_legend(title = "Tournaments per million"),
+      # No fill.scale override. The inner join above means every drawn
+      # country HAS a value, so there is no missing category for tmap to
+      # give a swatch to -- the "Missing" entry the old legend carried
+      # was the 130-odd zero-filled countries, and they are simply not
+      # drawn now. An explicit value.na = NULL here errored in view mode
+      # ("missing value where TRUE/FALSE needed") while working in plot
+      # mode, which is a good reason not to set what does not need setting.
+      # tm_popup(), not the popup.vars argument: tmap 4 deprecates the
+      # latter and warns on every render, which in a Shiny app means once
+      # per session in the log for a purely cosmetic reason.
+      popup = tmap::tm_popup(vars = c("Tournaments" = "tournaments",
+                                      "Per million" = "per_million"))
+    )
+
+  if (nrow(venues)) {
+    pts <- sf::st_as_sf(venues, coords = c("location_lng", "location_lat"),
+                        crs = 4326)
+    p <- p + tmap::tm_shape(pts) +
+      tmap::tm_bubbles(size = "count",
+                       popup = tmap::tm_popup(vars = c("Tournaments here" = "count")))
+  }
+  p
+}

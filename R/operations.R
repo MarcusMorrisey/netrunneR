@@ -140,7 +140,13 @@ CARDPOOL_LEGALITY_TABLES <- c(
   # the publisher that released it, which decides which copyright notice
   # it gets (see card_publishers()). card_cycle is loaded for that, not
   # for legality.
-  "printing", "card_set", "card_cycle"
+  "printing", "card_set", "card_cycle",
+  # rotation is not legality either: it dates the seven rotations, which
+  # is what turns the tournament map's date filter into named periods
+  # instead of a bare slider. Loaded here because this is the one place
+  # cardpool tables are read, and a second reader would be a second
+  # answer to "which tables does the app need".
+  "rotation"
 )
 
 #' Read the curated matchup overrides with declared column types
@@ -194,7 +200,8 @@ read_matchup_overrides <- function(path = system.file("extdata", "matchup_overri
 #' @return A list with `cards`, `legality` (the CARDPOOL_LEGALITY_TABLES,
 #'   each NULL when the release predates that schema), `matchup` and
 #'   `traits` (the `ice_breaker_traits` the matchup table was built
-#'   from), or
+#'   from), `tournaments` (the abr `tournament` table, NULL when no abr
+#'   release is active), or
 #'   `missing_lineages` (character vector, non-NULL) if either required
 #'   release is unavailable -- callers branch on `missing_lineages`
 #'   before touching the rest.
@@ -230,6 +237,13 @@ load_ice_breaker_app_data <- function() {
   nrdb_result <- query_active_release("nrdb", "nrdb.sqlite", "SELECT * FROM ruling")
   rulings <- if (is.null(nrdb_result)) NULL else nrdb_result$data
 
+  # OPTIONAL, like rulings and for the same reason: this app is about
+  # ice/breaker economics and the tournament map is an addition to it. A
+  # missing abr release degrades that one view rather than joining
+  # missing_lineages and blocking startup for everything.
+  abr_result <- query_active_release("abr", "abr.sqlite", "SELECT * FROM tournament")
+  tournaments <- if (is.null(abr_result)) NULL else abr_result$data
+
   matchup_overrides <- read_matchup_overrides()
 
   matchup_result <- compute_ice_breaker_matchups(
@@ -250,6 +264,7 @@ load_ice_breaker_app_data <- function() {
     # empty_matchup_reason() in R/mod_matchup_explorer.R.
     traits = implementation_result$data,
     rulings = rulings,
+    tournaments = tournaments,
     missing_lineages = NULL
   )
 }

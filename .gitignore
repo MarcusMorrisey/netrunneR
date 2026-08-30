@@ -23,3 +23,7 @@ docs/
 # testthat writes a reproduction script here for each failing test; it is
 # a debugging artifact of one run, never something to commit.
 tests/testthat/_problems/
+
+# R writes this when a plot is drawn with no device open -- a debugging
+# artefact, never part of the package.
+Rplots.pdf

@@ -127,7 +127,29 @@ app_server <- function(input, output, session, app_data) {
     shiny::removeModal()
   })
 
-  output$main <- shiny::renderUI(netrunneR::mod_lane_board_ui("board"))
+  # WHICH VIEW IS SHOWING. The nav strip sets a non-namespaced `nav_view`
+  # input (see suite_nav_ui()); this is the only place that reads it,
+  # because choosing a view is the app's job rather than any module's.
+  #
+  # Both view modules are instantiated ONCE, above and below, on the same
+  # one-instantiation-per-session discipline as the card detail modal --
+  # only which UI is rendered changes here. Switching views therefore
+  # keeps the board's lanes and the map's state intact rather than
+  # rebuilding them on every click.
+  view <- shiny::reactiveVal("iceBreaker")
+  shiny::observeEvent(input$nav_view, {
+    if (input$nav_view %in% c("iceBreaker", "metaMaps")) view(input$nav_view)
+  })
+
+  netrunneR::mod_meta_map_server("meta_map", app_data$tournaments,
+                                 rotation = app_data$legality$rotation)
+
+  output$main <- shiny::renderUI({
+    switch(view(),
+      metaMaps = netrunneR::mod_meta_map_ui("meta_map"),
+      netrunneR::mod_lane_board_ui("board")
+    )
+  })
 }
 
 #' Show one of the two card pickers as a modal
