@@ -21,5 +21,29 @@ regex scan in build_abr() below (R/validate-helpers.R). Neither
 layer substitutes for the other -- the redundancy is deliberate
 defense in depth against personal data reaching the processed
 store. (ref: DL-002)
+
+VENUE COORDINATES ARE ADMITTED DELIBERATELY, and this reverses part of
+the original DL-002 exclusion, so the reasoning belongs here rather
+than in a commit message.
+
+location_lat and location_lng describe WHERE A TOURNAMENT WAS HELD --
+a shop, a club, a convention hall. They are a property of the event,
+not of a person: no field here identifies who attended, who organised,
+or who won by name, and the deny pattern still rejects every field
+that would. A venue is the same kind of fact as location_country,
+which was never excluded; the coordinate is only a more precise
+spelling of it.
+
+They are admitted for the tournament map, which plots venue density
+as a point layer over a country choropleth. That layer cannot be
+derived from location_country: a country polygon cannot say whether a
+country's tournaments sit in one city or thirty.
+
+WHAT THIS DOES NOT LICENSE. The exclusion of organiser, creator,
+contact, player and address fields is untouched and must stay
+untouched -- those identify people, and a venue does not. If a future
+upstream field ties a coordinate to a person (a home address, a
+player's location), it is excluded by the deny pattern on the
+person-field, not admitted by this precedent.
 }
 \keyword{internal}
