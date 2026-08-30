@@ -1,0 +1,82 @@
+{
+  "task_spec": [
+    "SUBJECT: make the ice/breaker matchup views express the FULL cost of an encounter -- credits, the non-credit resources a breaker must also spend (power counters, virus counters, trashing a card), the stealth-sourcing constraint on credits, and the Corp's own additional rez costs -- so a pair that currently reads 'not computable' shows a real, complete answer.",
+    "scope: R/build-implementation.R (break-sub cost-form parsing, ice additional-cost parsing), R/views-matchups.R (cost model + matchup output columns), R/mod_lane_board.R (stat strip chips), R/mod_matchup_explorer.R (table columns), inst/sql/schema/implementation.sql, inst/shiny-app/www/netrunner.css",
+    "out-of-scope: rebuilding the sync image / promoting an implementation release -- production action, user's call",
+    "out-of-scope: the rules lineage (RULES_DISCLAIMER_CONFIRMED is FALSE); all costs here come from the implementation lineage",
+    "out-of-scope: modelling actual Runner/Corp credit pools or game state -- this prices one encounter, not a game",
+    "IN SCOPE (was out-of-scope, reversed 2026-08-29): breakers with MULTIPLE break-sub clauses. Penrose and Lobisomem span two ice subtypes each and only one is recorded, so 234 real pairings are absent from the matchup table -- and since PR #27 an absent pairing renders as a definite CANNOT BREAK. PR #28 added an interim guard (break_subtype_count) that suppresses the false negative; M-001 owns the real fix per DL-029, and the guard retires with it."
+  ],
+  "constraints": [
+    "MUST: never fold a non-credit resource into a credit total -- no conversion rate exists (user decision: 'Credits + separate resource chips')",
+    "MUST: stealth credits stay INSIDE cost_to_break as credits, annotated separately -- the qualifier says where they are sourced, not that they are a different currency",
+    "MUST: honesty over coverage -- unknown stays NA with a status column naming the reason; never guess a plausible number",
+    "MUST: comments explain WHY, especially why something is NOT done; rejected alternatives documented at the point of decision",
+    "MUST: no non-ASCII bytes in R source outside comments -- use \\uXXXX escapes (R CMD check warns)",
+    "MUST: run roxygen after any @export change (pkgload::load_all hides export mistakes; installed app then fails to boot)",
+    "MUST: tolerate a release built before new columns exist -- fill_missing_columns() pattern, since the sync image is built from a pinned package SHA and data/code deploy separately",
+    "MUST: bump spec_id when the matchup output gains columns (cache identity)",
+    "MUST NOT: pass a literal TRUE to a require_*() pre-ship gate; opening a gate is a human attestation",
+    "MUST NOT: paint controls over card art (corrected twice already)",
+    "SHOULD: parser tests use card bodies copied VERBATIM from the mtgred/netrunner tree, not paraphrased fixtures",
+    "SHOULD: keep the wireframe's visual language -- the strip is BREAK n / differential / badge at 240px"
+  ],
+  "entry_points": [
+    "R/build-implementation.R:breaker_economics() - matches (break-sub <int> <int> \"Subtype\") only; anything else returns parse_status='non_credit_break_cost' with the cost DISCARDED. 17 cards.",
+    "R/build-implementation.R:pump_economics() - written in step 1; the working model for parsing a cost form. break-sub parsing should mirror it.",
+    "R/build-implementation.R:ice_subroutine_count()/ice_parse_status() - where ice additional rez costs would be read from ice.clj",
+    "R/views-matchups.R:compute_cost_to_break_formula() - takes pump_resource_type and returns NA when a resource pump is needed; break-side equivalent needed",
+    "R/views-matchups.R:compute_ice_breaker_matchups() - assembles matchup output; emits cost_to_break, stealth_credits, credit_differential, source",
+    "R/views-matchups.R:fill_missing_columns() - schema-tolerance helper from step 1",
+    "R/mod_lane_board.R:stat_strip_ui() - renders BREAK n / differential / badge; where chips must go",
+    "R/mod_lane_board.R:assumed_pair_cost() - duplicates the formula call for overridden pairs; must stay in step with any signature change",
+    "R/mod_matchup_explorer.R:mod_matchup_explorer_server() - reactable column_defs; needs resource columns",
+    "inst/sql/schema/implementation.sql - ice_breaker_traits schema"
+  ],
+  "rejected_alternatives": [
+    "Full cost vector replacing cost_to_break - rejected by user; changes the lane board's whole visual language (wireframe strip assumes one number each)",
+    "Credits only, flag the rest incomplete - rejected by user; leaves misparsed breakers showing no cost at all",
+    "Filtering matchups by format at compute time - rejected in an earlier step; bakes format into manifest cache identity",
+    "Acquiring external Netrunner rules text - rejected: the implementation lineage already encodes every cost structurally; the rules lineage is gated closed and would not help (costs are card-specific)",
+    "Writing subtype overrides to matchup_overrides.csv - rejected in step 2; that file is for corrections true of the CARDS, not one board state"
+  ],
+  "current_understanding": [
+    "compute_ice_breaker_matchups() cross-joins ice x icebreakers, filters to subtype-compatible pairs via breaker_matches_ice(), prices each with compute_cost_to_break_formula(), merges matchup_overrides.csv, stamps source (formula/override/not_computable).",
+    "Cost taxonomy EXTRACTED FROM SOURCE (not recalled): inside break-sub/strength-pump the cost types are :credit (11, optionally qualified {:stealth 1} x10 or {:stealth :all-stealth} x8), :power (6), :trash-can (4), :virus (3), :trash-from-hand (3), :any-virus-counter (2), :trash-installed (1).",
+    "break-sub form shapes: (break-sub 1 ...) x70, (break-sub 2 ...) x31, (break-sub [(->c ...)]) x15, (break-sub nil ...) x5, (break-sub 0 ...) x4, (break-sub 3 ...) x3, (break-sub (->c ...)) x2, (break-sub cost ...) x1, (break-sub (:break-cost ...)) x1",
+    "Corp side: only 5 ice carry :additional-cost in ice.clj -- :tag-or-bad-pub x2, :forfeit x2, :derez-other-harmonic x1. Plus 3 bad-publicity references.",
+    "Step 1 (merged, PR #26) fixed strength-pump cost forms: 11 breakers were wrongly recorded as fixed-strength, making every stealth breaker report it could not reach ice it reaches routinely. Added pump_stealth/pump_resource_type/pump_resource_qty to traits and stealth_credits to the matchup table; spec_id -> v3.",
+    "Step 2 (merged, PR #27) split absent matchup rows into CANNOT BREAK (subtype filter excluded on purpose, overridable per lane) vs NOT COMPUTABLE (break_subtype NA, genuinely unknown). Added matchup_pair_state(), assumed_pair_cost(), override_control_ui().",
+    "AFTER step 1, still not_computable and blocked on BREAK-side parsing: Switchblade (break-sub (->c :credit 1 {:stealth 1}) 0 \"Sentry\"), Audrey v2, Faust. Blocked on resource CHIPS: Propeller (:power), Hantu (:virus + credits).",
+    "Step 1 is NOT LIVE: traits are built by the sync container from a pinned package SHA, so it takes effect only after an image rebuild + implementation re-sync. The app currently serves old traits and works correctly because of fill_missing_columns().",
+    "740 tests pass on master. Test suite runs only in the netrunner-mirror-sync:latest image with ENTRYPOINT overridden.",
+    "PR #28 (merged): break_sub_subtype() now takes the FIRST literal, since the subtype is the third positional argument -- this fixed Endless Hunger, which had recorded \" subroutine\" and so matched no ice and read as CANNOT BREAK against all 390. break_subtype_count added to traits and to the schema. Exactly 2 cards span >1 distinct subtype: Penrose and Lobisomem.",
+    "Paperclip RESOLVED: not a separate path; its (break-sub nil (cost-value eid :x-credits) \"Barrier\") is in its own defcard body at programs.clj:2569. A card is a variable-cost breaker only when it has NO fixed clause (DL-028) -- so only Paperclip and Matryoshka, not Lobisomem or Utae."
+  ],
+  "assumptions": [
+    "break-sub cost forms use the same ->c grammar as strength-pump, so pump_economics()'s parsing generalises (H) -- verified for Switchblade/Audrey v2/Faust by reading source",
+    "(break-sub nil ...) x5 means 'no credit cost' rather than a parse failure (M) -- MUST be read from source before implementing, not assumed",
+    "(break-sub cost ...) and (break-sub (:break-cost ...)) are card-local bindings needing per-card reading, likely staying unreadable (M)",
+    "The 5 ice with :additional-cost cannot be priced in credits at all (tag/bad-pub/forfeit are not credits), so they become a Corp-side chip rather than a number folded into rez cost (H)",
+    "credit_differential stays rez_cost - cost_to_break and is NOT adjusted for non-credit costs on either side (H) -- a single subtraction stops being meaningful otherwise",
+    "Chips must appear in BOTH the lane board strip and the matchup explorer table, or the two views disagree about the same pair (H)"
+  ],
+  "invisible_knowledge": [
+    "not_computable is a first-class UI state, rendered explicitly (em dash, never a blank) -- a blank reads as 'zero cost', the opposite of what is meant",
+    "The distinction the whole codebase defends: 'you cannot do this' vs 'this is expensive' vs 'we do not know' are three different answers and must never collapse",
+    "A wrong answer wearing an honest NA's clothing is the worst outcome -- that was step 1's bug (breakers reporting they could not reach ice they reach routinely)",
+    "source badges mean provenance, not confidence: formula=derived, override=hand-curated, assumed=operator's premise + our arithmetic, cannot_break=definite negative, not_computable=unknown",
+    "The lane board lets the operator stack ANY breaker under ANY ice, so absent matchup rows are the common case there -- unlike the explorer, which only ever lists compatible pairs",
+    "assumed_pair_cost() in mod_lane_board.R re-implements the formula call for one pair; any change to compute_cost_to_break_formula()'s signature must be mirrored there or overridden pairs silently diverge from ordinary ones",
+    "matchup_overrides.csv is a header-only template in practice -- override handling must not assume rows exist",
+    "Comments in this codebase document rejected alternatives at the point of decision; matching that register is required or the file reads as foreign"
+  ],
+  "reference_docs": [
+    "R/CLAUDE.md - module table: which file owns what, and when to change each",
+    "inst/shiny-app/CLAUDE.md - app layout, the five stat-strip states, why the lane board is the whole app",
+    "tests/testthat/CLAUDE.md - test conventions",
+    "~/src/homelab/docs/netrunneR/design-references/wireframes/Main.dc.html - the lane board wireframe (prints 'BREAK ---' for not computable)",
+    "~/src/homelab/docs/netrunneR/design-references/jinteki-netrunnerdb-visual-style.md - visual style",
+    "/srv/netrunner-mirror/data/implementation/releases/a395d44c*/raw/src/clj/game/cards/{programs,ice}.clj - the authoritative cost source"
+  ]
+}
