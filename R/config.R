@@ -133,7 +133,7 @@ IMPLEMENTATION_MIT_NOTICE_CONFIRMED <- TRUE
 #' contact fields, along with latitude and longitude. A view may show
 #' only what those two fail-closed layers already let into the store.
 #' @export
-ABR_ATTRIBUTION_CONFIRMED <- FALSE
+ABR_ATTRIBUTION_CONFIRMED <- TRUE
 
 #' Pre-ship dependency gate: rules non-affiliation disclaimer
 #'

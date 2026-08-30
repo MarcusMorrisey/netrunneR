@@ -7,12 +7,18 @@
 suite_nav_ui(active = "iceBreaker")
 }
 \arguments{
-\item{active}{Character. Key of the current app.}
+\item{active}{Character. Key of the current view.}
 }
 \description{
-The wireframe's top strip advertises sibling apps ("Meta Maps", "Meta
-Stats") that do not exist. They are rendered as plainly inert labels
-rather than links, so the strip reads as the wireframe drew it without
-implying navigation that would 404.
+The wireframe's top strip advertises sibling apps. "Meta Maps" now
+exists and is real navigation; "Meta Stats" still does not, and stays
+an inert label rather than a link that would go nowhere.
+}
+\details{
+SETS A NON-NAMESPACED INPUT. Every other click in this file is
+namespaced to a module, because it belongs to that module. This one
+does not: the strip switches which VIEW the app shows, which is
+app_server()'s business and not the lane board's. The strip is drawn
+here only because the wireframe puts it above the board.
 }
 \keyword{internal}
