@@ -318,7 +318,12 @@ build_tournament_map <- function(counts, venues) {
     round((joined$tournaments / pop) * 1e6, 3)
   )
 
-  p <- tmap::tm_shape(joined) +
+  # NAMED EXPLICITLY. tmap labels a layer after the object handed to
+  # tm_shape(), so without this the layer control offered the reader
+  # "joined" and "pts" -- the local variable names in this function,
+  # which mean something to whoever wrote it and nothing to anyone
+  # looking at a map.
+  p <- tmap::tm_shape(joined, name = "Tournaments per million") +
     tmap::tm_polygons(
       fill = "per_million",
       # THE SCALE IS SPECIFIED, NOT INFERRED. tmap's interval defaults
@@ -349,7 +354,7 @@ build_tournament_map <- function(counts, venues) {
   if (nrow(venues)) {
     pts <- sf::st_as_sf(venues, coords = c("location_lng", "location_lat"),
                         crs = 4326)
-    p <- p + tmap::tm_shape(pts) +
+    p <- p + tmap::tm_shape(pts, name = "Tournament Locations") +
       tmap::tm_bubbles(size = "count",
                        popup = tmap::tm_popup(vars = c("Tournaments here" = "count")))
   }
