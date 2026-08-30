@@ -34,9 +34,34 @@ build_lineage.netrunneR_api_poll <- function(lineage, staged_raw, ...) {
 #' layer substitutes for the other -- the redundancy is deliberate
 #' defense in depth against personal data reaching the processed
 #' store. (ref: DL-002)
+#'
+#' VENUE COORDINATES ARE ADMITTED DELIBERATELY, and this reverses part of
+#' the original DL-002 exclusion, so the reasoning belongs here rather
+#' than in a commit message.
+#'
+#' location_lat and location_lng describe WHERE A TOURNAMENT WAS HELD --
+#' a shop, a club, a convention hall. They are a property of the event,
+#' not of a person: no field here identifies who attended, who organised,
+#' or who won by name, and the deny pattern still rejects every field
+#' that would. A venue is the same kind of fact as location_country,
+#' which was never excluded; the coordinate is only a more precise
+#' spelling of it.
+#'
+#' They are admitted for the tournament map, which plots venue density
+#' as a point layer over a country choropleth. That layer cannot be
+#' derived from location_country: a country polygon cannot say whether a
+#' country's tournaments sit in one city or thirty.
+#'
+#' WHAT THIS DOES NOT LICENSE. The exclusion of organiser, creator,
+#' contact, player and address fields is untouched and must stay
+#' untouched -- those identify people, and a venue does not. If a future
+#' upstream field ties a coordinate to a person (a home address, a
+#' player's location), it is excluded by the deny pattern on the
+#' person-field, not admitted by this precedent.
 #' @keywords internal
 ABR_TOURNAMENT_ALLOWLIST <- c(
   "id", "title", "date", "format", "location_state", "location_country",
+  "location_lat", "location_lng",
   "players_count", "top_count", "winner_runner_identity", "winner_corp_identity"
 )
 
@@ -48,6 +73,21 @@ build_abr <- function(lineage, staged_raw) {
   # on personal data only by accident.
   tournaments <- dplyr::select(staged_raw$tournaments, dplyr::all_of(ABR_TOURNAMENT_ALLOWLIST))
   tournaments <- dplyr::distinct(tournaments, .data$id, .keep_all = TRUE)
+
+  # The API returns coordinates as STRINGS, and the schema declares them
+  # REAL. SQLite is dynamically typed, so a character value lands in a
+  # REAL column without complaint and every later comparison is
+  # lexicographic -- "9.5" sorts above "10.5", and a map built on that is
+  # wrong in a way no error reports. Coerced once here, where the column
+  # enters the store, rather than in each consumer.
+  #
+  # suppressWarnings() because an unparseable coordinate must become NA
+  # rather than emit a warning per row: a venue with no recorded location
+  # is ordinary, not exceptional, and the map simply has no point to
+  # plot for it.
+  for (col in c("location_lat", "location_lng")) {
+    tournaments[[col]] <- suppressWarnings(as.numeric(tournaments[[col]]))
+  }
 
   # staged_raw$tournament_count is the raw upstream count and does not
   # reflect ids that run_abr_backfill() marked permanent_unavailable and
