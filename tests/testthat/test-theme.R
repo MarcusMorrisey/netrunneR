@@ -48,3 +48,40 @@ test_that("the card grid is themeable: classes, not inline styles", {
     }
   )
 })
+
+
+test_that("the map ramp is six hex values, dim to bright", {
+  expect_length(NETRUNNER_MAP_RAMP, 6L)
+  expect_true(all(grepl("^#[0-9A-Fa-f]{6}$", NETRUNNER_MAP_RAMP)))
+
+  # Monotonically lighter. A sequential scale whose lightness wanders
+  # encodes its ordering in nothing a reader can see.
+  lum <- vapply(NETRUNNER_MAP_RAMP, function(h) {
+    rgb <- grDevices::col2rgb(h)[, 1]
+    sum(rgb * c(0.2126, 0.7152, 0.0722))
+  }, numeric(1))
+  expect_true(all(diff(lum) > 0))
+
+  # It ends on the app's accent hue rather than an unrelated yellow.
+  expect_equal(toupper(NETRUNNER_MAP_RAMP[[6]]), "#FFC247")
+})
+
+test_that("the ramp's floor clears the ground it is drawn on", {
+  # Countries with no data are NOT drawn -- they fall through to the
+  # basemap. So a near-black lowest class would be indistinguishable from
+  # "no data", which is a different claim entirely. This is the guard on
+  # that: every band has to be visibly lighter than the page ground.
+  ground <- grDevices::col2rgb(unname(NETRUNNER_PALETTE[["ground"]]))[, 1]
+  floor_col <- grDevices::col2rgb(NETRUNNER_MAP_RAMP[[1]])[, 1]
+  expect_true(sum(floor_col) - sum(ground) > 150)
+})
+
+test_that("the dark basemap is the default, and the light ones stay", {
+  # Order is the decision: leaflet shows the first as the default layer.
+  expect_equal(NETRUNNER_MAP_BASEMAPS[[1]], "CartoDB.DarkMatter")
+  # Kept, not removed. A dark map is the wrong answer for some viewers
+  # and every printer, and enforcing a look by deleting the choice is a
+  # worse trade than offering it.
+  expect_true(length(NETRUNNER_MAP_BASEMAPS) > 1)
+  expect_true(any(grepl("Positron|Gray", NETRUNNER_MAP_BASEMAPS)))
+})

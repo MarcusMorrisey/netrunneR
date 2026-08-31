@@ -250,7 +250,14 @@ build_tournament_map <- function(counts, venues) {
   # "joined" and "pts" -- the local variable names in this function,
   # which mean something to whoever wrote it and nothing to anyone
   # looking at a map.
-  p <- tmap::tm_shape(joined, name = "Tournaments per million") +
+  # THE BASEMAP IS THE DARK MODE. tmap 4 has no dark style to switch on,
+  # and the biggest single thing making this map look pasted onto the
+  # page was the default Esri.WorldGrayCanvas -- a white sheet in the
+  # middle of a black app. Declared here rather than left to the option
+  # default, so the order in the layer control is a decision in this file
+  # and not whatever tmap ships.
+  p <- tmap::tm_basemap(NETRUNNER_MAP_BASEMAPS) +
+    tmap::tm_shape(joined, name = "Tournaments per million") +
     tmap::tm_polygons(
       fill = "per_million",
       # THE SCALE IS SPECIFIED, NOT INFERRED. tmap's interval defaults
@@ -262,8 +269,33 @@ build_tournament_map <- function(counts, venues) {
       # bands stay put as the date filter moves, so two periods can
       # actually be compared by colour.
       fill.scale = tmap::tm_scale_intervals(style = "fixed",
-                                            breaks = c(0, 1, 2, 4, 8, 16, Inf)),
-      fill.legend = tmap::tm_legend(title = "Tournaments per million"),
+                                            breaks = c(0, 1, 2, 4, 8, 16, Inf),
+                                            values = NETRUNNER_MAP_RAMP),
+      # SLIGHTLY TRANSPARENT, so the basemap's coastlines and graticule
+      # read through the fill rather than being replaced by it. At full
+      # opacity the choropleth stops being a layer over a map and becomes
+      # a flat shape chart that happens to be country-shaped.
+      fill_alpha = 0.82,
+      # Borders in the page's own ground colour rather than tmap's
+      # default grey: on a dark basemap a light hairline around every
+      # country reads as a second, competing map.
+      col = unname(NETRUNNER_PALETTE[["ground"]]),
+      lwd = 0.4,
+      # The legend is a panel on a dark page, so it is given the same
+      # treatment as every other panel: the slate background, the edge,
+      # and the two text colours the rest of the app uses. Left alone it
+      # renders as white card with black text, which is the one thing on
+      # the whole view that would still look borrowed.
+      fill.legend = tmap::tm_legend(
+        title = "Tournaments per million",
+        title.color = unname(NETRUNNER_PALETTE[["ink_bright"]]),
+        text.color = unname(NETRUNNER_PALETTE[["ink"]]),
+        bg = TRUE,
+        bg.color = unname(NETRUNNER_PALETTE[["panel_solid"]]),
+        bg.alpha = 0.92,
+        frame = TRUE,
+        frame.color = unname(NETRUNNER_PALETTE[["ink_quiet"]])
+      ),
       # No fill.scale override. The inner join above means every drawn
       # country HAS a value, so there is no missing category for tmap to
       # give a swatch to -- the "Missing" entry the old legend carried
@@ -282,8 +314,33 @@ build_tournament_map <- function(counts, venues) {
     pts <- sf::st_as_sf(venues, coords = c("location_lng", "location_lat"),
                         crs = 4326)
     p <- p + tmap::tm_shape(pts, name = "Tournament Locations") +
-      tmap::tm_bubbles(size = "count",
-                       popup = tmap::tm_popup(vars = c("Tournaments here" = "count")))
+      tmap::tm_bubbles(
+        size = "count",
+        # TITLED, or the legend is headed "count" -- the column name,
+        # which means something to whoever wrote tournament_venues() and
+        # nothing to anyone reading a map. The same mistake the layer
+        # control made with "joined" and "pts", in the one place left
+        # that still had a default to leak.
+        size.legend = tmap::tm_legend(
+          title = "Tournaments at venue",
+          title.color = unname(NETRUNNER_PALETTE[["ink_bright"]]),
+          text.color = unname(NETRUNNER_PALETTE[["ink"]]),
+          bg = TRUE,
+          bg.color = unname(NETRUNNER_PALETTE[["panel_solid"]]),
+          bg.alpha = 0.92,
+          frame = TRUE,
+          frame.color = unname(NETRUNNER_PALETTE[["ink_quiet"]])
+        ),
+        # The accent, because venues are the layer a reader is most
+        # likely to be hunting for, and it is the colour this app already
+        # uses to say so. Outlined in the ground colour so overlapping
+        # bubbles stay countable instead of merging into one blob.
+        fill = unname(NETRUNNER_PALETTE[["accent"]]),
+        fill_alpha = 0.75,
+        col = unname(NETRUNNER_PALETTE[["ground"]]),
+        lwd = 0.6,
+        popup = tmap::tm_popup(vars = c("Tournaments here" = "count"))
+      )
   }
   p
 }
