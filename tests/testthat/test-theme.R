@@ -76,12 +76,49 @@ test_that("the ramp's floor clears the ground it is drawn on", {
   expect_true(sum(floor_col) - sum(ground) > 150)
 })
 
-test_that("the dark basemap is the default, and the light ones stay", {
-  # Order is the decision: leaflet shows the first as the default layer.
-  expect_equal(NETRUNNER_MAP_BASEMAPS[[1]], "CartoDB.DarkMatter")
-  # Kept, not removed. A dark map is the wrong answer for some viewers
-  # and every printer, and enforcing a look by deleting the choice is a
-  # worse trade than offering it.
-  expect_true(length(NETRUNNER_MAP_BASEMAPS) > 1)
-  expect_true(any(grepl("Positron|Gray", NETRUNNER_MAP_BASEMAPS)))
+test_that("the map's surface colours are distinct from the page ground", {
+  # There is no basemap. `map_water` is every pixel that is not land, and
+  # `map_nodata` is land nobody has reported a tournament in. If either
+  # equals the page ground the map loses its edge and reads as a hole cut
+  # in the page rather than as a map.
+  expect_named(NETRUNNER_MAP_SURFACE, c("map_water", "map_nodata", "map_edge"))
+  expect_true(all(grepl("^#[0-9A-Fa-f]{6}$", NETRUNNER_MAP_SURFACE)))
+  expect_false(any(toupper(NETRUNNER_MAP_SURFACE) ==
+                     toupper(NETRUNNER_PALETTE[["ground"]])))
+
+  lum <- function(h) sum(grDevices::col2rgb(h)[, 1] * c(0.2126, 0.7152, 0.0722))
+  # Land is lighter than sea, or the world is a negative of itself.
+  expect_gt(lum(NETRUNNER_MAP_SURFACE[["map_nodata"]]),
+            lum(NETRUNNER_MAP_SURFACE[["map_water"]]))
+})
+
+test_that("no-data grey is not a member of the ramp", {
+  # "No data" and "a small number" must not be sayable in the same visual
+  # language. The enforcement is that no-data comes from OUTSIDE the
+  # scale -- if it ever drifted into the ramp, 131 countries would start
+  # claiming a measurement nobody made.
+  expect_false(toupper(NETRUNNER_MAP_SURFACE[["map_nodata"]]) %in%
+                 toupper(NETRUNNER_MAP_RAMP))
+
+  # And it is far enough from the ramp's floor to be told apart. The ramp
+  # is amber; this is a neutral grey, so the gap is in hue as well, but
+  # lightness alone has to carry it for a colour-blind reader.
+  lum <- function(h) sum(grDevices::col2rgb(h)[, 1] * c(0.2126, 0.7152, 0.0722))
+  expect_gt(abs(lum(NETRUNNER_MAP_RAMP[[1]]) -
+                  lum(NETRUNNER_MAP_SURFACE[["map_nodata"]])), 20)
+})
+
+test_that("the app declares no tile provider at all", {
+  # The reason this constant no longer exists. CartoDB.DarkMatter shipped
+  # here and CARTO now stamps keyless tiles "API KEY REQUIRED" -- served
+  # as HTTP 200 with a plausible byte count, so nothing in the stack
+  # reports it and the words are simply drawn across the Atlantic.
+  #
+  # tmap ships `World` and the map draws that instead. This test is here
+  # so a provider name cannot quietly come back.
+  expect_false(exists("NETRUNNER_MAP_BASEMAPS",
+                      envir = asNamespace("netrunneR"), inherits = FALSE))
+  src <- readLines(test_path("..", "..", "R", "mod_meta_map.R"), warn = FALSE)
+  expect_true(any(grepl("tm_basemap(NULL)", src, fixed = TRUE)))
+  expect_false(any(grepl("cartocdn|CartoDB|arcgisonline", src)))
 })

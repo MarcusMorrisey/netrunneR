@@ -17,6 +17,11 @@
   --nr-ink-bright:  #ffffff;
   --nr-ink-quiet:   #8a8580;
   --nr-radius:      4px;
+  /* Kept in step with NETRUNNER_MAP_SURFACE["map_water"] in R/theme.R.
+     Declared in both places because two renderers need it: leaflet
+     paints its container from CSS, and tm_layout() paints a static
+     render from R. */
+  --nr-map-water:   #0C1218;
 }
 
 /* ---- panels ---------------------------------------------------------
@@ -721,6 +726,11 @@ a.nr-preset:hover, a.nr-preset:focus {
 .nr-map-page .leaflet-popup-close-button { color: var(--nr-ink-quiet) !important; }
 .nr-map-page .leaflet-popup-close-button:hover { color: var(--nr-accent) !important; }
 
-/* The tile seam. Leaflet paints its container white behind the tiles,
- * which flashes as a white grid while a dark basemap loads. */
-.nr-map-page .leaflet-container { background: var(--nr-ground); }
+/* THE SEA. There are no tiles any more (see NETRUNNER_MAP_SURFACE in
+ * R/theme.R), so this is not a backdrop that shows briefly while
+ * something loads -- it is the water, permanently, and every pixel of
+ * the map that is not land.
+ *
+ * Deliberately NOT --nr-ground: a map whose sea is the same black as the
+ * page behind it has no edge, and reads as a hole rather than as a map. */
+.nr-map-page .leaflet-container { background: var(--nr-map-water); }

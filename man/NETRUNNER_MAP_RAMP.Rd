@@ -2,48 +2,70 @@
 % Please edit documentation in R/theme.R
 \name{NETRUNNER_MAP_RAMP}
 \alias{NETRUNNER_MAP_RAMP}
-\alias{NETRUNNER_MAP_BASEMAPS}
-\title{The choropleth ramp, and the basemaps under it}
+\alias{NETRUNNER_MAP_SURFACE}
+\title{The colours the map is made of}
 \format{
 A character vector of six hex values, dim to bright.
 
-A character vector of leaflet provider names, default first.
+A named character vector of the map's non-data colours.
 }
 \usage{
 NETRUNNER_MAP_RAMP
 
-NETRUNNER_MAP_BASEMAPS
+NETRUNNER_MAP_SURFACE
 }
 \description{
 TMAP HAS NO DARK MODE. There is no style to switch and no option to
-set; a tmap map is dark because each of its parts was told to be. So
-this is three separate decisions, kept together because they only work
-together.
+set; a tmap map is dark because every part of it was told to be. These
+are those parts.
 }
 \details{
+THERE IS NO BASEMAP, and that is the first decision. Every tile
+provider worth having now meters keyless requests, and does it
+silently: CartoDB.DarkMatter returns HTTP 200, the right number of
+bytes, and a picture with "API KEY REQUIRED" stamped across the
+Atlantic. Nothing in the stack reports that -- the map renders and the
+tile count is correct. Swapping to Esri bought a basemap that works
+today, from a provider under the same commercial pressure, in exchange
+for a URL template, an attribution obligation tmap has no argument
+for, and a network round trip on every view.
+
+So the tiles are gone. tmap already ships \code{World}: 177 country
+polygons, offline, and already loaded for the join the choropleth
+needs. The map draws all of them in \code{map_nodata} and paints the ones
+with tournaments over the top. That is the whole basemap, and it is
+the right one for this package -- an offline mirror whose entire
+argument is that it does not depend on a service being up should not
+have been reaching across the internet to draw its own map.
+
+It costs city labels, coastline detail, and anything below country
+level. This is a country-level choropleth with a venue-point layer, so
+none of those was carrying information that is now missing.
+
 THE RAMP RUNS TO THE ACCENT. A single hue interpolated from a mid
 amber-brown to the app's own \code{accent}, so the brightest class is the
 colour the rest of the app already uses for "this one matters".
 Computed once with colorRampPalette() and written down rather than
 recomputed at draw time, so the bands are quotable and a reviewer can
-see them.
-
-ITS FLOOR IS DELIBERATELY NOT DARK. The obvious ramp starts near black
-and it is the wrong one here, because countries with NO data are not
-drawn at all -- they fall through to the basemap (see
-build_tournament_map()). A near-black lowest class is therefore not
-merely dim, it is indistinguishable from "we have nothing for this
-country", which is a different claim entirely. The floor was lifted
-from #4A3714 to #6E5321 for exactly that reason: every drawn country
-has to read as drawn.
-
-Single-hue, not a rainbow: the value it encodes is one ordered
-quantity, and a ramp that changes hue invites a reader to see
+see them. Single-hue, not a rainbow: the value it encodes is one
+ordered quantity, and a ramp that changes hue invites a reader to see
 categories in it.
 
-THE DARK BASEMAP IS FIRST, NOT ONLY. It is the default because the
-page around it is black. The two light basemaps stay in the layer
-control because a dark map is the wrong answer for some viewers and
-every printer, and removing the choice to enforce a look is a worse
-trade than offering it.
+ITS FLOOR IS DELIBERATELY NOT DARK. The obvious ramp starts near black
+and is the wrong one here: the lowest class has to be legible against
+\code{map_nodata}, and a near-black band next to a grey one says "almost
+nothing measured" where the neighbouring country's grey says "nothing
+measured at all". Those are different claims and must not look alike.
+The floor was lifted from #4A3714 to #6E5321 for exactly that reason.
+
+\code{map_water} is the sea, \code{map_nodata} is land nobody has reported a
+tournament in, and \code{map_edge} is the hairline between countries. All
+three are deliberately DIFFERENT from \code{ground}: a map whose sea is the
+same black as the page behind it has no edge, and reads as a hole
+rather than as a map.
+
+\code{map_nodata} is also deliberately OUTSIDE the ramp. "No data" and "a
+small number" must not be sayable in the same visual language, and a
+colour drawn from a different scale is how that is enforced rather
+than merely intended.
 }

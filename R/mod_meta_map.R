@@ -228,15 +228,19 @@ world_polygons <- function() {
 build_tournament_map <- function(counts, venues) {
   world <- world_polygons()
 
-  # AN INNER JOIN: countries with no tournaments are not drawn at all.
+  # AN INNER JOIN, still: countries with no tournaments are not in the
+  # CHOROPLETH. They are drawn now -- see the base layer below -- but in
+  # a neutral grey that is not a member of the ramp.
   #
-  # An earlier version kept every country and set its count to 0, which
-  # put the whole world in the palette's lowest band. That reads as "we
-  # measured here and found almost nothing" for about 130 countries where
-  # the truth is that Netrunner tournaments are not reported there -- and
-  # it drowns the countries that do have data in a wash of near-identical
-  # pale blue. Undrawn countries fall through to the base map, which says
-  # nothing, which is the correct amount to say.
+  # That distinction is the whole point, and it is why the base layer
+  # does not simply zero-fill. An earlier version kept every country and
+  # set its count to 0, which put about 130 countries in the palette's
+  # lowest band: that says "we measured here and found almost nothing"
+  # where the truth is that nobody reports tournaments there, and it
+  # drowns the countries that do have data in a wash of near-identical
+  # colour. "No data" and "a small number" must not be sayable in the
+  # same visual language; giving one of them a colour from outside the
+  # scale is how that is enforced.
   joined <- merge(world, counts, by = "name", all.x = FALSE)
 
   pop <- as.numeric(joined$pop_est)
@@ -250,13 +254,26 @@ build_tournament_map <- function(counts, venues) {
   # "joined" and "pts" -- the local variable names in this function,
   # which mean something to whoever wrote it and nothing to anyone
   # looking at a map.
-  # THE BASEMAP IS THE DARK MODE. tmap 4 has no dark style to switch on,
-  # and the biggest single thing making this map look pasted onto the
-  # page was the default Esri.WorldGrayCanvas -- a white sheet in the
-  # middle of a black app. Declared here rather than left to the option
-  # default, so the order in the layer control is a decision in this file
-  # and not whatever tmap ships.
-  p <- tmap::tm_basemap(NETRUNNER_MAP_BASEMAPS) +
+  # NO TILES AT ALL. tm_basemap(NULL) is what removes them; leave it out
+  # and tmap helpfully supplies three of its own, one of which arrives
+  # watermarked.
+  #
+  # The world is drawn instead, from the same `World` object the join
+  # above already needed: all 177 countries in the neutral no-data grey,
+  # with the 46 that have tournaments painted over them. Geography with
+  # no network call, no provider, no key and no attribution obligation.
+  #
+  # group.control = "none" keeps it out of the layer switcher. The other
+  # two layers are things a reader might genuinely want to turn off; the
+  # world is not.
+  p <- tmap::tm_basemap(NULL) +
+    tmap::tm_shape(world, name = "World") +
+    tmap::tm_polygons(
+      fill = unname(NETRUNNER_MAP_SURFACE[["map_nodata"]]),
+      col = unname(NETRUNNER_MAP_SURFACE[["map_edge"]]),
+      lwd = 0.4,
+      group.control = "none"
+    ) +
     tmap::tm_shape(joined, name = "Tournaments per million") +
     tmap::tm_polygons(
       fill = "per_million",
@@ -342,5 +359,10 @@ build_tournament_map <- function(counts, venues) {
         popup = tmap::tm_popup(vars = c("Tournaments here" = "count"))
       )
   }
-  p
+
+  # The sea. In view mode leaflet paints its own container and this does
+  # nothing -- the CSS on .leaflet-container is what a reader sees -- but
+  # both come from the same constant, so a static render for a report or
+  # a print gets the same sea as the app.
+  p + tmap::tm_layout(bg.color = unname(NETRUNNER_MAP_SURFACE[["map_water"]]))
 }
