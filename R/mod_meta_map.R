@@ -39,11 +39,14 @@ mod_meta_map_ui <- function(id) {
 #' @param tournaments The abr `tournament` table, or NULL when no abr
 #'   release is active. NULL renders an explanation rather than an empty
 #'   map, for the reason given on mod_card_detail_server()'s `rulings`.
-#' @param selected A reactive returning the selected date range, from the
-#'   app-level mod_date_filter_server(). NULL filters nothing, which is
-#'   what a caller with no abr release has to be able to ask for.
+#' @param filters A reactive returning the app-level filter selection,
+#'   from mod_filter_bar_server(). NULL filters nothing, which is what a
+#'   caller with no abr release has to be able to ask for.
+#' @param identities The cardpool identity cards, used only to recognise
+#'   draft identities so the filter can exclude them.
 #' @export
-mod_meta_map_server <- function(id, tournaments = NULL, selected = NULL) {
+mod_meta_map_server <- function(id, tournaments = NULL, filters = NULL,
+                                identities = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
 
     # The gate, passed the constant and never a literal TRUE. With it
@@ -70,8 +73,11 @@ mod_meta_map_server <- function(id, tournaments = NULL, selected = NULL) {
     # disagree about which tournaments are in view -- and because
     # `selected` comes from the app rather than from here, neither can
     # this view and the stats view.
+    draft_codes <- draft_identity_codes(identities)
     in_range <- shiny::reactive({
-      filter_by_date(dated, if (is.null(selected)) NULL else selected())
+      apply_tournament_filters(
+        dated, if (is.null(filters)) NULL else filters(), draft_codes
+      )
     })
 
     shaped <- shiny::reactive({

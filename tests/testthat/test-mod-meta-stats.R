@@ -39,16 +39,19 @@ test_that("the date filter narrows the charts", {
   # The range arrives as a reactive from the APP now, not from a slider
   # this module owns -- which is the whole point: the same reactive
   # reaches the map, so the two views cannot show different periods.
-  range <- shiny::reactiveVal(NULL)
+  filters <- shiny::reactiveVal(
+    list(dates = NULL, types = character(0), include_draft = TRUE)
+  )
   shiny::testServer(
     mod_meta_stats_server,
     args = list(tournaments = stats_tournaments, identities = stats_identities,
-                factions = stats_factions, selected = range),
+                factions = stats_factions, filters = filters),
     {
       session$flushReact()
       expect_equal(nrow(in_range()), 5L)
 
-      range(as.Date(c("2019-01-01", "2019-12-31")))
+      filters(list(dates = as.Date(c("2019-01-01", "2019-12-31")),
+                   types = character(0), include_draft = TRUE))
       session$flushReact()
       expect_equal(nrow(in_range()), 2L)
       s <- shaped()
@@ -63,20 +66,23 @@ test_that("the map and the stats view read the same range", {
   # range on one and switching to the other left them showing different
   # periods -- through two controls that looked identical and sat in the
   # same place.
-  range <- shiny::reactiveVal(as.Date(c("2019-01-01", "2019-12-31")))
+  filters <- shiny::reactiveVal(
+    list(dates = as.Date(c("2019-01-01", "2019-12-31")),
+         types = character(0), include_draft = TRUE)
+  )
 
   stats_rows <- NULL
   shiny::testServer(
     mod_meta_stats_server,
     args = list(tournaments = stats_tournaments, identities = stats_identities,
-                factions = stats_factions, selected = range),
+                factions = stats_factions, filters = filters),
     { session$flushReact(); stats_rows <<- nrow(in_range()) }
   )
 
   map_rows <- NULL
   shiny::testServer(
     mod_meta_map_server,
-    args = list(tournaments = stats_tournaments, selected = range),
+    args = list(tournaments = stats_tournaments, filters = filters),
     { session$flushReact(); map_rows <<- nrow(in_range()) }
   )
 

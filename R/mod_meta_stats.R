@@ -73,12 +73,12 @@ mod_meta_stats_ui <- function(id) {
 #'   meta rather than a wrong argument. The distinction is made in
 #'   load_ice_breaker_app_data() so it cannot be got wrong here.
 #' @param factions The cardpool `faction` table, or NULL.
-#' @param selected A reactive returning the selected date range, from the
-#'   app-level mod_date_filter_server(). The same reactive the map reads,
-#'   so the two views cannot show different periods.
+#' @param filters A reactive returning the app-level filter selection,
+#'   from mod_filter_bar_server(). The same reactive the map reads, so
+#'   the two views cannot show different periods.
 #' @export
 mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
-                                  factions = NULL, selected = NULL) {
+                                  factions = NULL, filters = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
 
     # The same gate the map passes, for the same reason: this view reads
@@ -92,8 +92,11 @@ mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
 
     dated <- with_parsed_dates(tournaments)
 
+    draft_codes <- draft_identity_codes(identities)
     in_range <- shiny::reactive({
-      filter_by_date(dated, if (is.null(selected)) NULL else selected())
+      apply_tournament_filters(
+        dated, if (is.null(filters)) NULL else filters(), draft_codes
+      )
     })
 
     # Everything below reads THIS, so the two charts cannot disagree

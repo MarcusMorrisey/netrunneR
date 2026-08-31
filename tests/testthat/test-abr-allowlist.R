@@ -3,7 +3,7 @@
 # the independent check_deny_pattern() regex scan.
 test_that("build_abr() selects only ABR_TOURNAMENT_ALLOWLIST columns, dropping unknown upstream keys", {
   tournaments <- tibble::tibble(
-    id = "t1", title = "Regional", date = "2023-05-01", format = "standard",
+    id = "t1", title = "Regional", date = "2023-05-01", format = "standard", type = "regional championship",
     location_state = "NA", location_country = "US",
     location_lat = 51.5, location_lng = -0.12,
     players_count = 32L, top_count = 8L,
@@ -35,7 +35,7 @@ test_that("check_deny_pattern() with ABR_DENY_PATTERN flags a personal-data colu
 
 test_that("tournament_id_cardinality passes when permanently-unavailable ids account for the gap", {
   tournaments <- tibble::tibble(
-    id = c("t1", "t2"), title = "Regional", date = "2023-05-01", format = "standard",
+    id = c("t1", "t2"), title = "Regional", date = "2023-05-01", format = "standard", type = "regional championship",
     location_state = "NA", location_country = "US",
     location_lat = 51.5, location_lng = -0.12,
     players_count = 32L, top_count = 8L,
@@ -57,7 +57,7 @@ test_that("tournament_id_cardinality passes when permanently-unavailable ids acc
 
 test_that("tournament_id_cardinality still fails on a genuine mismatch unrelated to permanent_ids", {
   tournaments <- tibble::tibble(
-    id = c("t1", "t2"), title = "Regional", date = "2023-05-01", format = "standard",
+    id = c("t1", "t2"), title = "Regional", date = "2023-05-01", format = "standard", type = "regional championship",
     location_state = "NA", location_country = "US",
     location_lat = 51.5, location_lng = -0.12,
     players_count = 32L, top_count = 8L,
@@ -87,7 +87,7 @@ test_that("venue coordinates reach the processed store", {
   # location_country: a country polygon cannot say whether a country's
   # tournaments sit in one city or thirty.
   tournaments <- tibble::tibble(
-    id = "t1", title = "Regional", date = "2023-05-01", format = "standard",
+    id = "t1", title = "Regional", date = "2023-05-01", format = "standard", type = "regional championship",
     location_state = "NA", location_country = "US",
     location_lat = 51.5, location_lng = -0.12,
     players_count = 32L, top_count = 8L,
@@ -148,7 +148,7 @@ test_that("string coordinates from the API are stored as numbers", {
   # column, every later comparison is lexicographic -- "9.5" sorts above
   # "10.5" -- and a map built on that is wrong with nothing to report it.
   tournaments <- tibble::tibble(
-    id = "t1", title = "Regional", date = "2023-05-01", format = "standard",
+    id = "t1", title = "Regional", date = "2023-05-01", format = "standard", type = "regional championship",
     location_state = "NA", location_country = "US",
     location_lat = "51.5", location_lng = "-0.12",
     players_count = 32L, top_count = 8L,
@@ -175,7 +175,7 @@ test_that("an unreadable coordinate becomes NA rather than aborting the build", 
   # A venue with no recorded location is ordinary. The map has no point
   # to plot for it; that is not a reason to fail a release.
   tournaments <- tibble::tibble(
-    id = "t1", title = "Regional", date = "2023-05-01", format = "standard",
+    id = "t1", title = "Regional", date = "2023-05-01", format = "standard", type = "regional championship",
     location_state = "NA", location_country = "US",
     location_lat = "", location_lng = "not a number",
     players_count = 32L, top_count = 8L,

@@ -9,7 +9,7 @@ mod_meta_stats_server(
   tournaments = NULL,
   identities = NULL,
   factions = NULL,
-  selected = NULL
+  filters = NULL
 )
 }
 \arguments{
@@ -28,9 +28,9 @@ load_ice_breaker_app_data() so it cannot be got wrong here.}
 
 \item{factions}{The cardpool \code{faction} table, or NULL.}
 
-\item{selected}{A reactive returning the selected date range, from the
-app-level mod_date_filter_server(). The same reactive the map reads,
-so the two views cannot show different periods.}
+\item{filters}{A reactive returning the app-level filter selection,
+from mod_filter_bar_server(). The same reactive the map reads, so
+the two views cannot show different periods.}
 }
 \description{
 Meta statistics module server

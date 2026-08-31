@@ -8,6 +8,12 @@ CREATE TABLE tournament (
   title TEXT NOT NULL,
   date TEXT NOT NULL,
   format TEXT NOT NULL,
+  -- The event's category (GNK, store championship, worlds, ...), not a
+  -- person's anything. See ABR_TOURNAMENT_ALLOWLIST for why it is
+  -- admitted. NULLABLE, unlike format: one upstream record carries a
+  -- separator row from abr's own dropdown rather than a real type, and a
+  -- NOT NULL here would make the whole build fail over one bad string.
+  type TEXT,
   location_state TEXT,
   location_country TEXT,
   -- Venue coordinates: where the event was held, not where anyone lives.

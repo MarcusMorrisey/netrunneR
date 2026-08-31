@@ -143,27 +143,24 @@ app_server <- function(input, output, session, app_data) {
     }
   })
 
-  # ONE DATE FILTER FOR THE WHOLE APP, owned here rather than by either
-  # view. Each view used to build its own, so setting the range on the
-  # stats page and switching to the map left the map showing all 3,910
-  # tournaments while the page you had just left showed 723 -- two
-  # controls that looked identical, sat in the same place, and disagreed.
+  # ONE FILTER BAR FOR THE WHOLE APP, owned here rather than by either
+  # view. Each view used to build its own date filter, so setting the
+  # range on the stats page and switching to the map left the map showing
+  # all 3,910 tournaments while the page you had just left showed 723 --
+  # two controls that looked identical, sat in the same place, and
+  # disagreed without saying so.
   #
-  # Its UI is mounted by whichever view is showing (both call
-  # mod_date_filter_ui("dates") unnamespaced), so only one copy is ever
-  # in the DOM; the module remembers its range across that.
-  dated_tournaments <- netrunneR::with_parsed_dates(app_data$tournaments)
-  date_bounds_all <- netrunneR::date_bounds(dated_tournaments)
-  date_periods <- netrunneR::rotation_periods(
-    app_data$legality$rotation,
-    max_date = if (is.null(date_bounds_all)) Sys.Date() else date_bounds_all[[2]]
-  )
-  selected_dates <- netrunneR::mod_date_filter_server(
-    "dates", date_bounds_all, date_periods
+  # Its UI is laid down by app_ui() OUTSIDE the swapped view slot, so it
+  # is never destroyed and never has to be restored.
+  filters <- netrunneR::mod_filter_bar_server(
+    "filters", app_data$tournaments,
+    rotation = app_data$legality$rotation,
+    identities = app_data$identities
   )
 
   netrunneR::mod_meta_map_server("meta_map", app_data$tournaments,
-                                 selected = selected_dates)
+                                 filters = filters,
+                                 identities = app_data$identities)
 
   # `identities`, NOT `cards`. Tournament winners are recorded as
   # identity codes and `cards` is the ice/breaker pool, which contains no
@@ -171,7 +168,7 @@ app_server <- function(input, output, session, app_data) {
   netrunneR::mod_meta_stats_server("meta_stats", app_data$tournaments,
                                    identities = app_data$identities,
                                    factions = app_data$factions,
-                                   selected = selected_dates)
+                                   filters = filters)
 
   # The nav is chrome too, and re-renders only to move the active
   # marker. It is a separate slot from the filter so that re-render
