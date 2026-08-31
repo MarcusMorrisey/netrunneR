@@ -78,10 +78,81 @@ test_that("the ramp's floor clears the ground it is drawn on", {
 
 test_that("the dark basemap is the default, and the light ones stay", {
   # Order is the decision: leaflet shows the first as the default layer.
-  expect_equal(NETRUNNER_MAP_BASEMAPS[[1]], "CartoDB.DarkMatter")
+  expect_match(names(NETRUNNER_MAP_BASEMAPS)[[1]], "Dark")
   # Kept, not removed. A dark map is the wrong answer for some viewers
   # and every printer, and enforcing a look by deleting the choice is a
   # worse trade than offering it.
   expect_true(length(NETRUNNER_MAP_BASEMAPS) > 1)
-  expect_true(any(grepl("Positron|Gray", NETRUNNER_MAP_BASEMAPS)))
+  expect_true(any(grepl("Light|OpenStreetMap", names(NETRUNNER_MAP_BASEMAPS))))
+})
+
+test_that("every basemap is named, or the layer control comes out empty", {
+  # tmap can label a provider name by itself and a URL template not at
+  # all. Mix the two unnamed and it labels NEITHER -- the base list in
+  # addLayersControl arrives empty and the switcher is unusable.
+  expect_false(is.null(names(NETRUNNER_MAP_BASEMAPS)))
+  expect_true(all(nzchar(names(NETRUNNER_MAP_BASEMAPS))))
+})
+
+test_that("no basemap comes from a provider that meters keyless tiles", {
+  # CartoDB.DarkMatter shipped here first and CARTO now stamps keyless
+  # tiles "API KEY REQUIRED" -- served as HTTP 200 with a plausible byte
+  # count, so nothing in the stack reports a problem and the words are
+  # simply drawn across the world. Nothing automated caught it and this
+  # test would not have either; it is here so the name cannot come back
+  # by accident.
+  expect_false(any(grepl("cartocdn|CartoDB", NETRUNNER_MAP_BASEMAPS)))
+})
+
+test_that("a raw-URL basemap is given the credit it cannot bring itself", {
+  # A named provider carries an attribution string from
+  # leaflet-providers; a URL template carries nothing, and tmap has no
+  # argument to supply one.
+  #
+  # THE FIXTURE IS A REAL WIDGET, not a hand-written imitation of one.
+  # The first version of this test built the call list from the same
+  # assumption the function made -- that `addTiles` records attribution
+  # in its second argument -- so the two agreed with each other and both
+  # were wrong. leaflet folds attribution into options$attribution and
+  # records (urlTemplate, layerId, group, options); the second slot is
+  # layerId. The test passed, the map rendered, and the attribution
+  # control said only "Leaflet".
+  skip_if_not_installed("tmap")
+  skip_if_not_installed("sf")
+  skip_if_not_installed("leaflet")
+
+  tmap::tmap_mode("view")
+  e <- new.env(parent = emptyenv())
+  utils::data("World", package = "tmap", envir = e)
+  lf <- tmap::tmap_leaflet(
+    tmap::tm_basemap(NETRUNNER_MAP_BASEMAPS) +
+      tmap::tm_shape(get("World", envir = e)) + tmap::tm_polygons()
+  )
+
+  before <- Filter(function(cl) identical(cl$method, "addTiles"), lf$x$calls)
+  expect_gt(length(before), 0)
+  expect_null(before[[1]]$args[[4]]$attribution)
+
+  out <- attribute_basemap_tiles(lf, attribution = "CREDIT")
+  tiles <- Filter(function(cl) identical(cl$method, "addTiles"), out$x$calls)
+  expect_equal(tiles[[1]]$args[[4]]$attribution, "CREDIT")
+
+  # Provider tiles are left alone -- they bring their own from
+  # leaflet-providers, and overwriting one would replace a correct credit
+  # with a wrong one.
+  providers <- Filter(function(cl) identical(cl$method, "addProviderTiles"), out$x$calls)
+  expect_gt(length(providers), 0)
+  expect_false(any(vapply(providers, function(cl) {
+    identical(cl$args[[4]]$attribution, "CREDIT")
+  }, logical(1))))
+})
+
+test_that("an existing credit is never overwritten", {
+  fake <- list(x = list(calls = list(
+    list(method = "addTiles",
+         args = list("https://x/{z}/{y}/{x}", "id", "grp",
+                     list(attribution = "already set")))
+  )))
+  out <- attribute_basemap_tiles(fake, attribution = "CREDIT")
+  expect_equal(out$x$calls[[1]]$args[[4]]$attribution, "already set")
 })

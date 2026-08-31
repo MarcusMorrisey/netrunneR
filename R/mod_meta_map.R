@@ -150,9 +150,9 @@ mod_meta_map_server <- function(id, tournaments = NULL, rotation = NULL) {
       output$map <- leaflet::renderLeaflet({
         s <- shaped()
         shiny::req(!is.null(s))
-        tmap::tmap_leaflet(
+        attribute_basemap_tiles(tmap::tmap_leaflet(
           build_tournament_map(s$counts, tournament_venues(in_range()))
-        )
+        ))
       })
     }
 
@@ -186,6 +186,54 @@ mod_meta_map_server <- function(id, tournaments = NULL, rotation = NULL) {
       })
     })
   })
+}
+
+#' Give the raw-URL basemap the credit leaflet cannot infer
+#'
+#' leaflet's `addTiles()` takes an attribution and tmap passes none,
+#' because tmap has no argument for one -- a NAMED provider brings its
+#' own string from leaflet-providers, and a URL template brings nothing.
+#' So the dark basemap would have rendered Esri's tiles with Esri's name
+#' nowhere on the page.
+#'
+#' This edits the widget after tmap has built it, which is worth being
+#' uncomfortable about; the alternative is dropping tmap's basemap
+#' handling and rebuilding the layer control by hand, which is more code
+#' in exchange for the same two lines of effect.
+#'
+#' THE CREDIT LIVES IN THE OPTIONS, NOT IN A POSITIONAL ARGUMENT.
+#' `addTiles()` reads like `addTiles(map, urlTemplate, attribution,
+#' layerId, group, options)`, so the obvious guess is that the widget
+#' records attribution second. It does not: addTiles() folds it into
+#' `options$attribution` before dispatching, and the recorded call is
+#' (urlTemplate, layerId, group, options).
+#'
+#' The first version of this function wrote to the second slot -- which
+#' is layerId -- and the accompanying test agreed with it, because the
+#' test's fixture was built from the same guess. Both passed. The map
+#' rendered. The attribution control still said only "Leaflet". The
+#' fixture is taken from a real tmap_leaflet() object now, so the test
+#' can only agree with leaflet rather than with me.
+#'
+#' ONLY FILLS IN WHAT IS EMPTY. Provider tiles are untouched, so this
+#' cannot overwrite a correct credit with a wrong one.
+#'
+#' @param lf A leaflet widget from tmap_leaflet().
+#' @param attribution The credit string.
+#' @return `lf`, with any unattributed tile layer attributed.
+#' @keywords internal
+attribute_basemap_tiles <- function(lf, attribution = NETRUNNER_BASEMAP_ATTRIBUTION) {
+  lf$x$calls <- lapply(lf$x$calls, function(cl) {
+    if (!identical(cl$method, "addTiles") || length(cl$args) < 4) return(cl)
+    opts <- cl$args[[4]]
+    if (!is.list(opts)) return(cl)
+    if (is.null(opts$attribution) || !nzchar(opts$attribution)) {
+      opts$attribution <- attribution
+      cl$args[[4]] <- opts
+    }
+    cl
+  })
+  lf
 }
 
 #' The world polygons the choropleth draws on

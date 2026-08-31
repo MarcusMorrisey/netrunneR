@@ -46,4 +46,34 @@ page around it is black. The two light basemaps stay in the layer
 control because a dark map is the wrong answer for some viewers and
 every printer, and removing the choice to enforce a look is a worse
 trade than offering it.
+
+IT IS AN ESRI URL, NOT CartoDB.DarkMatter, AND THAT IS THE WHOLE
+STORY. DarkMatter is the obvious choice, is in leaflet-providers, and
+shipped here first -- and CARTO now serves keyless requests as tiles
+stamped "API KEY REQUIRED" across the middle. They return HTTP 200 and
+the correct number of bytes, so nothing in the stack reports a
+problem: the map renders, the tile count is right, and the words are
+simply drawn on the world. It was caught by looking at the picture.
+
+Esri's World_Dark_Gray_Base needs no key and is the same family as the
+Esri.WorldGrayCanvas this map already trusted. leaflet-providers has
+no entry for it -- it lists ten Esri basemaps and none of the dark
+ones -- so it goes in as a URL template, which is why the vector is
+NAMED. Mixing an unnamed URL with provider names leaves tmap unable to
+label either, and the layer control comes out empty.
+
+A raw URL also carries no attribution, where a named provider brings
+its own; see attribute_basemap_tiles() for the half of that this file
+cannot do.
+
+ESRI'S DARK IS LIGHTER THAN CARTO'S, and that changes what the map
+says. DarkMatter draws land at roughly #1a1a1a, near enough to this
+page's ground that a country with no tournaments simply disappeared.
+Esri's draws it at roughly #3a3a3a, so undrawn countries read as
+geography -- present, unmeasured -- instead of as absence. That is the
+better of the two for a map whose whole point is that some countries
+have data and most do not, so the substitution is an improvement
+rather than a compromise. It does mean the choropleth now has to
+separate itself from a grey rather than from black, which the amber
+ramp does on hue as well as on lightness.
 }
