@@ -659,3 +659,68 @@ a.nr-preset:hover, a.nr-preset:focus {
 .nr-stats-block > p {
   margin: 0 0 12px;
 }
+
+/* ---- the map's own furniture ----------------------------------------
+ * tmap has no dark mode, and leaflet has less: the basemap and the map
+ * layers are tmap's to colour (see NETRUNNER_MAP_RAMP in R/theme.R), but
+ * the CONTROLS are plain leaflet DOM and ship white. Left alone, a dark
+ * map arrives wearing three white boxes -- layer switcher, zoom buttons,
+ * attribution -- and the effect is worse than the light basemap was,
+ * because now they are the only bright things on screen.
+ *
+ * Scoped to .nr-map-page so this cannot reach a leaflet widget somewhere
+ * else and restyle it by accident.
+ */
+.nr-map-page .leaflet-control-layers,
+.nr-map-page .leaflet-bar,
+.nr-map-page .leaflet-popup-content-wrapper,
+.nr-map-page .leaflet-popup-tip {
+  background: var(--nr-panel-solid);
+  color: var(--nr-ink);
+  border: 1px solid var(--nr-panel-edge);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.nr-map-page .leaflet-control-layers-expanded { padding: 8px 10px; }
+.nr-map-page .leaflet-control-layers label { color: var(--nr-ink); }
+.nr-map-page .leaflet-control-layers-separator {
+  border-top: 1px solid var(--nr-panel-edge);
+}
+
+/* Zoom buttons are anchors, so they need the colours set on the link
+ * rather than on the bar around them, and a hover state that is not the
+ * browser default grey. */
+.nr-map-page .leaflet-bar a,
+.nr-map-page .leaflet-bar a:hover {
+  background: var(--nr-panel-solid);
+  color: var(--nr-ink-bright);
+  border-bottom-color: var(--nr-panel-edge);
+}
+.nr-map-page .leaflet-bar a:hover { color: var(--nr-accent); }
+
+/* Attribution stays LEGIBLE, not hidden. It is a licence obligation for
+ * the tile providers in the same way the alwaysberunning.net backlink is
+ * for the data, so it is dimmed to match the page and never removed.
+ *
+ * .leaflet-container IS IN THE SELECTOR ON PURPOSE. Leaflet's own rule
+ * is `.leaflet-container .leaflet-control-attribution`, which ties this
+ * one on specificity -- and leaflet's stylesheet is injected by the
+ * htmlwidget at render time, so it lands AFTER this file and wins the
+ * tie. Every other control here needed only two classes; this one
+ * stayed white until it was given three. */
+.nr-map-page .leaflet-container .leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.7);
+  color: var(--nr-ink-quiet);
+}
+.nr-map-page .leaflet-container .leaflet-control-attribution a {
+  color: var(--nr-ink);
+}
+
+/* Popups: the close button is a link too, and inherits nothing useful. */
+.nr-map-page .leaflet-popup-content { color: var(--nr-ink); }
+.nr-map-page .leaflet-popup-close-button { color: var(--nr-ink-quiet) !important; }
+.nr-map-page .leaflet-popup-close-button:hover { color: var(--nr-accent) !important; }
+
+/* The tile seam. Leaflet paints its container white behind the tiles,
+ * which flashes as a white grid while a dark basemap loads. */
+.nr-map-page .leaflet-container { background: var(--nr-ground); }

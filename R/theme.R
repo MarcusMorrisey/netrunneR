@@ -27,6 +27,51 @@ NETRUNNER_PALETTE <- c(
   ink_quiet   = "#8a8580"
 )
 
+#' The choropleth ramp, and the basemaps under it
+#'
+#' TMAP HAS NO DARK MODE. There is no style to switch and no option to
+#' set; a tmap map is dark because each of its parts was told to be. So
+#' this is three separate decisions, kept together because they only work
+#' together.
+#'
+#' THE RAMP RUNS TO THE ACCENT. A single hue interpolated from a mid
+#' amber-brown to the app's own `accent`, so the brightest class is the
+#' colour the rest of the app already uses for "this one matters".
+#' Computed once with colorRampPalette() and written down rather than
+#' recomputed at draw time, so the bands are quotable and a reviewer can
+#' see them.
+#'
+#' ITS FLOOR IS DELIBERATELY NOT DARK. The obvious ramp starts near black
+#' and it is the wrong one here, because countries with NO data are not
+#' drawn at all -- they fall through to the basemap (see
+#' build_tournament_map()). A near-black lowest class is therefore not
+#' merely dim, it is indistinguishable from "we have nothing for this
+#' country", which is a different claim entirely. The floor was lifted
+#' from #4A3714 to #6E5321 for exactly that reason: every drawn country
+#' has to read as drawn.
+#'
+#' Single-hue, not a rainbow: the value it encodes is one ordered
+#' quantity, and a ramp that changes hue invites a reader to see
+#' categories in it.
+#'
+#' THE DARK BASEMAP IS FIRST, NOT ONLY. It is the default because the
+#' page around it is black. The two light basemaps stay in the layer
+#' control because a dark map is the wrong answer for some viewers and
+#' every printer, and removing the choice to enforce a look is a worse
+#' trade than offering it.
+#' @format A character vector of six hex values, dim to bright.
+#' @export
+NETRUNNER_MAP_RAMP <- c(
+  "#6E5321", "#8B6928", "#A87F30", "#C59537", "#E2AB3F", "#FFC247"
+)
+
+#' @rdname NETRUNNER_MAP_RAMP
+#' @format A character vector of leaflet provider names, default first.
+#' @export
+NETRUNNER_MAP_BASEMAPS <- c(
+  "CartoDB.DarkMatter", "CartoDB.Positron", "Esri.WorldGrayCanvas"
+)
+
 #' The app's base font, degrading rather than failing
 #'
 #' Titillium Web is served locally (bslib downloads and hosts it) rather
