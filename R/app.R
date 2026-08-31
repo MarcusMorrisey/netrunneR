@@ -62,13 +62,20 @@ abr_attribution_ui <- function() {
   shiny::tags$p(
     class = "small text-muted",
     "Tournament data from ",
-    shiny::tags$a(
-      href = "https://alwaysberunning.net",
-      rel = "noopener",
-      target = "_blank",
-      "alwaysberunning.net"
-    ),
-    ", used with attribution as its terms of use require."
+    # THE LINK AND THE FULL STOP ARE ONE STRING, and they have to be.
+    # htmltools pretty-prints a tag's children onto separate lines, so a
+    # bare "." passed as the next child arrives on its own line, and
+    # HTML collapses that newline to a space -- so the sentence ended
+    # "alwaysberunning.net ." with a gap before the stop. Emitting the
+    # anchor and the stop together is the only way to get them to touch.
+    #
+    # HTML() is safe here because every character of it is a literal in
+    # this file: there is no interpolation and no user input anywhere
+    # near it.
+    shiny::HTML(paste0(
+      '<a href="https://alwaysberunning.net" rel="noopener" ',
+      'target="_blank">alwaysberunning.net</a>.'
+    ))
   )
 }
 
@@ -326,8 +333,12 @@ nrdb_disclaimer_ui <- function() {
       "That website is not produced, endorsed, supported, or affiliated ",
       "with Fantasy Flight Games."
     ),
-    shiny::tags$a(href = "https://netrunnerdb.com", target = "_blank",
-                  rel = "noopener noreferrer", "netrunnerdb.com")
+    # Same treatment as abr_attribution_ui(): the stop is inside the
+    # string so it abuts the link instead of floating a space away.
+    shiny::HTML(paste0(
+      '<a href="https://netrunnerdb.com" target="_blank" ',
+      'rel="noopener noreferrer">netrunnerdb.com</a>.'
+    ))
   )
 }
 
