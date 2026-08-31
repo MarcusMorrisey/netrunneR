@@ -13,8 +13,9 @@ rotation_periods(rotation, max_date = Sys.Date())
 period.}
 }
 \value{
-A data frame of \code{label}, \code{start}, \code{end}, newest first. Zero
-rows when there is no rotation table, rather than invented periods.
+A data frame of \code{label}, \code{start}, \code{end}, OLDEST FIRST so the
+chips read in the same direction as the slider above them. Zero rows
+when there is no rotation table, rather than invented periods.
 }
 \description{
 A rotation is recorded as a single START date, so the PERIOD it names

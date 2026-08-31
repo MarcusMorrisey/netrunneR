@@ -32,9 +32,11 @@ their own:
 | Meta Maps | `abr`, `cardpool` | A country choropleth of tournaments per million, with a venue-density point layer |
 | Meta Stats | `abr`, `cardpool` | Faction share of wins as an interactive treemap and a percentage waffle |
 
-The two meta views share one filter bar -- dates with rotation shortcuts,
-tournament-type chips, and a switch for draft identities -- owned by the app
-rather than by either view.
+The two meta views share one filter bar, owned by the app rather than by
+either view: a date range with rotation shortcuts, an All / competitive /
+casual lens over the tournament type with a sub-type picker under it, and a
+clear-all. Draft-identity results are excluded unconditionally and are not a
+setting -- see `draft_identity_codes()`.
 
 Their spatial and plotting dependencies (`sf`, `tmap`, `leaflet`, `ggplot2`,
 `treemap`, `d3treeR`) are **Suggests**, not Imports. In Imports the package

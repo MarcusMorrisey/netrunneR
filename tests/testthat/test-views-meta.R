@@ -94,9 +94,12 @@ test_that("rotation periods run from each start to the day before the next", {
   )
   p <- rotation_periods(rot, max_date = as.Date("2026-08-29"))
 
-  # Newest first, plus the span before the first rotation.
-  expect_equal(p$label, c("Second Rotation", "First Rotation",
-                          "Before first rotation"))
+  # CHRONOLOGICAL, oldest first, plus the span before the first rotation.
+  # These render as a row of shortcuts under a date slider that runs left
+  # to right in time; newest-first put the most recent rotation on the
+  # left, reading backwards against the axis directly above it.
+  expect_equal(p$label, c("Before first rotation", "First Rotation",
+                          "Second Rotation"))
   second <- p[p$label == "Second Rotation", ]
   first <- p[p$label == "First Rotation", ]
   expect_equal(first$end, as.Date("2018-12-20"))
@@ -122,4 +125,62 @@ test_that("no rotation table yields no periods rather than invented ones", {
   # There are seven rotations and their dates are not guessable.
   expect_equal(nrow(rotation_periods(NULL)), 0)
   expect_equal(nrow(rotation_periods(data.frame())), 0)
+})
+
+
+test_that("every grouped type is real, and no type is in both groups", {
+  # The groups are a judgement written down, so the thing worth enforcing
+  # is that the judgement is well formed: a type cannot be competitive
+  # and casual at once, and a group cannot claim a value abr does not use.
+  g <- TOURNAMENT_TYPE_GROUPS
+  expect_named(g, c("competitive", "casual"))
+  expect_length(intersect(g$competitive, g$casual), 0L)
+  expect_false(any(duplicated(unlist(g, use.names = FALSE))))
+})
+
+test_that("types_in_group narrows to what the data actually holds", {
+  types <- data.frame(
+    type = c("worlds championship", "GNK / seasonal", "store championship"),
+    n = c(11L, 1780L, 553L), stringsAsFactors = FALSE
+  )
+
+  # All is everything present, in the data's own frequency order. The
+  # VALUES are bare types, so a caller filters on them directly; the
+  # NAMES carry the count, because a reader choosing between two
+  # championship tiers is really asking which has enough events to be
+  # worth looking at.
+  expect_equal(unname(types_in_group("all", types)), types$type)
+  expect_equal(names(types_in_group("all", types))[[1]],
+               "worlds championship (11)")
+
+  expect_setequal(unname(types_in_group("competitive", types)),
+                  c("worlds championship", "store championship"))
+  expect_equal(unname(types_in_group("casual", types)), "GNK / seasonal")
+  # trim = TRUE: format() would otherwise pad 11 to the width of 1,780.
+  expect_false(any(grepl("[(] ", names(types_in_group("all", types)))))
+
+  # A group never offers a sub-type that would select nothing: the
+  # constant lists eleven competitive types and only two are present.
+  expect_true(all(types_in_group("competitive", types) %in% types$type))
+  expect_length(types_in_group("competitive", types), 2L)
+})
+
+test_that("an unclassified type is reported, not absorbed", {
+  # A type abr adds after the constant was written is a decision waiting
+  # to be made. Defaulting it into a group would make that decision
+  # invisible; it stays reachable under All and says so.
+  types <- data.frame(type = c("worlds championship", "brand new format"),
+                      n = c(11L, 3L), stringsAsFactors = FALSE)
+
+  expect_equal(tournament_types_ungrouped(types), "brand new format")
+  expect_false("brand new format" %in% types_in_group("competitive", types))
+  expect_false("brand new format" %in% types_in_group("casual", types))
+  expect_true("brand new format" %in% types_in_group("all", types))
+})
+
+test_that("grouping helpers survive an empty type table", {
+  empty <- tournament_types(NULL)
+  expect_equal(types_in_group("all", empty), character(0))
+  expect_equal(types_in_group("competitive", empty), character(0))
+  expect_equal(tournament_types_ungrouped(empty), character(0))
 })

@@ -49,7 +49,7 @@ preset_range <- function(period, bounds) {
 #' all, gets served rather than errored at.
 #'
 #' @param dated Output of with_parsed_dates().
-#' @param filters A list of `dates`, `types` and `include_draft`, from
+#' @param filters A list of `dates` and `types`, from
 #'   mod_filter_bar_server(). NULL applies nothing.
 #' @param draft_codes Character vector from draft_identity_codes().
 #' @return The surviving rows, or NULL when there is nothing to filter.
@@ -65,25 +65,40 @@ apply_tournament_filters <- function(dated, filters, draft_codes = character(0))
     keep <- keep & !is.na(dated$.date) & dated$.date >= r[[1]] & dated$.date <= r[[2]]
   }
 
-  # An EMPTY type selection means every type, not no types. Unticking the
-  # last chip should not blank the page -- a reader clearing a filter is
-  # asking to see everything, and a chart that vanishes instead reads as
-  # a crash.
-  ty <- filters$types
-  if (!is.null(ty) && length(ty) && "type" %in% names(dated)) {
-    keep <- keep & !is.na(dated$type) & dated$type %in% ty
+  # TWO NARROWINGS, IN ORDER: the group, then the sub-types within it.
+  #
+  # The group has to be applied HERE and not merely used to populate the
+  # picker. The first version of this did only the latter -- choosing
+  # "Competitive" repopulated the dropdown and changed the collapsed
+  # summary while every figure on the page carried on showing all 4,047
+  # tournaments. A filter that announces itself and does nothing is worse
+  # than no filter, because the label is evidence the reader trusts.
+  if ("type" %in% names(dated)) {
+    g <- filters$group
+    if (!is.null(g) && !identical(g, "all")) {
+      want <- TOURNAMENT_TYPE_GROUPS[[g]]
+      if (!is.null(want)) keep <- keep & !is.na(dated$type) & dated$type %in% want
+    }
+
+    # An EMPTY sub-type selection means every type in the group, not no
+    # types. Clearing the picker is a reader asking to widen back to the
+    # group, and a chart that blanks instead reads as a crash.
+    ty <- filters$types
+    if (!is.null(ty) && length(ty)) {
+      keep <- keep & !is.na(dated$type) & dated$type %in% ty
+    }
   }
 
-  # Draft identities out by DEFAULT. See draft_identity_codes(): they are
-  # the seven neutral-faction identities, they win 153 tournaments, and
-  # 147 of those are drafts where both winners are draft identities. A
-  # draft result says nothing about the constructed meta, which is what
-  # these charts are for.
+  # DRAFT IDENTITIES ARE ALWAYS OUT. Not a default with a switch beside
+  # it -- there is no reading of these charts in which a draft result
+  # belongs. See draft_identity_codes(): the seven neutral-faction
+  # identities win 155 tournaments, 148 of them with a draft identity on
+  # both sides, and a draft says nothing about the constructed meta.
   #
-  # Excluded, never deleted: the chip puts them back, because "which
-  # events were drafts" is a real question and the count of what was
-  # dropped is on the page either way.
-  if (isFALSE(filters$include_draft) && length(draft_codes)) {
+  # The switch that used to restore them is gone. A control offering to
+  # put wrong data back into a chart is a control nobody should use, and
+  # keeping it meant every figure carried "unless someone flipped this".
+  if (length(draft_codes)) {
     keep <- keep &
       !(as.character(dated$winner_runner_identity) %in% draft_codes) &
       !(as.character(dated$winner_corp_identity) %in% draft_codes)
@@ -128,7 +143,8 @@ mod_filter_bar_ui <- function(id) {
 #'   without the faction table there is no way to know which they are and
 #'   a guess would silently drop real results.
 #' @return A reactive returning a list of `dates` (length-2 Date),
-#'   `types` (character, empty for all) and `include_draft` (logical).
+#'   `group` ("all", "competitive" or "casual") and `types`
+#'   (character, empty meaning every type in that group).
 #' @export
 mod_filter_bar_server <- function(id, tournaments = NULL, rotation = NULL,
                                   identities = NULL) {
@@ -146,9 +162,13 @@ mod_filter_bar_server <- function(id, tournaments = NULL, rotation = NULL,
     # THE SELECTION LIVES HERE, not in the widgets. They are destroyed
     # and rebuilt whenever the reader switches view; this is not, so the
     # filter survives the navigation that would otherwise reset it.
-    state <- shiny::reactiveVal(list(
-      dates = bounds, types = character(0), include_draft = FALSE
-    ))
+    # `group` narrows to competitive or casual; `types` narrows further
+    # WITHIN that group. Two controls rather than sixteen chips: sixteen
+    # chips is a wall a reader has to finish reading before they can use
+    # it, and the first question almost anyone has is "does this count
+    # championship results or club nights".
+    DEFAULTS <- list(dates = bounds, group = "all", types = character(0))
+    state <- shiny::reactiveVal(DEFAULTS)
 
     set_state <- function(...) {
       cur <- shiny::isolate(state())
@@ -164,8 +184,33 @@ mod_filter_bar_server <- function(id, tournaments = NULL, rotation = NULL,
       set_state(types = if (is.null(input$types)) character(0) else input$types)
     })
 
-    shiny::observeEvent(input$include_draft, ignoreNULL = FALSE, {
-      set_state(include_draft = isTRUE(input$include_draft))
+    # Changing group CLEARS the sub-type selection. Carrying it across
+    # would leave a competitive sub-type selected under "Casual", which
+    # matches nothing -- and an empty chart reads as an empty dataset
+    # rather than as a contradiction the reader just built.
+    shiny::observeEvent(input$group, {
+      g <- if (is.null(input$group)) "all" else input$group
+      set_state(group = g, types = character(0))
+      shinyWidgets::updatePickerInput(
+        session, "types",
+        choices = types_in_group(g, types), selected = character(0)
+      )
+    })
+
+    # CLEAR RESETS THE WIDGETS TOO, not just the state. The state is what
+    # the figures read and the widgets are what the reader believes; a
+    # clear that moved only one would leave the page disagreeing with its
+    # own controls.
+    shiny::observeEvent(input$clear, {
+      state(DEFAULTS)
+      if (!is.null(bounds)) {
+        shiny::updateSliderInput(session, "dates", value = bounds)
+      }
+      shinyWidgets::updateRadioGroupButtons(session, "group", selected = "all")
+      shinyWidgets::updatePickerInput(
+        session, "types",
+        choices = types_in_group("all", types), selected = character(0)
+      )
     })
 
     output$filter <- shiny::renderUI({
@@ -190,7 +235,18 @@ mod_filter_bar_server <- function(id, tournaments = NULL, rotation = NULL,
               # filter that does not say what it is filtering to turns
               # every figure under it into a number with an invisible
               # caveat.
-              shiny::textOutput(session$ns("range_label"), inline = TRUE)
+              shiny::textOutput(session$ns("range_label"), inline = TRUE),
+              # IN THE SUMMARY ROW, so it is reachable while the panel is
+              # collapsed -- which is exactly when a reader has lost track
+              # of what is applied and wants it gone.
+              #
+              # The inline handler stops the click reaching <summary>,
+              # whose default action is to toggle the panel: without it,
+              # clearing the filters also opens or closes them.
+              shiny::actionLink(
+                session$ns("clear"), "Clear all", class = "nr-clear-all",
+                onclick = "event.preventDefault(); event.stopPropagation();"
+              )
             ),
             shiny::div(
               class = "nr-filter-body",
@@ -219,55 +275,60 @@ mod_filter_bar_server <- function(id, tournaments = NULL, rotation = NULL,
                   )
                 }
               ),
-              # THE CHIPS ARE ABSENT, NOT EMPTY, on a release built
-              # before `type` was admitted to the abr allowlist. A row of
-              # chips with nothing in it reads as "no tournaments match",
-              # which is a claim about the data rather than about the
-              # mirror. Saying so beats showing an empty control.
+              # THE CONTROLS ARE ABSENT, NOT EMPTY, on a release built
+              # before `type` was admitted to the abr allowlist. A control
+              # with nothing in it reads as "no tournaments match", which
+              # is a claim about the data rather than about the mirror.
               if (nrow(types)) {
                 shiny::div(
                   class = "nr-chip-row",
-                  shiny::tags$span(class = "nr-preset-label", "Type:"),
-                  shinyWidgets::checkboxGroupButtons(
-                    session$ns("types"), label = NULL,
-                    # trim = TRUE, or format() pads every count to the
-                    # width of the largest and the chips read
-                    # "worlds championship (   11)".
-                    choices = stats::setNames(types$type, sprintf(
-                      "%s (%s)", types$type,
-                      format(types$n, big.mark = ",", trim = TRUE)
-                    )),
-                    selected = cur$types,
+                  shiny::tags$span(class = "nr-preset-label", "Events:"),
+                  # EXCLUSIVE, so the group is a lens rather than a set.
+                  # All, competitive and casual are not things you combine.
+                  shinyWidgets::radioGroupButtons(
+                    session$ns("group"), label = NULL,
+                    choices = c("All" = "all", "Competitive" = "competitive",
+                                "Casual" = "casual"),
+                    selected = cur$group,
                     status = "nr-chip", size = "sm", individual = TRUE
-                  )
+                  ),
+                  # The sub-types of whichever group is chosen. Selecting
+                  # none means all of them, so the picker starts empty
+                  # rather than starting with everything ticked.
+                  shinyWidgets::pickerInput(
+                    session$ns("types"), label = NULL,
+                    choices = types_in_group(cur$group, types),
+                    selected = cur$types, multiple = TRUE, width = "250px",
+                    options = shinyWidgets::pickerOptions(
+                      actionsBox = TRUE, liveSearch = TRUE,
+                      selectedTextFormat = "count > 1",
+                      countSelectedText = "{0} event types",
+                      noneSelectedText = "All in this group"
+                    )
+                  ),
+                  # NAMED, not absorbed. A type abr adds after
+                  # TOURNAMENT_TYPE_GROUPS was written is a decision
+                  # waiting to be made; it stays reachable under All and
+                  # says so, rather than being defaulted into a group
+                  # nobody chose for it.
+                  if (length(tournament_types_ungrouped(types))) {
+                    shiny::tags$span(
+                      class = "small text-muted",
+                      sprintf("Unclassified, so only under All: %s.",
+                              paste(tournament_types_ungrouped(types),
+                                    collapse = ", "))
+                    )
+                  }
                 )
               } else {
-                # ONE STRING, not two children. htmltools puts each
-                # child of a tag on its own line, so a sentence split
-                # across two arrives with a newline through the middle of
-                # it -- harmless on screen, where HTML collapses it, and
-                # quietly unmatchable for anything reading the markup.
+                # ONE STRING, not two children. htmltools puts each child
+                # of a tag on its own line, so a sentence split across two
+                # arrives with a newline through the middle of it.
                 shiny::tags$p(
                   class = "small text-muted nr-chip-row",
                   paste(
                     "No tournament types: the active abr release predates the",
-                    "type column. The chips appear after the next sync."
-                  )
-                )
-              },
-              if (length(draft_codes)) {
-                shiny::div(
-                  class = "nr-chip-row",
-                  shinyWidgets::materialSwitch(
-                    session$ns("include_draft"),
-                    label = "Include draft identities",
-                    value = isTRUE(cur$include_draft),
-                    status = "warning", inline = TRUE, right = TRUE
-                  ),
-                  shiny::tags$span(
-                    class = "small text-muted",
-                    "Off by default: a draft result says nothing about the ",
-                    "constructed meta."
+                    "type column. The controls appear after the next sync."
                   )
                 )
               }
@@ -282,11 +343,13 @@ mod_filter_bar_server <- function(id, tournaments = NULL, rotation = NULL,
       if (is.null(f$dates)) return("")
       parts <- paste(format(f$dates[[1]], "%b %Y"), "—",
                      format(f$dates[[2]], "%b %Y"))
+      if (!identical(f$group, "all")) {
+        parts <- paste0(parts, "  ·  ", f$group)
+      }
       if (length(f$types)) {
         parts <- paste0(parts, "  ·  ", length(f$types), " of ",
-                        nrow(types), " types")
+                        length(types_in_group(f$group, types)), " types")
       }
-      if (isTRUE(f$include_draft)) parts <- paste0(parts, "  ·  incl. draft")
       parts
     })
 

@@ -9,7 +9,7 @@ apply_tournament_filters(dated, filters, draft_codes = character(0))
 \arguments{
 \item{dated}{Output of with_parsed_dates().}
 
-\item{filters}{A list of \code{dates}, \code{types} and \code{include_draft}, from
+\item{filters}{A list of \code{dates} and \code{types}, from
 mod_filter_bar_server(). NULL applies nothing.}
 
 \item{draft_codes}{Character vector from draft_identity_codes().}
