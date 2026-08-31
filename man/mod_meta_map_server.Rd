@@ -4,7 +4,7 @@
 \alias{mod_meta_map_server}
 \title{Tournament map module server}
 \usage{
-mod_meta_map_server(id, tournaments = NULL, rotation = NULL)
+mod_meta_map_server(id, tournaments = NULL, selected = NULL)
 }
 \arguments{
 \item{id}{Module id.}
@@ -13,9 +13,9 @@ mod_meta_map_server(id, tournaments = NULL, rotation = NULL)
 release is active. NULL renders an explanation rather than an empty
 map, for the reason given on mod_card_detail_server()'s \code{rulings}.}
 
-\item{rotation}{The cardpool \code{rotation} table, or NULL. NULL drops the
-named-period shortcuts and leaves the slider, rather than inventing
-rotation dates -- there are seven and they are not guessable.}
+\item{selected}{A reactive returning the selected date range, from the
+app-level mod_date_filter_server(). NULL filters nothing, which is
+what a caller with no abr release has to be able to ask for.}
 }
 \description{
 Tournament map module server

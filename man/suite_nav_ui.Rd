@@ -19,7 +19,12 @@ link that would go nowhere.
 SETS A NON-NAMESPACED INPUT. Every other click in this file is
 namespaced to a module, because it belongs to that module. This one
 does not: the strip switches which VIEW the app shows, which is
-app_server()'s business and not the lane board's. The strip is drawn
-here only because the wireframe puts it above the board.
+app_server()'s business and not the lane board's.
+
+IT IS RENDERED BY app_server() NOW, not by each view. Every view used
+to emit its own copy, which meant the strip was destroyed and rebuilt
+on each navigation -- and while that was merely wasteful for the nav
+itself, it was fatal for the date filter that sat beside it. See
+app_ui(). The function still lives in this file because the wireframe
+draws the strip above the board and this is where the board is.
 }
-\keyword{internal}
