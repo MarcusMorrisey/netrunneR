@@ -3,7 +3,7 @@
 R_IMAGE := rocker/r-ver:4.3.2
 
 # Host directory holding the renv cache between runs. Without it every
-# target re-downloads and re-installs all ~98 lockfile packages, because
+# target re-downloads and re-installs all 153 lockfile packages, because
 # the cache lives at /root/.cache/R/renv INSIDE the container and dies
 # with it -- only the working tree was ever mounted. Override with
 # `make test RENV_CACHE=/some/path` if /home is short on space.

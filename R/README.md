@@ -8,6 +8,20 @@ with atomic promote semantics. All five run the same sync pipeline; only
 fetching and building vary, and both vary by S3 dispatch on the lineage's
 `source_type` rather than by branching inside the pipeline.
 
+The directory also holds two things that are NOT part of the mirror: the
+`views-*` files, which derive ratings, ice/breaker matchups and tournament-meta
+figures from whatever release happens to be active, and the `mod_*` files, which
+are the Shiny modules that render them. They are consumers of the pipeline, not
+stages in it -- no view has a lineage, a release or a store, and none of them
+can make one. `compute_ice_breaker_matchups()` and `compute_identity_ratings()`
+are plain functions called live; `matchup` and `ratings` are deliberately not
+members of `BUILTIN_LINEAGES`.
+
+That boundary is why the view layer's dependencies are Suggests rather than
+Imports: the sync container runs the pipeline and draws nothing, so making it
+carry a spatial stack to load the package at all would be paying for a view it
+never opens.
+
 Reading the source tells you what each function does. This file records
 what it cannot: why the abstraction is shaped this way, which upstream
 realities forced which design, and which invariants are load-bearing but

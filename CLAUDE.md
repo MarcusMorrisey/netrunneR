@@ -2,34 +2,6 @@
 
 R package maintaining an offline, versioned mirror of five Netrunner data sources with atomic release promotion, plus derived ratings and matchup views.
 
-## Working tree on mediaServer
-
-The canonical checkout is **`/home/marcus/src/netrunneR`**, a sibling of
-`/home/marcus/src/homelab` (ref: DL-008 in the homelab repo's
-`docs/netrunneR/netrunneR-implementation-plan.md`). Work there. Do not
-clone a second copy elsewhere in `$HOME`, and check for this path before
-cloning at all.
-
-Three homelab services bind-mount that exact path, so a checkout
-anywhere else is invisible to all of them:
-
-| Service | Mount |
-| --- | --- |
-| `netrunner-pkgdown` | `/home/marcus/src/netrunneR/docs` -> nginx web root (port 8090) |
-| `netrunner-pkgdown-build.service` | builds pkgdown INTO that `docs/` |
-| `rstudio-server` | `/home/marcus/src/netrunneR` -> `/projects/netrunneR` |
-
-This is not hypothetical. A second clone at `/home/marcus/netrunneR`
-once took 28 commits of work while `~/src/netrunneR` sat at an older
-HEAD, so the published package site served a stale reference and the
-RStudio project opened the wrong tree. Resolving it needed a hard reset
-of the canonical checkout.
-
-The lineage stores are a separate matter and live under
-`/srv/netrunner-mirror/data/<lineage>` on the host, bind-mounted to
-`/data/<lineage>` in the container (ref: DL-009) -- never inside either
-repo.
-
 ## Files
 
 | File | What | When to read |
@@ -43,6 +15,8 @@ repo.
 | `LICENSE` | MIT license text | Checking licensing terms |
 | `.gitignore` | Ignored session artifacts, `renv/library`, `inst/pkg-src`, check output | Adding a generated path that must not be committed |
 | `.Rbuildignore` | Paths excluded from the build tarball and `R CMD check` | Adding a dev-only directory that must not ship in the package |
+| `.Rprofile` | One line: sources `renv/activate.R` | Debugging why a session picks the wrong library |
+| `netrunneR.Rproj` | RStudio project settings | Changing RStudio-specific build or editor defaults |
 
 ## Subdirectories
 
@@ -52,7 +26,9 @@ repo.
 | `tests/` | testthat entry point and the full test suite | Adding tests, debugging failures, checking enforced invariants |
 | `inst/` | Installed assets: CLI wrapper, Shiny app, SQL schemas | Changing the container entry point, the app, or a lineage's DDL |
 | `.ci/` | Rscript entry points for check, test, document, coverage, renv restore | Changing what CI runs or how dependencies are restored |
-| `man/` | Generated roxygen2 `.Rd` documentation (137 files) | Never edit directly; regenerate via `make document` after editing roxygen comments in `R/*.R`, then COMMIT the result -- `make docs-current` fails if you do not |
+| `man/` | Generated roxygen2 `.Rd` documentation (232 files). Regenerate with `make document` | Never edit directly; regenerate after editing roxygen comments in `R/*.R`, then COMMIT the result -- `make docs-current` fails if you do not |
+| `.claude/` | Planning artefacts that outlive the session that produced them | Picking up a milestone, checking what a decision id refers to |
+| `docs/` | Generated pkgdown site, git-ignored. Regenerate with `pkgdown::build_site()` | Never edit directly; served by the `netrunner-pkgdown` container |
 
 ## Build
 
@@ -63,7 +39,7 @@ chowns the tree back to the invoking user afterwards -- without that,
 roxygen output lands root-owned and a later `git pull` or `rm` fails on
 it. The renv cache persists in `$(RENV_CACHE)` (default
 `~/.cache/netrunneR-renv`); the first run populates it, later runs skip
-reinstalling all ~98 lockfile packages.
+reinstalling all 153 lockfile packages.
 
 ```sh
 make check      # R CMD check via rcmdcheck, error_on = "warning"

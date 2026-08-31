@@ -3,8 +3,8 @@
 Offline mirror and analysis toolkit for Netrunner card-game data. The
 package maintains a versioned, local, SQLite-backed mirror of five
 upstream sources, promotes each new build atomically, and exposes derived
-ratings and matchup views shared by a scheduled sync container and a Shiny
-app.
+ratings, ice/breaker matchup and tournament-meta views shared by a scheduled
+sync container and a Shiny app.
 
 ## What it mirrors
 
@@ -20,6 +20,27 @@ Only these five are wired up. `new_lineage()` is a public extension point
 for registering others; `cobra` and `assets` are named extension points
 with no code behind them and are not required for the extension point to
 work.
+
+## What the app shows
+
+Three views, all reading the same active releases rather than a release of
+their own:
+
+| View | Reads | Shows |
+| --- | --- | --- |
+| Ice::Breaker | `cardpool`, `implementation` | Ice lanes with per-lane breakers and a stat strip for each pair |
+| Meta Maps | `abr`, `cardpool` | A country choropleth of tournaments per million, with a venue-density point layer |
+| Meta Stats | `abr`, `cardpool` | Faction share of wins as an interactive treemap and a percentage waffle |
+
+The two meta views share one filter bar -- dates with rotation shortcuts,
+tournament-type chips, and a switch for draft identities -- owned by the app
+rather than by either view.
+
+Their spatial and plotting dependencies (`sf`, `tmap`, `leaflet`, `ggplot2`,
+`treemap`, `d3treeR`) are **Suggests**, not Imports. In Imports the package
+would fail to load anywhere they are absent, which would couple the mirror to
+a container rebuild for views most sessions never open. Every entry point
+checks and degrades instead.
 
 ## Architecture
 
@@ -131,6 +152,26 @@ Serve the packaged Shiny app against the current release:
 ```sh
 Rscript -e 'netrunneR::run_app()'
 ```
+
+## Where the working tree lives
+
+The canonical checkout is `/home/marcus/src/netrunneR`, a sibling of
+`/home/marcus/src/homelab`. Three services bind-mount that exact path, so a
+checkout anywhere else is invisible to all of them: the `netrunner-pkgdown`
+container serves `docs/` from it, `netrunner-pkgdown-build.service` builds
+pkgdown into that `docs/`, and rstudio-server mounts the tree at
+`/projects/netrunneR`.
+
+This is not hypothetical. A second clone at `/home/marcus/netrunneR` once
+absorbed 28 commits of work while the canonical path sat at an older HEAD: the
+published package site served a stale reference and the RStudio project opened
+the wrong tree. Recovering needed a hard reset of the canonical checkout. Check
+for the path before cloning; do not make a second copy.
+
+The lineage stores are a separate matter and deliberately live outside both
+repositories, at `/srv/netrunner-mirror/data/<lineage>` on the host and
+`/data/<lineage>` inside the container. A release is data, not source, and
+putting it in the tree would make every sync a working-tree change.
 
 ## Development
 
