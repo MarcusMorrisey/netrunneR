@@ -206,17 +206,34 @@ TOURNAMENT_TYPE_GROUPS <- list(
 #' Intersected with the present types rather than returned whole, so a
 #' group never offers a sub-type that would select nothing.
 #'
+#' NAMED WITH THE COUNT, because a reader choosing between "district
+#' championship" and "megacity championship" is really asking which of
+#' them has enough events to be worth looking at. The name is the value
+#' and the label carries the count, so the caller filters on a bare type
+#' either way.
+#'
+#' trim = TRUE on the count: format() pads every number to the width of
+#' the largest, which rendered as "worlds championship (   11)" beside
+#' "GNK / seasonal (1,780)".
+#'
 #' @param group One of "all", "competitive", "casual".
 #' @param types A data frame from tournament_types().
-#' @return Character vector of type names, in the data's own frequency
-#'   order.
+#' @return Named character vector of type names, in the data's own
+#'   frequency order, with counts in the names.
 #' @export
 types_in_group <- function(group, types) {
   if (is.null(types) || !nrow(types)) return(character(0))
-  if (identical(group, "all")) return(types$type)
-  want <- TOURNAMENT_TYPE_GROUPS[[group]]
-  if (is.null(want)) return(types$type)
-  types$type[types$type %in% want]
+  keep <- if (identical(group, "all")) {
+    rep(TRUE, nrow(types))
+  } else {
+    want <- TOURNAMENT_TYPE_GROUPS[[group]]
+    if (is.null(want)) rep(TRUE, nrow(types)) else types$type %in% want
+  }
+  d <- types[keep, , drop = FALSE]
+  stats::setNames(
+    d$type,
+    sprintf("%s (%s)", d$type, format(d$n, big.mark = ",", trim = TRUE))
+  )
 }
 
 #' Types present in the data that no group claims

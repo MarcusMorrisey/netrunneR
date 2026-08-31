@@ -12,10 +12,21 @@ types_in_group(group, types)
 \item{types}{A data frame from tournament_types().}
 }
 \value{
-Character vector of type names, in the data's own frequency
-order.
+Named character vector of type names, in the data's own
+frequency order, with counts in the names.
 }
 \description{
 Intersected with the present types rather than returned whole, so a
 group never offers a sub-type that would select nothing.
+}
+\details{
+NAMED WITH THE COUNT, because a reader choosing between "district
+championship" and "megacity championship" is really asking which of
+them has enough events to be worth looking at. The name is the value
+and the label carries the count, so the caller filters on a bare type
+either way.
+
+trim = TRUE on the count: format() pads every number to the width of
+the largest, which rendered as "worlds championship (   11)" beside
+"GNK / seasonal (1,780)".
 }

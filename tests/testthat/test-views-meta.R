@@ -144,16 +144,25 @@ test_that("types_in_group narrows to what the data actually holds", {
     n = c(11L, 1780L, 553L), stringsAsFactors = FALSE
   )
 
-  # All is everything present, in the data's own frequency order.
-  expect_equal(types_in_group("all", types), types$type)
+  # All is everything present, in the data's own frequency order. The
+  # VALUES are bare types, so a caller filters on them directly; the
+  # NAMES carry the count, because a reader choosing between two
+  # championship tiers is really asking which has enough events to be
+  # worth looking at.
+  expect_equal(unname(types_in_group("all", types)), types$type)
+  expect_equal(names(types_in_group("all", types))[[1]],
+               "worlds championship (11)")
 
-  expect_setequal(types_in_group("competitive", types),
+  expect_setequal(unname(types_in_group("competitive", types)),
                   c("worlds championship", "store championship"))
-  expect_equal(types_in_group("casual", types), "GNK / seasonal")
+  expect_equal(unname(types_in_group("casual", types)), "GNK / seasonal")
+  # trim = TRUE: format() would otherwise pad 11 to the width of 1,780.
+  expect_false(any(grepl("[(] ", names(types_in_group("all", types)))))
 
   # A group never offers a sub-type that would select nothing: the
   # constant lists eleven competitive types and only two are present.
   expect_true(all(types_in_group("competitive", types) %in% types$type))
+  expect_length(types_in_group("competitive", types), 2L)
 })
 
 test_that("an unclassified type is reported, not absorbed", {
