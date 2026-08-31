@@ -34,7 +34,7 @@ app_ui <- function() {
     # would re-render and put us back where we started.
     shiny::conditionalPanel(
       condition = "input.nav_view == 'metaMaps' || input.nav_view == 'metaStats'",
-      netrunneR::mod_date_filter_ui("dates")
+      netrunneR::mod_filter_bar_ui("filters")
     ),
     shiny::uiOutput("main")
   )

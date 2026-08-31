@@ -185,3 +185,65 @@ rotation_periods <- function(rotation, max_date = Sys.Date()) {
   out <- rbind(pre, out)
   out[order(out$start, decreasing = TRUE), , drop = FALSE]
 }
+
+#' The identities that mean "this was a draft"
+#'
+#' MEASURED, NOT LISTED BY NAME. The cardpool holds exactly seven
+#' identities in the two neutral factions, and all seven are draft or
+#' limited-format identities: The Masque, The Catalyst and Nova Initiumia
+#' on the Runner side; The Shadow, The Syndicate, Cyber Bureau and
+#' Ampere on the Corp. There is no neutral identity that is NOT one of
+#' these, so the faction code is a complete and exact test -- naming the
+#' seven would be the same set, spelled in a way that goes stale.
+#'
+#' They win 153 of the 4,431 tournaments in the current release, 147 of
+#' those on both sides at once, which is what a draft event looks like.
+#' The interesting residue is the 67 filed under `standard`: a draft
+#' identity cannot legally win a standard event, so those are
+#' mis-recorded rather than surprising.
+#'
+#' @param identities The cardpool identity cards.
+#' @return Character vector of card codes.
+#' @export
+draft_identity_codes <- function(identities) {
+  if (is.null(identities) || !nrow(identities)) return(character(0))
+  as.character(identities$code)[
+    identities$faction_code %in% c("neutral-runner", "neutral-corp")
+  ]
+}
+
+#' The tournament types present in the data, most common first
+#'
+#' Read from the data rather than hardcoded, so abr adding an eighteenth
+#' type makes it appear here by being synced.
+#'
+#' RETURNS NOTHING WHEN THE COLUMN IS ABSENT, rather than failing. `type`
+#' was admitted to the abr allowlist after this store had already been
+#' built, and a release is promoted independently of the package that
+#' reads it -- the same situation the venue coordinates were in. A caller
+#' must be able to ask a release that predates the column.
+#'
+#' One upstream record carries abr's own dropdown SEPARATOR as its type
+#' rather than a real value. It is dropped here: it is not a kind of
+#' tournament, it is a horizontal rule that escaped into the data.
+#'
+#' @param tournaments The abr `tournament` table.
+#' @return A data frame of `type` and `n`, or zero rows.
+#' @export
+tournament_types <- function(tournaments) {
+  empty <- data.frame(type = character(0), n = integer(0),
+                      stringsAsFactors = FALSE)
+  if (is.null(tournaments) || !nrow(tournaments)) return(empty)
+  if (!"type" %in% names(tournaments)) return(empty)
+
+  v <- as.character(tournaments$type)
+  v <- v[!is.na(v) & nzchar(v)]
+  # abr's dropdown separator, which is drawn with box characters and is
+  # not a type of anything.
+  v <- v[!grepl("^[\u2500-\u257f[:space:]]*$", v)]
+  v <- v[!grepl("^[\u2500-\u257f]", v)]
+  if (!length(v)) return(empty)
+
+  tab <- sort(table(v), decreasing = TRUE)
+  data.frame(type = names(tab), n = as.integer(tab), stringsAsFactors = FALSE)
+}

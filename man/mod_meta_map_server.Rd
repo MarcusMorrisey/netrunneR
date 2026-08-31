@@ -4,7 +4,7 @@
 \alias{mod_meta_map_server}
 \title{Tournament map module server}
 \usage{
-mod_meta_map_server(id, tournaments = NULL, selected = NULL)
+mod_meta_map_server(id, tournaments = NULL, filters = NULL, identities = NULL)
 }
 \arguments{
 \item{id}{Module id.}
@@ -13,9 +13,12 @@ mod_meta_map_server(id, tournaments = NULL, selected = NULL)
 release is active. NULL renders an explanation rather than an empty
 map, for the reason given on mod_card_detail_server()'s \code{rulings}.}
 
-\item{selected}{A reactive returning the selected date range, from the
-app-level mod_date_filter_server(). NULL filters nothing, which is
-what a caller with no abr release has to be able to ask for.}
+\item{filters}{A reactive returning the app-level filter selection,
+from mod_filter_bar_server(). NULL filters nothing, which is what a
+caller with no abr release has to be able to ask for.}
+
+\item{identities}{The cardpool identity cards, used only to recognise
+draft identities so the filter can exclude them.}
 }
 \description{
 Tournament map module server

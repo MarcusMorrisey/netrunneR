@@ -828,3 +828,58 @@ a.nr-preset:hover, a.nr-preset:focus {
 
 .nr-filter-body { padding: 0 14px 6px; }
 .nr-filter-details:not([open]) + * { margin-top: 0; }
+
+/* ---- filter chips ----------------------------------------------------
+ * checkboxGroupButtons() renders Bootstrap .btn elements, and a status
+ * of "nr-chip" becomes .btn-nr-chip -- which Bootstrap knows nothing
+ * about, so every rule below is ours and none of it is fighting a
+ * framework default.
+ */
+.nr-chip-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.nr-chip-row .btn-group,
+.nr-chip-row .btn-group-container-sw {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nr-chip-row .btn-nr-chip {
+  background: transparent;
+  border: 1px solid var(--nr-panel-edge);
+  border-radius: 999px;
+  color: var(--nr-ink-quiet);
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+  padding: 3px 11px;
+  white-space: nowrap;
+}
+.nr-chip-row .btn-nr-chip:hover {
+  border-color: var(--nr-accent);
+  color: var(--nr-ink);
+}
+
+/* SELECTED IS THE ACCENT, and filled rather than outlined. A chip row
+   where the on and off states differ only in border colour is a row
+   whose state you have to concentrate to read. */
+.nr-chip-row .btn-nr-chip.active {
+  background: var(--nr-accent-dim);
+  border-color: var(--nr-accent);
+  color: var(--nr-accent);
+  font-weight: 600;
+}
+.nr-chip-row .btn-nr-chip:focus-visible {
+  outline: 2px solid var(--nr-accent);
+  outline-offset: 1px;
+}
+
+/* The draft switch sits on the same row as its explanation, which is
+   there because "off by default" is a decision the reader is entitled to
+   see the reasoning for. */
+.nr-chip-row .material-switch { margin: 0; }
+.nr-chip-row .form-group { margin-bottom: 0; }

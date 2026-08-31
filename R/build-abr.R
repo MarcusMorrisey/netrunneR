@@ -62,6 +62,15 @@ build_lineage.netrunneR_api_poll <- function(lineage, staged_raw, ...) {
 ABR_TOURNAMENT_ALLOWLIST <- c(
   "id", "title", "date", "format", "location_state", "location_country",
   "location_lat", "location_lng",
+  # `type` is the EVENT's category, not a person's: 17 values upstream,
+  # from "casual tournament kit" through "store championship" to "worlds
+  # championship". It says how much weight a result carries, which is the
+  # question a reader of a meta chart is actually asking -- a GNK and a
+  # continental championship are not the same evidence.
+  #
+  # Admitted on the same reasoning as the venue coordinates: it describes
+  # the event, and no organiser, player or contact field comes with it.
+  "type",
   "players_count", "top_count", "winner_runner_identity", "winner_corp_identity"
 )
 
