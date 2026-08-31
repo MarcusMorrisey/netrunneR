@@ -19,7 +19,6 @@
 mod_meta_stats_ui <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
-    suite_nav_ui("metaStats"),
     shiny::div(
       class = "nr-map-page",
       shiny::div(
@@ -27,7 +26,6 @@ mod_meta_stats_ui <- function(id) {
         shiny::h4("Meta statistics"),
         shiny::uiOutput(ns("summary"))
       ),
-      mod_date_filter_ui(ns("dates")),
       shiny::div(
         class = "nr-stats-block",
         shiny::h5("Faction share of wins"),
@@ -75,11 +73,12 @@ mod_meta_stats_ui <- function(id) {
 #'   meta rather than a wrong argument. The distinction is made in
 #'   load_ice_breaker_app_data() so it cannot be got wrong here.
 #' @param factions The cardpool `faction` table, or NULL.
-#' @param rotation The cardpool `rotation` table, or NULL. NULL drops the
-#'   named-period shortcuts and leaves the slider.
+#' @param selected A reactive returning the selected date range, from the
+#'   app-level mod_date_filter_server(). The same reactive the map reads,
+#'   so the two views cannot show different periods.
 #' @export
 mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
-                                  factions = NULL, rotation = NULL) {
+                                  factions = NULL, selected = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
 
     # The same gate the map passes, for the same reason: this view reads
@@ -92,14 +91,10 @@ mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
     have_ggplot <- requireNamespace("ggplot2", quietly = TRUE)
 
     dated <- with_parsed_dates(tournaments)
-    bounds <- date_bounds(dated)
-    periods <- rotation_periods(
-      rotation,
-      max_date = if (is.null(bounds)) Sys.Date() else bounds[[2]]
-    )
-    selected <- mod_date_filter_server("dates", bounds, periods)
 
-    in_range <- shiny::reactive(filter_by_date(dated, selected()))
+    in_range <- shiny::reactive({
+      filter_by_date(dated, if (is.null(selected)) NULL else selected())
+    })
 
     # Everything below reads THIS, so the two charts cannot disagree
     # about which tournaments they drew.

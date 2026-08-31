@@ -19,4 +19,9 @@ slider drag is work with no answer attached to it -- so it happens
 once, when the module is created, and everything downstream reads the
 column.
 }
-\keyword{internal}
+\details{
+EXPORTED because app_server() calls it. The date filter is owned by
+the app rather than by either view (see mod_date_filter_server()), so
+the app is what needs the parsed dates to work out the slider's
+bounds -- the same position rotation_periods() is already in.
+}
