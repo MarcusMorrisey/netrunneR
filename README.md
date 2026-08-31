@@ -132,6 +132,26 @@ Serve the packaged Shiny app against the current release:
 Rscript -e 'netrunneR::run_app()'
 ```
 
+## Where the working tree lives
+
+The canonical checkout is `/home/marcus/src/netrunneR`, a sibling of
+`/home/marcus/src/homelab`. Three services bind-mount that exact path, so a
+checkout anywhere else is invisible to all of them: the `netrunner-pkgdown`
+container serves `docs/` from it, `netrunner-pkgdown-build.service` builds
+pkgdown into that `docs/`, and rstudio-server mounts the tree at
+`/projects/netrunneR`.
+
+This is not hypothetical. A second clone at `/home/marcus/netrunneR` once
+absorbed 28 commits of work while the canonical path sat at an older HEAD: the
+published package site served a stale reference and the RStudio project opened
+the wrong tree. Recovering needed a hard reset of the canonical checkout. Check
+for the path before cloning; do not make a second copy.
+
+The lineage stores are a separate matter and deliberately live outside both
+repositories, at `/srv/netrunner-mirror/data/<lineage>` on the host and
+`/data/<lineage>` inside the container. A release is data, not source, and
+putting it in the tree would make every sync a working-tree change.
+
 ## Development
 
 Checks, tests, documentation and coverage all run inside a

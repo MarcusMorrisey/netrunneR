@@ -38,6 +38,19 @@ Test files and shared fixtures. Several files enforce package invariants by stat
 | `test-mod-card-detail.R` | `mod_card_detail_server()`'s single-instantiation-per-session discipline and Close-button state clearing | Changing the detail modal's selection-state contract |
 | `test-mod-matchup-explorer.R` | `mod_matchup_explorer_server()`'s not-computable rendering, empty-result rendering, and row-click binding | Changing the matchup table or its click wiring |
 | `test-operations.R` | `safe_render()`'s error-fallback and pass-through behavior | Changing render-error handling |
+| `helper-preship-gates.R` | Shared expectations for the `require_*()` attribution and disclaimer guards | Adding a pre-ship gate or changing how one is asserted |
+| `helper-search-pool.R` | Fixture card pool for the search grammar tests | Adding a search test that needs cards |
+| `test-theme.R` | Palette shape, the map ramp's monotonic lightness and its floor clearing the page ground, basemap absence, `attribute_basemap_tiles()` | Changing app colours or anything the map is drawn in |
+| `test-legality.R` | Rotation/MWL resolution and format legality annotation | Changing legality rules or their fallbacks |
+| `test-rulings.R` | Ruling lookup, source labelling, and the no-nrdb-release degradation | Changing rulings rendering |
+| `test-search-syntax.R` | Tokenizer, parser and evaluator across the query grammar | Changing search syntax, operators or field resolution |
+| `test-preship-gates.R` | That every `require_*()` guard is passed a constant and never a literal `TRUE` | Adding a lineage that needs an attribution or disclaimer gate |
+| `test-pump-economics.R` | `pump_economics()` cost-form parsing and non-credit resource costs | Changing break-cost or pump-cost extraction |
+| `test-views-meta.R` | Country counts and name matching, venue aggregation, abr date parsing, rotation periods | Changing what the tournament map counts or how abr dates are read |
+| `test-views-meta-stats.R` | Faction wins by side, side filtering, `undecided`/`misfiled` reporting, waffle box arithmetic, treemap hierarchy | Changing what the meta stats charts count |
+| `test-mod-filter-bar.R` | Date/type/draft filtering, an empty type selection meaning all, draft exclusion, the collapsed summary | Changing any filter the meta views obey |
+| `test-mod-lane-board.R` | Lane state, the five stat-strip states, and the per-lane subtype override | Changing the board or what a stat strip claims |
+| `test-mod-meta-stats.R` | The stats view's shaping, its filter wiring, and its missing-release and wrong-side notes | Changing the meta stats view |
 | `test-integration-app.R` | `[integration]`-level assertions driving `inst/shiny-app/app.R` with `shinytest2::AppDriver` against `local_store_fixture()`: the missing-release error screen (none and one lineage promoted) and the real tabs. Skips on every run by design -- `shinytest2` is deliberately absent from `renv.lock`; see the cost note at the top of the file before adding it | Changing what the app renders at startup, or the missing-release error text |
 
 ## Test
