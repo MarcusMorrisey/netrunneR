@@ -39,7 +39,7 @@ chowns the tree back to the invoking user afterwards -- without that,
 roxygen output lands root-owned and a later `git pull` or `rm` fails on
 it. The renv cache persists in `$(RENV_CACHE)` (default
 `~/.cache/netrunneR-renv`); the first run populates it, later runs skip
-reinstalling all ~98 lockfile packages.
+reinstalling all 153 lockfile packages.
 
 ```sh
 make check      # R CMD check via rcmdcheck, error_on = "warning"

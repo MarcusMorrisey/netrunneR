@@ -40,7 +40,7 @@ Test files and shared fixtures. Several files enforce package invariants by stat
 | `test-operations.R` | `safe_render()`'s error-fallback and pass-through behavior | Changing render-error handling |
 | `helper-preship-gates.R` | Shared expectations for the `require_*()` attribution and disclaimer guards | Adding a pre-ship gate or changing how one is asserted |
 | `helper-search-pool.R` | Fixture card pool for the search grammar tests | Adding a search test that needs cards |
-| `test-theme.R` | Palette shape, the map ramp's monotonic lightness and its floor clearing the page ground, basemap absence, `attribute_basemap_tiles()` | Changing app colours or anything the map is drawn in |
+| `test-theme.R` | Palette shape, the map ramp's monotonic lightness and its floor clearing the page ground, the no-data grey sitting outside the ramp, and that no tile provider is declared | Changing app colours or anything the map is drawn in |
 | `test-legality.R` | Rotation/MWL resolution and format legality annotation | Changing legality rules or their fallbacks |
 | `test-rulings.R` | Ruling lookup, source labelling, and the no-nrdb-release degradation | Changing rulings rendering |
 | `test-search-syntax.R` | Tokenizer, parser and evaluator across the query grammar | Changing search syntax, operators or field resolution |

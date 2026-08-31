@@ -3,8 +3,8 @@
 Offline mirror and analysis toolkit for Netrunner card-game data. The
 package maintains a versioned, local, SQLite-backed mirror of five
 upstream sources, promotes each new build atomically, and exposes derived
-ratings and matchup views shared by a scheduled sync container and a Shiny
-app.
+ratings, ice/breaker matchup and tournament-meta views shared by a scheduled
+sync container and a Shiny app.
 
 ## What it mirrors
 
@@ -20,6 +20,27 @@ Only these five are wired up. `new_lineage()` is a public extension point
 for registering others; `cobra` and `assets` are named extension points
 with no code behind them and are not required for the extension point to
 work.
+
+## What the app shows
+
+Three views, all reading the same active releases rather than a release of
+their own:
+
+| View | Reads | Shows |
+| --- | --- | --- |
+| Ice::Breaker | `cardpool`, `implementation` | Ice lanes with per-lane breakers and a stat strip for each pair |
+| Meta Maps | `abr`, `cardpool` | A country choropleth of tournaments per million, with a venue-density point layer |
+| Meta Stats | `abr`, `cardpool` | Faction share of wins as an interactive treemap and a percentage waffle |
+
+The two meta views share one filter bar -- dates with rotation shortcuts,
+tournament-type chips, and a switch for draft identities -- owned by the app
+rather than by either view.
+
+Their spatial and plotting dependencies (`sf`, `tmap`, `leaflet`, `ggplot2`,
+`treemap`, `d3treeR`) are **Suggests**, not Imports. In Imports the package
+would fail to load anywhere they are absent, which would couple the mirror to
+a container rebuild for views most sessions never open. Every entry point
+checks and degrades instead.
 
 ## Architecture
 

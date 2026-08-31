@@ -12,7 +12,7 @@ mod_meta_stats_ui(id)
 \description{
 Summary statistics about the tournament meta, over the same date
 filter the map carries -- literally the same module, not a second
-slider that looks like it (see mod_date_filter_server()).
+slider that looks like it (see mod_filter_bar_server()).
 }
 \details{
 Two charts to start with, both adapted from the analysis notebook: an
