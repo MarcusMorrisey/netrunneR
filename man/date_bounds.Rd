@@ -15,4 +15,3 @@ A length-2 Date vector, or NULL when nothing parsed.
 \description{
 The span of dates present in the data
 }
-\keyword{internal}

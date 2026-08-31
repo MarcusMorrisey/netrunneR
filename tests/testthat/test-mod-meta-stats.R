@@ -36,21 +36,52 @@ test_that("the stats view shapes its data and says how much is charted", {
 })
 
 test_that("the date filter narrows the charts", {
+  # The range arrives as a reactive from the APP now, not from a slider
+  # this module owns -- which is the whole point: the same reactive
+  # reaches the map, so the two views cannot show different periods.
+  range <- shiny::reactiveVal(NULL)
   shiny::testServer(
     mod_meta_stats_server,
     args = list(tournaments = stats_tournaments, identities = stats_identities,
-                factions = stats_factions),
+                factions = stats_factions, selected = range),
     {
       session$flushReact()
       expect_equal(nrow(in_range()), 5L)
 
-      session$setInputs(`dates-dates` = as.Date(c("2019-01-01", "2019-12-31")))
+      range(as.Date(c("2019-01-01", "2019-12-31")))
+      session$flushReact()
       expect_equal(nrow(in_range()), 2L)
       s <- shaped()
       # Only Anarch won inside that window.
       expect_equal(s$wins$faction_code[s$wins$side == "Runner"], "anarch")
     }
   )
+})
+
+test_that("the map and the stats view read the same range", {
+  # The bug this replaced: each view built its own filter, so setting the
+  # range on one and switching to the other left them showing different
+  # periods -- through two controls that looked identical and sat in the
+  # same place.
+  range <- shiny::reactiveVal(as.Date(c("2019-01-01", "2019-12-31")))
+
+  stats_rows <- NULL
+  shiny::testServer(
+    mod_meta_stats_server,
+    args = list(tournaments = stats_tournaments, identities = stats_identities,
+                factions = stats_factions, selected = range),
+    { session$flushReact(); stats_rows <<- nrow(in_range()) }
+  )
+
+  map_rows <- NULL
+  shiny::testServer(
+    mod_meta_map_server,
+    args = list(tournaments = stats_tournaments, selected = range),
+    { session$flushReact(); map_rows <<- nrow(in_range()) }
+  )
+
+  expect_equal(stats_rows, 2L)
+  expect_equal(map_rows, stats_rows)
 })
 
 test_that("no abr release renders a message, not an empty chart", {

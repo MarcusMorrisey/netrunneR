@@ -304,8 +304,14 @@ summary:focus-visible {
  * be pushed to and simply follows the last lane.
  */
 html, body { height: 100%; }
+/* #main BY NAME, not "every direct .shiny-html-output". This rule was
+   written when `main` was the only server-rendered slot in the page.
+   The nav became a second one, matched the old selector, and took a
+   min-height of 100vh -- a 48px strip occupying the whole viewport,
+   which pushed the date filter and the entire view below the fold. Only
+   the view absorbs the spare height. */
 body > .container-fluid,
-body > .container-fluid > .shiny-html-output {
+body > .container-fluid > #main {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -734,3 +740,91 @@ a.nr-preset:hover, a.nr-preset:focus {
  * Deliberately NOT --nr-ground: a map whose sea is the same black as the
  * page behind it has no edge, and reads as a hole rather than as a map. */
 .nr-map-page .leaflet-container { background: var(--nr-map-water); }
+
+/* ---- the date filter -------------------------------------------------
+ * STICKY, because it governs every figure on the page and the pages are
+ * taller than a screen. A control that scrolls away while the charts it
+ * controls are still on screen invites the reader to forget the data is
+ * filtered at all -- and this one is the difference between "the meta"
+ * and "the meta during one rotation".
+ *
+ * z-index has to clear leaflet's controls, which sit at 1000 on their
+ * own stacking context. Below that, the zoom buttons slide over the
+ * filter as the map scrolls under it.
+ */
+/* CHROME DOES NOT FILL. bslib's page_fluid() is a column flex container
+   that treats every direct child as a fill item, so the nav slot
+   stretched to the entire viewport height and pushed the filter and the
+   whole view below the fold -- the filter was "sticky" at 720px down a
+   page it was supposed to be sitting on top of. Only #main should take
+   the leftover space. */
+#nav,
+.nr-filter-bar { flex: 0 0 auto; }
+
+.nr-filter-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  /* Opaque. A translucent sticky bar shows the map sliding through the
+     slider, which makes both unreadable. */
+  background: var(--nr-ground);
+  padding: 6px 0 10px;
+  margin-bottom: 4px;
+}
+
+.nr-filter-details {
+  background: var(--nr-panel);
+  border: 1px solid var(--nr-panel-edge);
+  border-radius: var(--nr-radius);
+}
+
+/* The whole summary row is the toggle, so the hit target is the width of
+   the bar rather than the triangle. */
+.nr-filter-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 8px 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--nr-ink);
+  user-select: none;
+}
+.nr-filter-summary::-webkit-details-marker { display: none; }
+
+/* A marker that says which way the panel will move, drawn rather than
+   relying on the browser's default triangle -- which Safari and Firefox
+   place and size differently. */
+.nr-filter-summary::before {
+  content: "▾";
+  color: var(--nr-accent);
+  font-size: 0.8em;
+  transition: transform 0.15s ease;
+}
+.nr-filter-details:not([open]) .nr-filter-summary::before {
+  transform: rotate(-90deg);
+}
+
+.nr-filter-summary:hover { color: var(--nr-ink-bright); }
+.nr-filter-summary:focus-visible {
+  outline: 2px solid var(--nr-accent);
+  outline-offset: -2px;
+}
+
+.nr-filter-title {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  color: var(--nr-ink-quiet);
+}
+
+/* The applied range, which is why the panel can be collapsed at all: the
+   control hides, the answer does not. */
+.nr-filter-summary .shiny-text-output {
+  color: var(--nr-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.nr-filter-body { padding: 0 14px 6px; }
+.nr-filter-details:not([open]) + * { margin-top: 0; }

@@ -17,21 +17,12 @@
 mod_meta_map_ui <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
-    # The same strip the board carries, so this view is somewhere you can
-    # leave as well as arrive at. Marked active here, which is what makes
-    # Ice::Breaker the clickable one.
-    suite_nav_ui("metaMaps"),
     shiny::div(
     class = "nr-map-page",
     shiny::div(class = "nr-map-head",
       shiny::h4("Tournament map"),
       shiny::uiOutput(ns("summary"))
     ),
-    # The filter is a MODULE, shared with the meta stats view. It was
-    # written inline here first; it moved out the moment a second view
-    # needed "the same filter", because two copies of a filter cannot
-    # make that claim honestly -- they can only drift.
-    mod_date_filter_ui(ns("dates")),
     shiny::uiOutput(ns("map_slot")),
     # ABR's terms require a backlink, and it renders whether or not the
     # map above it managed to draw -- the obligation attaches to using
@@ -48,11 +39,11 @@ mod_meta_map_ui <- function(id) {
 #' @param tournaments The abr `tournament` table, or NULL when no abr
 #'   release is active. NULL renders an explanation rather than an empty
 #'   map, for the reason given on mod_card_detail_server()'s `rulings`.
-#' @param rotation The cardpool `rotation` table, or NULL. NULL drops the
-#'   named-period shortcuts and leaves the slider, rather than inventing
-#'   rotation dates -- there are seven and they are not guessable.
+#' @param selected A reactive returning the selected date range, from the
+#'   app-level mod_date_filter_server(). NULL filters nothing, which is
+#'   what a caller with no abr release has to be able to ask for.
 #' @export
-mod_meta_map_server <- function(id, tournaments = NULL, rotation = NULL) {
+mod_meta_map_server <- function(id, tournaments = NULL, selected = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
 
     # The gate, passed the constant and never a literal TRUE. With it
@@ -74,16 +65,14 @@ mod_meta_map_server <- function(id, tournaments = NULL, rotation = NULL) {
     if (have_spatial) tmap::tmap_mode("view")
 
     dated <- with_parsed_dates(tournaments)
-    bounds <- date_bounds(dated)
-    periods <- rotation_periods(
-      rotation,
-      max_date = if (is.null(bounds)) Sys.Date() else bounds[[2]]
-    )
-    selected <- mod_date_filter_server("dates", bounds, periods)
 
     # Everything below reads THIS, so the slider and the map cannot
-    # disagree about which tournaments are in view.
-    in_range <- shiny::reactive(filter_by_date(dated, selected()))
+    # disagree about which tournaments are in view -- and because
+    # `selected` comes from the app rather than from here, neither can
+    # this view and the stats view.
+    in_range <- shiny::reactive({
+      filter_by_date(dated, if (is.null(selected)) NULL else selected())
+    })
 
     shaped <- shiny::reactive({
       d <- in_range()

@@ -15,6 +15,27 @@ app_ui <- function() {
     shiny::tags$head(
       shiny::tags$link(rel = "stylesheet", type = "text/css", href = "netrunner.css")
     ),
+    # THE CHROME IS OUTSIDE `main`, and that is load-bearing rather than
+    # tidy. Everything inside `main` is destroyed and rebuilt when the
+    # reader changes view.
+    #
+    # The date filter cannot survive that. renderUI() caches: when the
+    # uiOutput is recreated Shiny re-sends the HTML it built the FIRST
+    # time, so the rebuilt slider came back at its original all-time
+    # range and immediately reported that as the new selection --
+    # silently undoing the reader's filter on every navigation, while the
+    # summary line above it still claimed the filtered figure. Keeping
+    # the widget mounted is the only fix that does not involve
+    # out-thinking renderUI's cache.
+    shiny::uiOutput("nav"),
+    # conditionalPanel HIDES rather than unmounts, which is the whole
+    # point: the slider stays alive and keeps its value while the reader
+    # is on a view that has no dates to filter. A server-side condition
+    # would re-render and put us back where we started.
+    shiny::conditionalPanel(
+      condition = "input.nav_view == 'metaMaps' || input.nav_view == 'metaStats'",
+      netrunneR::mod_date_filter_ui("dates")
+    ),
     shiny::uiOutput("main")
   )
 }

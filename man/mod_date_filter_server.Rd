@@ -18,8 +18,7 @@ dates -- there are seven and they are not guessable.}
 }
 \value{
 A reactive returning a length-2 Date vector: the selected
-range, falling back to the full bounds before the slider has
-rendered. NULL when there are no bounds at all.
+range. NULL when there are no bounds at all.
 }
 \description{
 Date filter module server

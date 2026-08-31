@@ -99,17 +99,18 @@ test_that("moving the slider changes what the filter reports", {
   )
 })
 
-test_that("a preset does not filter on its own, only through the slider", {
-  # THE INVERSE ASSERTION, because the positive one cannot be made here:
-  # updateSliderInput() is a no-op under testServer -- MockShinySession
-  # neither applies it to `input` nor records it anywhere reachable (it
-  # has no lastInputMessage in this shiny version), so "the preset moved
-  # the slider" is only observable in a browser.
+test_that("a preset applies its range immediately", {
+  # THE CONTRACT CHANGED when the filter became app-level. It used to be
+  # that a preset only nudged the slider and the browser echoed the new
+  # value back; the range now lives in a reactiveVal, because the slider
+  # is destroyed every time the reader switches view and a range that
+  # only exists in the widget does not survive that.
   #
-  # What IS observable is that a preset changes nothing by itself. If
-  # presets were ever reimplemented as a second filter, the returned
-  # range would move here while the slider still showed the old one, and
-  # the two would disagree with no way for a reader to tell which won.
+  # So a preset sets the state AND moves the slider. The state is what
+  # every figure reads, which is what this asserts. That the slider moves
+  # too is only observable in a browser -- updateSliderInput() is a no-op
+  # under testServer, which neither applies it to `input` nor records it
+  # anywhere reachable.
   bounds <- date_bounds(with_parsed_dates(tournaments_fixture))
   rotation <- data.frame(
     code = c("r1", "r2"), name = c("First rotation", "Second rotation"),
@@ -122,9 +123,65 @@ test_that("a preset does not filter on its own, only through the slider", {
     args = list(bounds = bounds, periods = periods),
     {
       session$setInputs(dates = as.Date(c("2021-01-01", "2022-01-01")))
+      expect_equal(session$getReturned()(), as.Date(c("2021-01-01", "2022-01-01")))
+
+      # Newest first, so period 1 is "Second rotation": 2020-01-01 to the
+      # end of the data.
       session$setInputs(preset_1 = 1)
-      expect_equal(session$getReturned()(),
-                   as.Date(c("2021-01-01", "2022-01-01")))
+      expect_equal(session$getReturned()(), c(as.Date("2020-01-01"), bounds[[2]]))
+
+      session$setInputs(preset_all = 1)
+      expect_equal(session$getReturned()(), bounds)
+    }
+  )
+})
+
+test_that("the range survives the slider being destroyed", {
+  # Switching view tears the slider out of the DOM and rebuilds it. The
+  # selection is held in a reactiveVal precisely so that navigating does
+  # not silently reset the reader's filter to all-time.
+  bounds <- date_bounds(with_parsed_dates(tournaments_fixture))
+  shiny::testServer(
+    mod_date_filter_server,
+    args = list(bounds = bounds, periods = rotation_periods(NULL)),
+    {
+      session$setInputs(dates = as.Date(c("2021-01-01", "2022-01-01")))
+      expect_equal(session$getReturned()(), as.Date(c("2021-01-01", "2022-01-01")))
+
+      # A rebuilt slider re-renders from the remembered range, not from
+      # the bounds. sliderInput() writes dates as epoch MILLISECONDS into
+      # data-from/data-to, so that is what to look for -- the ISO string
+      # never appears in the markup at all.
+      ms <- function(d) sprintf("%.0f", as.numeric(as.Date(d)) * 86400000)
+      html <- as.character(output$filter$html)
+      expect_match(html, sprintf('data-from="%s"', ms("2021-01-01")), fixed = TRUE)
+      expect_match(html, sprintf('data-to="%s"', ms("2022-01-01")), fixed = TRUE)
+      # The bounds are still the ENDS of the track; only the handles moved.
+      expect_match(html, sprintf('data-min="%s"', ms("2019-05-04")), fixed = TRUE)
+    }
+  )
+})
+
+test_that("the collapsed filter still says what it is filtering to", {
+  # The panel collapses; the answer does not. A collapsed filter that
+  # does not name its range turns every chart under it into a number with
+  # an invisible caveat.
+  bounds <- date_bounds(with_parsed_dates(tournaments_fixture))
+  shiny::testServer(
+    mod_date_filter_server,
+    args = list(bounds = bounds, periods = rotation_periods(NULL)),
+    {
+      expect_equal(output$range_label, "May 2019 \u2014 Aug 2026")
+      session$setInputs(dates = as.Date(c("2021-01-01", "2022-06-01")))
+      expect_equal(output$range_label, "Jan 2021 \u2014 Jun 2022")
+
+      # And the summary row carries it, so it is visible while collapsed.
+      html <- as.character(output$filter$html)
+      expect_match(html, "nr-filter-summary", fixed = TRUE)
+      expect_match(html, "range_label", fixed = TRUE)
+      # Open by default: a filter nobody can see is a filter nobody uses.
+      expect_match(html, "<details", fixed = TRUE)
+      expect_match(html, "open", fixed = TRUE)
     }
   )
 })
