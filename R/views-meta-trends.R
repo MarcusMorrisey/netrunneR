@@ -156,53 +156,86 @@ without_unknown_aes_warning <- function(expr) {
 #'
 #' SHARE, NOT COUNT. The absolute number of tournaments per quarter is
 #' dominated by how many events happened, which is a fact about the
-#' calendar and the pandemic rather than about the meta. Filling to 100%
-#' asks the question the view is for: of the games won that quarter, who
-#' won them.
+#' calendar rather than about the meta. Filling to 100% asks the question
+#' the view is for: of the games won that quarter, who won them.
 #'
-#' The count is not lost -- it is the bump chart's ordering and the
-#' summary line's total -- but it is not what this chart is answering.
+#' BUILT IN PLOTLY DIRECTLY, not as a ggplot handed to ggplotly(). This
+#' was a ggplot first and it converted to an empty chart: the axes, the
+#' facet strips and the legend all came across, and the data did not.
+#' ggplotly() does not implement `geom_area(position = "fill")`, and it
+#' does not say so -- it returns a figure with zero traces, which renders
+#' as a correctly-labelled blank panel.
+#'
+#' plotly stacks natively with `stackgroup`, and normalises with
+#' `groupnorm = "percent"`, so the fill is done by the thing drawing it
+#' rather than by ggplot before conversion.
+#'
+#' The two sides are subplots rather than facets for the same reason:
+#' facets are a ggplot concept and subplot() is plotly's own.
 #'
 #' @param q Output of faction_quarterly_shares().
-#' @return A ggplot, or NULL when ggplot2 is unavailable or there is
-#'   nothing to draw.
+#' @return A plotly htmlwidget, or NULL when plotly is unavailable or
+#'   there is nothing to draw.
 #' @keywords internal
 build_faction_area <- function(q) {
-  if (!requireNamespace("ggplot2", quietly = TRUE)) return(NULL)
+  if (!requireNamespace("plotly", quietly = TRUE)) return(NULL)
   if (is.null(q) || !nrow(q)) return(NULL)
 
-  q$side <- factor(q$side, levels = c("Runner", "Corp"))
   lv <- unique(q$faction_code[order(match(q$faction_code, FACTION_ORDER))])
-  q$fill <- factor(q$faction_code, levels = lv)
-  # `text` is not a ggplot2 aesthetic; it is how ggplotly() is told what
-  # to put in a tooltip. Built here rather than left to plotly's default,
-  # which would show the stacking position -- a cumulative number the
-  # reader never asked about and cannot check.
-  q$text <- sprintf("%s\n%s %s\n%d wins, %.1f%% of %s",
-                    q$faction, format(q$period, "%b"), format(q$period, "%Y"),
-                    q$wins, q$share * 100, tolower(as.character(q$side)))
-  labels <- q$faction[match(lv, q$faction_code)]
-  values <- unname(FACTION_COLOURS[lv])
-  values[is.na(values)] <- "#999999"
+  ink <- unname(NETRUNNER_PALETTE[["ink"]])
 
-  without_unknown_aes_warning(
-    ggplot2::ggplot(q, ggplot2::aes(x = .data$period, y = .data$wins,
-                                    fill = .data$fill, text = .data$text)) +
-    ggplot2::geom_area(position = "fill", colour = NA) +
-    ggplot2::facet_wrap(~side, ncol = 1) +
-    ggplot2::scale_fill_manual(values = values, labels = labels, name = NULL) +
-    # scales::label_percent(), not a hand-rolled function. ggplotly()
-    # asks a scale for its labels separately from its breaks, and a
-    # function that returns a value for every break INCLUDING the NAs
-    # ggplot pads with gives back more labels than breaks -- plotly then
-    # aborts with "`breaks` and `labels` have different lengths". The
-    # static plot never noticed, because it only ever asks once.
-    ggplot2::scale_y_continuous(labels = scales::label_percent(),
-                                expand = c(0, 0)) +
-    ggplot2::scale_x_date(date_labels = "%Y", expand = c(0, 0)) +
-    ggplot2::labs(x = NULL, y = NULL) +
-    nr_chart_theme()
-  )
+  side_plot <- function(sd, show_legend) {
+    d <- q[q$side == sd, , drop = FALSE]
+    p <- plotly::plot_ly()
+    for (fc in lv) {
+      f <- d[d$faction_code == fc, , drop = FALSE]
+      if (!nrow(f)) next
+      f <- f[order(f$period), , drop = FALSE]
+      colour <- unname(FACTION_COLOURS[fc])
+      if (is.na(colour)) colour <- "#999999"
+      p <- plotly::add_trace(
+        p, x = f$period, y = f$wins, name = f$faction[[1]],
+        type = "scatter", mode = "none",
+        stackgroup = "one", groupnorm = "percent",
+        fillcolor = colour, hoverinfo = "text", text = f$text,
+        # legendgroup so one click in the legend toggles a faction on
+        # BOTH panels; a legend that hides half of what it names is
+        # worse than no legend.
+        legendgroup = fc, showlegend = show_legend
+      )
+    }
+    plotly::layout(
+      p,
+      yaxis = list(ticksuffix = "%", range = c(0, 100),
+                   gridcolor = "#1e2630", zeroline = FALSE,
+                   tickfont = list(color = ink)),
+      xaxis = list(gridcolor = "#1e2630", zeroline = FALSE,
+                   tickfont = list(color = ink))
+    )
+  }
+
+  sides <- intersect(c("Runner", "Corp"), unique(q$side))
+  plots <- lapply(seq_along(sides), function(i) side_plot(sides[[i]], i == 1))
+
+  w <- if (length(plots) == 1) {
+    plots[[1]]
+  } else {
+    plotly::subplot(plots, nrows = length(plots), shareX = TRUE,
+                    titleY = FALSE, margin = 0.05)
+  }
+
+  # The side labels, as annotations: subplot() has no equivalent of a
+  # facet strip, so without these the two panels are unlabelled and a
+  # reader has to infer which is which from the faction colours.
+  n <- length(sides)
+  anns <- lapply(seq_along(sides), function(i) list(
+    text = sides[[i]], x = 0, xref = "paper", xanchor = "left",
+    y = 1 - (i - 1) / n, yref = "paper", yanchor = "bottom",
+    showarrow = FALSE,
+    font = list(color = unname(NETRUNNER_PALETTE[["ink_bright"]]),
+                size = 13)
+  ))
+  plotly::layout(w, annotations = anns)
 }
 
 #' Faction rank over time, as a bump chart
@@ -224,22 +257,29 @@ build_faction_bump <- function(q) {
 
   ranked$side <- factor(ranked$side, levels = c("Runner", "Corp"))
   lv <- unique(ranked$faction_code[order(match(ranked$faction_code, FACTION_ORDER))])
-  ranked$col <- factor(ranked$faction_code, levels = lv)
+  # THE LEVELS ARE THE DISPLAY NAMES, not the codes with a `labels`
+  # argument alongside. ggplotly() carries factor LEVELS into the legend
+  # and drops scale_*_manual()'s labels, so the legend came out reading
+  # "anarch", "criminal", "sunny-lebeau" -- the codes, which mean
+  # something to whoever wrote the join and nothing to a reader. The same
+  # mistake the layer control made with "joined" and "pts".
+  display <- ranked$faction[match(lv, ranked$faction_code)]
+  ranked$col <- factor(ranked$faction, levels = display)
   ranked$text <- sprintf("%s\n%s %s\nrank %d of that quarter, %d wins",
                          ranked$faction, format(ranked$period, "%b"),
                          format(ranked$period, "%Y"), ranked$rank, ranked$wins)
-  labels <- ranked$faction[match(lv, ranked$faction_code)]
   values <- unname(FACTION_COLOURS[lv])
   values[is.na(values)] <- "#999999"
+  names(values) <- display
 
   without_unknown_aes_warning(
     ggplot2::ggplot(ranked, ggplot2::aes(x = .data$period, y = .data$rank,
                                          colour = .data$col,
-                                         group = .data$faction_code)) +
+                                         group = .data$col)) +
     ggplot2::geom_line(linewidth = 0.9, alpha = 0.9) +
     ggplot2::geom_point(ggplot2::aes(text = .data$text), size = 1.7) +
     ggplot2::facet_wrap(~side, ncol = 1, scales = "free_y") +
-    ggplot2::scale_colour_manual(values = values, labels = labels, name = NULL) +
+    ggplot2::scale_colour_manual(values = values, name = NULL) +
     ggplot2::scale_x_date(date_labels = "%Y") +
     ggplot2::scale_y_reverse(breaks = seq_len(max(ranked$rank))) +
     ggplot2::labs(x = NULL, y = NULL) +
@@ -370,7 +410,10 @@ nr_plotly <- function(p) {
   if (is.null(p) || !requireNamespace("plotly", quietly = TRUE)) return(NULL)
   ink <- unname(NETRUNNER_PALETTE[["ink"]])
 
-  w <- plotly::ggplotly(p, tooltip = "text")
+  # Already plotly (the area builds itself; see build_faction_area) or a
+  # ggplot still to be converted (the bump). One entry point either way,
+  # so the theming below cannot apply to one chart and not the other.
+  w <- if (inherits(p, "plotly")) p else plotly::ggplotly(p, tooltip = "text")
 
   w <- plotly::layout(
     w,

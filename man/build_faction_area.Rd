@@ -10,18 +10,28 @@ build_faction_area(q)
 \item{q}{Output of faction_quarterly_shares().}
 }
 \value{
-A ggplot, or NULL when ggplot2 is unavailable or there is
-nothing to draw.
+A plotly htmlwidget, or NULL when plotly is unavailable or
+there is nothing to draw.
 }
 \description{
 SHARE, NOT COUNT. The absolute number of tournaments per quarter is
 dominated by how many events happened, which is a fact about the
-calendar and the pandemic rather than about the meta. Filling to 100\%
-asks the question the view is for: of the games won that quarter, who
-won them.
+calendar rather than about the meta. Filling to 100\% asks the question
+the view is for: of the games won that quarter, who won them.
 }
 \details{
-The count is not lost -- it is the bump chart's ordering and the
-summary line's total -- but it is not what this chart is answering.
+BUILT IN PLOTLY DIRECTLY, not as a ggplot handed to ggplotly(). This
+was a ggplot first and it converted to an empty chart: the axes, the
+facet strips and the legend all came across, and the data did not.
+ggplotly() does not implement \code{geom_area(position = "fill")}, and it
+does not say so -- it returns a figure with zero traces, which renders
+as a correctly-labelled blank panel.
+
+plotly stacks natively with \code{stackgroup}, and normalises with
+\code{groupnorm = "percent"}, so the fill is done by the thing drawing it
+rather than by ggplot before conversion.
+
+The two sides are subplots rather than facets for the same reason:
+facets are a ggplot concept and subplot() is plotly's own.
 }
 \keyword{internal}

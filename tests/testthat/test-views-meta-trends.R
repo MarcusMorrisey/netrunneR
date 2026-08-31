@@ -94,19 +94,36 @@ test_that("quarterly shares survive empty and unparsed input", {
   expect_equal(nrow(faction_quarterly_shares(raw, trend_identities)), 0L)
 })
 
-test_that("the trend charts build when ggplot2 is available", {
-  skip_if_not_installed("ggplot2")
+test_that("the area chart is plotly, and actually carries traces", {
+  # THE BUG THIS EXISTS FOR: the area was a ggplot handed to ggplotly(),
+  # and ggplotly does not implement geom_area(position = "fill"). It does
+  # not say so either -- it returned a figure with the axes, the facet
+  # strips and the legend all correct, and ZERO traces, which renders as
+  # a properly labelled blank panel. Counting traces is the only
+  # assertion that would have caught it.
+  skip_if_not_installed("plotly")
   q <- faction_quarterly_shares(trend_tournaments, trend_identities,
                                 trend_factions)
 
   area <- build_faction_area(q)
-  expect_s3_class(area, "ggplot")
+  expect_s3_class(area, "plotly")
 
+  traces <- plotly::plotly_build(area)$x$data
+  expect_gt(length(traces), 0L)
+  # Every faction that won something on either side gets a band.
+  expect_equal(length(traces), nrow(unique(q[q$wins > 0, c("side", "faction_code")])))
+  # Stacked and normalised by plotly rather than by ggplot beforehand.
+  expect_true(all(vapply(traces, function(t) identical(t$stackgroup, "one"),
+                         logical(1))))
+})
+
+test_that("the bump chart is a ggplot with the unranked rows dropped", {
+  skip_if_not_installed("ggplot2")
+  q <- faction_quarterly_shares(trend_tournaments, trend_identities,
+                                trend_factions)
   bump <- build_faction_bump(q)
   expect_s3_class(bump, "ggplot")
-  # The bump plot drops the unranked rows, so it draws fewer points than
-  # the area chart draws stack segments.
-  expect_lt(nrow(bump$data), nrow(area$data))
+  expect_lt(nrow(bump$data), nrow(q))
   expect_false(any(is.na(bump$data$rank)))
 })
 
