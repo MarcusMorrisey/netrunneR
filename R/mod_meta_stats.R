@@ -4,9 +4,11 @@
 #' filter the map carries -- literally the same module, not a second
 #' slider that looks like it (see mod_filter_bar_server()).
 #'
-#' Two charts to start with, both adapted from the analysis notebook: an
-#' interactive treemap of faction wins that drills into a side, and a
-#' waffle of the same wins as percentage squares.
+#' Four figures, all adapted from the analysis notebook and all driven by
+#' the same filtered rows: a treemap drilling side -> faction ->
+#' identity, a filled area of faction share per quarter, a bump chart of
+#' faction rank per quarter, and a chord diagram of which Runner and Corp
+#' factions get brought together.
 #'
 #' GGPLOT2, TREEMAP AND D3TREER ARE SUGGESTS, for the reason sf and tmap
 #' are (see mod_meta_map_ui()): in Imports the whole package fails to
@@ -38,20 +40,52 @@ mod_meta_stats_ui <- function(id) {
         shiny::tags$p(
           class = "small text-muted",
           "Every tournament records one Runner and one Corp winner, so the two ",
-          "halves are equal by construction. What varies is the proportions ",
-          "inside each -- click a half to drill into it."
+          "halves are equal by construction. What varies is inside them -- ",
+          "click a half for its factions, then a faction for its identities."
         ),
         shiny::uiOutput(ns("treemap_slot"))
       ),
       shiny::div(
         class = "nr-stats-block",
-        shiny::h5("One square, one percent"),
+        shiny::h5("Faction share over time"),
         shiny::tags$p(
           class = "small text-muted",
-          "A hundred squares per side. Each is one percent of that side's wins."
+          paste(
+            "Quarterly share of each side's wins, filled to 100%. The raw",
+            "number of events in a quarter is a fact about the calendar",
+            "rather than about the meta, so it is not what this asks.",
+            "Hover a band for its faction, quarter, wins and share."
+          )
         ),
-        shiny::uiOutput(ns("waffle_slot")),
-        shiny::uiOutput(ns("waffle_note"))
+        shiny::uiOutput(ns("area_slot"))
+      ),
+      shiny::div(
+        class = "nr-stats-block",
+        shiny::h5("Faction rank over time"),
+        shiny::tags$p(
+          class = "small text-muted",
+          paste(
+            "Rank 1 is the most-winning faction that quarter. A line breaks",
+            "where a faction won nothing -- it has no rank, rather than a",
+            "position among the other factions on zero. Hover a point for",
+            "its faction, quarter, rank and wins."
+          )
+        ),
+        shiny::uiOutput(ns("bump_slot"))
+      ),
+      shiny::div(
+        class = "nr-stats-block",
+        shiny::h5("Which factions are brought together"),
+        shiny::tags$p(
+          class = "small text-muted",
+          paste(
+            "One tournament, one link: the faction of its winning Runner",
+            "against the faction of its winning Corp. Those are two decks the",
+            "same person brought, so this says which pairs people win with,",
+            "and nothing about which faction beats which."
+          )
+        ),
+        shiny::uiOutput(ns("chord_slot"))
       ),
       abr_attribution_ui(),
       shiny::uiOutput(ns("notes")),
@@ -88,7 +122,9 @@ mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
 
     have_treemap <- requireNamespace("d3treeR", quietly = TRUE) &&
       requireNamespace("treemap", quietly = TRUE)
-    have_ggplot <- requireNamespace("ggplot2", quietly = TRUE)
+    have_ggplot <- requireNamespace("ggplot2", quietly = TRUE) &&
+      requireNamespace("plotly", quietly = TRUE)
+    have_chord <- requireNamespace("chorddiag", quietly = TRUE)
 
     dated <- with_parsed_dates(tournaments)
 
@@ -105,6 +141,28 @@ mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
       d <- in_range()
       if (is.null(d) || !nrow(d)) return(NULL)
       tournament_faction_wins(d, identities, factions)
+    })
+
+    # EVERY FIGURE DERIVES FROM in_range(), so the one filter bar governs
+    # all four and they cannot disagree about which tournaments they drew.
+    identity_wins <- shiny::reactive({
+      d <- in_range()
+      if (is.null(d) || !nrow(d)) return(NULL)
+      w <- tournament_identity_wins(d, identities, factions)
+      if (!nrow(w)) NULL else w
+    })
+
+    quarterly <- shiny::reactive({
+      d <- in_range()
+      if (is.null(d) || !nrow(d)) return(NULL)
+      q <- faction_quarterly_shares(d, identities, factions)
+      if (!nrow(q)) NULL else q
+    })
+
+    pairings <- shiny::reactive({
+      d <- in_range()
+      if (is.null(d) || !nrow(d)) return(NULL)
+      faction_pairing_matrix(d, identities, factions)
     })
 
     output$summary <- shiny::renderUI({
@@ -128,11 +186,11 @@ mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
         if (!have_treemap) {
           return(alert_box(paste(
             "The treemap needs the d3treeR and treemap packages, which are not",
-            "installed in this environment. The waffle below reads the same data."
+            "installed in this environment. The charts below read the same data."
           ), "info"))
         }
-        if (is.null(shaped())) return(no_release_box())
-        d3treeR::d3tree2Output(session$ns("treemap"), height = "520px")
+        if (is.null(identity_wins())) return(no_release_box())
+        d3treeR::d3tree2Output(session$ns("treemap"), height = "620px")
       })
     })
 
@@ -143,58 +201,107 @@ mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
       # Messages belong in the slot above, which is a uiOutput and has
       # somewhere to put them.
       output$treemap <- d3treeR::renderD3tree2({
-        s <- shaped()
-        shiny::req(!is.null(s))
-        h <- faction_treemap_hierarchy(s$wins)
+        w <- identity_wins()
+        shiny::req(!is.null(w))
+        h <- faction_treemap_hierarchy(w)
         shiny::req(!is.null(h))
-        d3treeR::d3tree2(h, width = "100%", height = "500px")
+        d3treeR::d3tree2(h, width = "100%", height = "600px")
       })
     }
 
-    output$waffle_slot <- shiny::renderUI({
-      safe_render(function() {
-        if (!have_ggplot) {
-          return(alert_box(paste(
-            "The waffle needs the ggplot2 package, which is not installed in",
-            "this environment."
-          ), "info"))
-        }
-        if (is.null(shaped())) return(no_release_box())
-        # 700px, NOT the 420 this started at. coord_equal() makes the
-        # squares square by fixing the panel aspect, and two 20x5 panels
-        # at full width want about 570px between them before the legend
-        # and the two strip labels. Given less, ggplot does not shrink --
-        # it aborts the whole plot with "figure margins too large", so
-        # the chart is replaced by an error string rather than a smaller
-        # waffle. Sized for the wide case; a narrow viewport just leaves
-        # space underneath, which theme_void() renders as nothing.
-        shiny::plotOutput(session$ns("waffle"), height = "700px")
-      })
+    # ONE HELPER for two of the three slots, because slots making the
+    # same two decisions in slightly different ways is how one of them
+    # ends up saying something the other does not.
+    chart_slot <- function(ready, id, height) {
+      if (!have_ggplot) {
+        return(alert_box(paste(
+          "This chart needs the ggplot2 and plotly packages, which are not",
+          "installed in this environment."
+        ), "info"))
+      }
+      if (!ready) return(no_release_box())
+      plotly::plotlyOutput(session$ns(id), height = height)
+    }
+
+    output$area_slot <- shiny::renderUI({
+      safe_render(function() chart_slot(!is.null(quarterly()), "area", "460px"))
+    })
+
+    output$bump_slot <- shiny::renderUI({
+      safe_render(function() chart_slot(!is.null(quarterly()), "bump", "520px"))
     })
 
     if (have_ggplot) {
-      output$waffle <- shiny::renderPlot({
-        s <- shaped()
-        shiny::req(!is.null(s))
-        p <- build_faction_waffle(s$wins)
-        shiny::req(!is.null(p))
-        p
-      }, res = 96, bg = "transparent")
+      # safe_render() is NOT used on a widget renderer: it returns an
+      # alert_box() tag on error and a widget output cannot display a
+      # shiny.tag. Messages belong in the slot above, which is a uiOutput.
+      output$area <- plotly::renderPlotly({
+        w <- nr_plotly(build_faction_area(quarterly()))
+        shiny::req(!is.null(w))
+        w
+      })
+
+      output$bump <- plotly::renderPlotly({
+        w <- nr_plotly(build_faction_bump(quarterly()))
+        shiny::req(!is.null(w))
+        w
+      })
     }
 
-    output$waffle_note <- shiny::renderUI({
+    # THE CHORD LIVES IN AN IFRAME, and this is the whole reason the
+    # block below is more complicated than the three above it.
+    #
+    # chorddiag ships d3 4.13.0; d3treeR needs d3 v3 (`d3.scale`,
+    # `d3.ease`, both removed in v4). htmlwidgets deduplicates
+    # dependencies BY NAME and keeps the highest version, so putting both
+    # widgets on one page loads exactly one d3 -- and the loser fails
+    # silently. The treemap rendered as an empty div with no error of its
+    # own; the only clue was chorddiag's d3 in the page source and
+    # `d3.scale` coming back undefined.
+    #
+    # An iframe is a separate document with a separate global scope, so
+    # each widget gets the d3 it was built against. The cost is that the
+    # chord is serialised to self-contained HTML on every filter change,
+    # and that the iframe inherits none of the page's CSS -- hence the
+    # explicit background below rather than a class.
+    output$chord_slot <- shiny::renderUI({
       safe_render(function() {
-        s <- shaped()
-        if (is.null(s) || !nrow(s$wins)) return(NULL)
-        small <- factions_below_resolution(s$wins)
-        if (!nrow(small)) return(NULL)
-        shiny::tags$p(class = "small text-muted", sprintf(
-          "Too few wins to fill a square, so not drawn: %s.",
-          paste(sprintf("%s (%s, %.1f%% of %s)", small$faction,
-                        format(small$wins, big.mark = ","),
-                        small$share * 100, tolower(small$side)),
-                collapse = "; ")
-        ))
+        if (!have_chord) {
+          return(alert_box(paste(
+            "The pairing diagram needs the chorddiag package, which is not",
+            "installed in this environment. The charts above read the same data."
+          ), "info"))
+        }
+        p <- pairings()
+        if (is.null(p)) return(no_release_box())
+
+        colours <- c(unname(FACTION_COLOURS[p$corp]),
+                     unname(FACTION_COLOURS[p$runner]))
+        colours[is.na(colours)] <- "#999999"
+
+        widget <- chorddiag::chorddiag(
+          p$matrix, type = "bipartite", groupColors = colours,
+          categoryNames = c("Corp", "Runner"),
+          groupnamePadding = 40, groupnameFontsize = 11,
+          categorynameFontsize = 13, fadeLevel = 0.25,
+          tooltipUnit = " tournaments", showTicks = FALSE,
+          margin = 90, width = 720, height = 600
+        )
+
+        shiny::tags$iframe(
+          class = "nr-chord-frame",
+          # srcdoc rather than a served file: the widget is regenerated
+          # per filter change, and a temp file per render would need its
+          # own lifetime and cleanup for no benefit.
+          srcdoc = chord_frame_html(widget),
+          width = "100%", height = "640",
+          frameborder = "0", scrolling = "no",
+          # No allow-scripts, no chord. Nothing else is granted: the
+          # document is generated here from our own data, but it is still
+          # a document, and a sandbox that only permits what it needs is
+          # the cheaper habit.
+          sandbox = "allow-scripts"
+        )
       })
     })
 
@@ -236,5 +343,65 @@ mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
 no_release_box <- function() {
   alert_box(
     "No tournaments in range, so there is nothing to chart.", "info"
+  )
+}
+
+#' Serialise a widget into a standalone HTML document
+#'
+#' The iframe needs a whole document, not a tag: `srcdoc` is parsed as
+#' one, so a bare widget would arrive with no scripts at all.
+#'
+#' DEPENDENCIES ARE INLINED BY HAND rather than by
+#' `saveWidget(selfcontained = TRUE)`, which requires **pandoc** -- and
+#' pandoc is not in the sync image, so that call failed at runtime with
+#' nothing but "Something went wrong displaying this" on the page. Adding
+#' pandoc to the image would be tens of megabytes to concatenate a few
+#' files this function can read directly.
+#'
+#' Inlining is also the point rather than a side effect: the frame has to
+#' carry its OWN copy of d3, because sharing the parent's is the exact
+#' collision the frame exists to avoid (see the chord slot above).
+#'
+#' The background is set inline because an iframe inherits no CSS from
+#' the page around it, so the app's stylesheet cannot reach in.
+#'
+#' @param widget An htmlwidget.
+#' @return A single string of HTML.
+#' @keywords internal
+chord_frame_html <- function(widget) {
+  rendered <- htmltools::renderTags(widget)
+  deps <- htmltools::resolveDependencies(rendered$dependencies)
+
+  read_asset <- function(dep, file) {
+    root <- if (!is.null(dep$package)) {
+      system.file(dep$src$file, package = dep$package)
+    } else {
+      dep$src$file
+    }
+    path <- file.path(root, file)
+    if (!file.exists(path)) return("")
+    paste(readLines(path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+  }
+
+  head_content <- vapply(deps, function(dep) {
+    css <- vapply(dep$stylesheet %||% character(0), function(f) {
+      sprintf("<style>%s</style>", read_asset(dep, f))
+    }, character(1))
+    js <- vapply(dep$script %||% character(0), function(f) {
+      sprintf("<script>%s</script>", read_asset(dep, f))
+    }, character(1))
+    paste(c(css, js), collapse = "\n")
+  }, character(1))
+
+  sprintf(
+    paste0(
+      "<!DOCTYPE html><html><head><meta charset=\"utf-8\"/>%s</head>",
+      "<body style=\"margin:0;background:%s;color:%s;",
+      "font-family:system-ui,sans-serif\">%s</body></html>"
+    ),
+    paste(head_content, collapse = "\n"),
+    unname(NETRUNNER_PALETTE[["panel_solid"]]),
+    unname(NETRUNNER_PALETTE[["ink"]]),
+    rendered$html
   )
 }

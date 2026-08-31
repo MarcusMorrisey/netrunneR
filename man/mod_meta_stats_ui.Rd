@@ -15,9 +15,11 @@ filter the map carries -- literally the same module, not a second
 slider that looks like it (see mod_filter_bar_server()).
 }
 \details{
-Two charts to start with, both adapted from the analysis notebook: an
-interactive treemap of faction wins that drills into a side, and a
-waffle of the same wins as percentage squares.
+Four figures, all adapted from the analysis notebook and all driven by
+the same filtered rows: a treemap drilling side -> faction ->
+identity, a filled area of faction share per quarter, a bump chart of
+faction rank per quarter, and a chord diagram of which Runner and Corp
+factions get brought together.
 
 GGPLOT2, TREEMAP AND D3TREER ARE SUGGESTS, for the reason sf and tmap
 are (see mod_meta_map_ui()): in Imports the whole package fails to

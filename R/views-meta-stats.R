@@ -154,16 +154,7 @@ tournament_faction_wins <- function(tournaments, identities, factions = NULL) {
 
   out$faction <- faction_display_name(out$faction_code, factions)
 
-  # THE TWO NEUTRALS ARE DISAMBIGUATED. The cardpool spells both
-  # `neutral-runner` and `neutral-corp` "Neutral", which is unambiguous
-  # in a table with a side column and not in a shared legend -- the
-  # waffle facets by side but draws one legend for both, so it listed
-  # "Neutral" twice in two different colours with nothing to tell them
-  # apart. The side is appended only where a name is actually used more
-  # than once, so nothing else grows a suffix it does not need.
-  dupes <- out$faction[duplicated(out$faction)]
-  needs <- out$faction %in% dupes
-  out$faction[needs] <- sprintf("%s (%s)", out$faction[needs], out$side[needs])
+  out <- disambiguate_faction_names(out)
 
   # Ordered by the fixed list, so the legend and the colours stay put as
   # the date filter moves. A code the list does not know goes last, in
@@ -192,178 +183,119 @@ faction_display_name <- function(codes, factions = NULL) {
   ifelse(is.na(hit), codes, as.character(factions$name)[hit])
 }
 
-#' Fill a fixed number of boxes proportionally, losing nothing
+#' Append the side where two factions share a display name
 #'
-#' LARGEST REMAINDER, not rounding. Rounding each share independently
-#' gives a total of 98 or 103 boxes rather than 100, and a waffle whose
-#' squares do not add up to a square is worse than no waffle. This floors
-#' every share, then hands the leftover boxes to the largest fractional
-#' parts, so the total is exactly `total` for any input.
+#' The cardpool spells both `neutral-runner` and `neutral-corp`
+#' "Neutral", which is unambiguous in a table with a side column and not
+#' in a shared legend -- every chart here facets by side and draws ONE
+#' legend for both, so it listed "Neutral" twice in two different colours
+#' with nothing to tell them apart.
 #'
-#' Ties break by position, which is faction order, so the allocation is
-#' deterministic -- the same data always draws the same chart.
+#' The side is appended only where a name is genuinely used more than
+#' once, so nothing else grows a suffix it does not need.
 #'
-#' @param shares Numeric vector summing to 1.
-#' @param total Integer. Boxes to distribute.
-#' @return Integer vector the same length as `shares`, summing to `total`.
+#' @param d A data frame with `side` and `faction` columns.
+#' @return `d`, with duplicated display names made unique.
 #' @keywords internal
-largest_remainder <- function(shares, total = 100L) {
-  if (!length(shares)) return(integer(0))
-  exact <- shares * total
-  boxes <- floor(exact)
-  short <- total - sum(boxes)
-  if (short > 0) {
-    take <- order(exact - boxes, decreasing = TRUE)[seq_len(short)]
-    boxes[take] <- boxes[take] + 1
-  }
-  as.integer(boxes)
+disambiguate_faction_names <- function(d) {
+  if (is.null(d) || !nrow(d)) return(d)
+  pairs <- unique(d[c("side", "faction")])
+  dupes <- pairs$faction[duplicated(pairs$faction)]
+  needs <- d$faction %in% dupes
+  d$faction[needs] <- sprintf("%s (%s)", d$faction[needs], d$side[needs])
+  d
 }
 
-#' One row per waffle square
+#' Faction wins broken down to the winning identity
 #'
-#' ONE HUNDRED SQUARES PER SIDE, faceted, rather than one hundred shared
-#' between them. See tournament_faction_wins(): the Runner/Corp split is
-#' 50/50 by construction, so a shared grid spends half its squares
-#' restating the rules of the game. Per side, one square is one percent
-#' of that side's wins, which is the question the chart is actually for.
+#' The same counting as tournament_faction_wins(), one level deeper. The
+#' treemap drills side -> faction -> identity, and an identity is the
+#' thing a reader actually recognises: "Anarch won a third of everything"
+#' is a fact about the game, "Hoshiko won a third of Anarch's" is a fact
+#' about the meta.
 #'
-#' @param wins The `wins` frame from tournament_faction_wins().
-#' @param n_rows Integer. Squares per column.
-#' @param total Integer. Squares per side.
-#' @return A data frame of `side`, `faction_code`, `faction`, `row`,
-#'   `column`, one row per square.
+#' Identities are NAMED, not coded. `identities` must carry `title`; a
+#' release predating that column falls back to the code, which is ugly
+#' and visible rather than blank and wrong.
+#'
+#' @param tournaments Rows already filtered.
+#' @param identities The cardpool identity cards.
+#' @param factions The cardpool `faction` table, or NULL.
+#' @return A data frame of `side`, `faction_code`, `faction`, `identity`,
+#'   `wins`, ordered by side, faction order, then wins descending.
 #' @export
-faction_waffle_squares <- function(wins, n_rows = 5L, total = 100L) {
+tournament_identity_wins <- function(tournaments, identities, factions = NULL) {
   empty <- data.frame(side = character(0), faction_code = character(0),
-                      faction = character(0), row = integer(0),
-                      column = integer(0), stringsAsFactors = FALSE)
-  if (is.null(wins) || !nrow(wins)) return(empty)
+                      faction = character(0), identity = character(0),
+                      wins = integer(0), stringsAsFactors = FALSE)
+  if (is.null(tournaments) || !nrow(tournaments) || is.null(identities)) {
+    return(empty)
+  }
 
-  per_side <- lapply(
-    split(wins, factor(wins$side, levels = c("Runner", "Corp"))),
-    function(d) {
-      if (!nrow(d)) return(NULL)
-      d$boxes <- largest_remainder(d$wins / sum(d$wins), total)
-      d <- d[d$boxes > 0, , drop = FALSE]
-      if (!nrow(d)) return(NULL)
-      cells <- d[rep(seq_len(nrow(d)), d$boxes), , drop = FALSE]
-      i <- seq_len(nrow(cells)) - 1L
-      data.frame(
-        side = cells$side, faction_code = cells$faction_code,
-        faction = cells$faction,
-        row = n_rows - i %% n_rows,
-        column = i %/% n_rows + 1L,
-        stringsAsFactors = FALSE
-      )
-    }
-  )
+  fac <- stats::setNames(as.character(identities$faction_code),
+                         as.character(identities$code))
+  nm <- if ("title" %in% names(identities)) {
+    stats::setNames(as.character(identities$title), as.character(identities$code))
+  } else {
+    stats::setNames(as.character(identities$code), as.character(identities$code))
+  }
+  blank <- function(x) is.na(x) | !nzchar(as.character(x))
 
-  out <- do.call(rbind, per_side[!vapply(per_side, is.null, logical(1))])
-  if (is.null(out)) return(empty)
+  own <- function(side) {
+    if (is.null(factions) || !nrow(factions)) return(NULL)
+    as.character(factions$code)[tolower(as.character(factions$side)) == side]
+  }
+
+  one <- function(col, side, allowed) {
+    codes <- as.character(tournaments[[col]])
+    codes <- codes[!blank(codes)]
+    fc <- unname(fac[codes])
+    ok <- !is.na(fc)
+    # The same side filter the totals apply, so a mis-filed winner does
+    # not appear as an identity of a faction it cannot belong to.
+    if (!is.null(allowed)) ok <- ok & fc %in% allowed
+    if (!any(ok)) return(empty)
+    tab <- table(fc[ok], unname(nm[codes[ok]]))
+    idx <- which(tab > 0, arr.ind = TRUE)
+    data.frame(
+      side = side,
+      faction_code = rownames(tab)[idx[, 1]],
+      faction = rownames(tab)[idx[, 1]],
+      identity = colnames(tab)[idx[, 2]],
+      wins = as.integer(tab[idx]),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  out <- rbind(one("winner_runner_identity", "Runner", own("runner")),
+               one("winner_corp_identity", "Corp", own("corp")))
+  if (!nrow(out)) return(empty)
+
+  out$faction <- faction_display_name(out$faction_code, factions)
+  out <- disambiguate_faction_names(out)
+
+  rank <- match(out$faction_code, FACTION_ORDER)
+  rank[is.na(rank)] <- length(FACTION_ORDER) + seq_len(sum(is.na(rank)))
+  out <- out[order(factor(out$side, levels = c("Runner", "Corp")), rank,
+                   -out$wins, out$identity), , drop = FALSE]
   rownames(out) <- NULL
   out
 }
 
-#' Factions with a win but not enough for one square
-#'
-#' At one square per percent, a faction under half a percent of its
-#' side rounds to nothing -- Apex, with 19 wins, is 0.45% of the Runner
-#' side and draws no square at all.
-#'
-#' They are NOT given a square anyway. A hundred squares meaning a
-#' hundred percent is the whole contract of the chart, and topping up the
-#' small factions breaks it silently. They are named underneath instead,
-#' which says the same thing without lying about the arithmetic.
-#'
-#' @param wins The `wins` frame from tournament_faction_wins().
-#' @param n_rows,total As faction_waffle_squares().
-#' @return The rows of `wins` that draw no square.
-#' @keywords internal
-factions_below_resolution <- function(wins, n_rows = 5L, total = 100L) {
-  if (is.null(wins) || !nrow(wins)) return(wins)
-  drawn <- faction_waffle_squares(wins, n_rows = n_rows, total = total)
-  wins[!wins$faction_code %in% drawn$faction_code, , drop = FALSE]
-}
-
-#' The faction waffle
-#'
-#' @param wins The `wins` frame from tournament_faction_wins().
-#' @param n_rows Integer. Squares per column.
-#' @return A ggplot, or NULL when ggplot2 is unavailable or there is
-#'   nothing to draw.
-#' @keywords internal
-build_faction_waffle <- function(wins, n_rows = 5L) {
-  if (!requireNamespace("ggplot2", quietly = TRUE)) return(NULL)
-  squares <- faction_waffle_squares(wins, n_rows = n_rows)
-  if (!nrow(squares)) return(NULL)
-
-  # Levels come from what was actually DRAWN, in fixed order. Taking them
-  # from `wins` instead put a legend entry with no swatch next to it for
-  # any faction whose share rounded to zero squares -- ggplot2 draws no
-  # key glyph for a level with no rows, so the reader got a floating
-  # label attached to nothing. Those factions are named under the chart
-  # by factions_below_resolution() instead.
-  #
-  # Fixed order regardless: never resorted by size, so the legend does
-  # not reshuffle as the date filter moves.
-  lv <- intersect(unique(wins$faction_code), unique(squares$faction_code))
-  squares$fill <- factor(squares$faction_code, levels = lv)
-  squares$side <- factor(squares$side, levels = c("Runner", "Corp"))
-  labels <- wins$faction[match(lv, wins$faction_code)]
-  values <- unname(FACTION_COLOURS[lv])
-  values[is.na(values)] <- "#999999"
-
-  ggplot2::ggplot(squares, ggplot2::aes(x = .data$column, y = .data$row,
-                                        fill = .data$fill)) +
-    ggplot2::geom_tile(width = 0.86, height = 0.86,
-                       colour = unname(NETRUNNER_PALETTE[["ground"]]),
-                       linewidth = 0.3) +
-    ggplot2::facet_wrap(~side, ncol = 1) +
-    ggplot2::scale_fill_manual(values = values, labels = labels, name = NULL,
-                               drop = FALSE) +
-    ggplot2::scale_x_continuous(breaks = NULL, expand = c(0, 0)) +
-    ggplot2::scale_y_continuous(breaks = NULL, expand = c(0, 0)) +
-    ggplot2::guides(fill = ggplot2::guide_legend(nrow = 2, byrow = TRUE)) +
-    ggplot2::coord_equal() +
-    ggplot2::labs(x = NULL, y = NULL) +
-    ggplot2::theme_void() +
-    ggplot2::theme(
-      # TRANSPARENT, NOT WHITE. renderPlot() draws on white by default,
-      # which on this app's black ground puts a bright rectangle around
-      # the chart -- the plot stops being part of the page and starts
-      # being an image pasted onto it. Transparent here AND bg =
-      # "transparent" at the renderPlot() call; either one alone still
-      # leaves a white panel behind the squares.
-      plot.background = ggplot2::element_rect(fill = "transparent", colour = NA),
-      panel.background = ggplot2::element_rect(fill = "transparent", colour = NA),
-      legend.background = ggplot2::element_rect(fill = "transparent", colour = NA),
-      legend.key = ggplot2::element_rect(fill = "transparent", colour = NA),
-      strip.text = ggplot2::element_text(size = 13, face = "bold", hjust = 0,
-                                         colour = unname(NETRUNNER_PALETTE[["ink_bright"]]),
-                                         margin = ggplot2::margin(t = 6, b = 4)),
-      legend.position = "bottom",
-      legend.text = ggplot2::element_text(
-        size = 9, colour = unname(NETRUNNER_PALETTE[["ink"]])
-      ),
-      legend.key.size = grid::unit(0.5, "cm"),
-      plot.margin = ggplot2::margin(4, 4, 4, 4)
-    )
-}
-
 #' The nested structure the interactive treemap draws
 #'
-#' Two branches, Runner and Corp, each holding its factions. The two
-#' branches are equal in area BY CONSTRUCTION and not by measurement --
-#' see tournament_faction_wins(). They are kept because the drill-down is
-#' the point: the proportions inside each branch are what vary, and the
-#' view says so above the chart rather than leaving a reader to conclude
-#' from equal halves that the sides are evenly matched.
+#' THREE LEVELS: side, then faction, then identity. The two branches are
+#' equal in area BY CONSTRUCTION and not by measurement -- every
+#' tournament records one Runner winner and one Corp winner, so the split
+#' is a fact about the format. They are kept because the drill-down is
+#' the point, and the view says so above the chart rather than leaving a
+#' reader to read "evenly matched" off equal halves.
 #'
-#' Percentages in the labels are within side, matching the waffle, so the
-#' two charts on the page cannot quote different numbers for the same
-#' faction.
+#' Faction percentages are within side and identity counts are raw wins.
+#' A percentage three levels deep is a share of a share of a half, which
+#' is a number nobody can hold; the count is what a reader can compare.
 #'
-#' @param wins The `wins` frame from tournament_faction_wins().
+#' @param wins A data frame from tournament_identity_wins().
 #' @return A nested list suitable for `d3treeR::d3tree2()`, or NULL when
 #'   there is nothing to draw.
 #' @keywords internal
@@ -376,15 +308,23 @@ faction_treemap_hierarchy <- function(wins) {
   list(
     name = "Tournament wins",
     children = unname(lapply(sides, function(d) {
+      side_total <- sum(d$wins)
+      by_faction <- split(d, factor(d$faction_code, levels = unique(d$faction_code)))
       list(
         name = as.character(d$side[[1]]),
         color = if (identical(as.character(d$side[[1]]), "Runner")) "#2B6CB0" else "#C53030",
-        children = unname(lapply(seq_len(nrow(d)), function(i) {
-          colour <- unname(FACTION_COLOURS[d$faction_code[[i]]])
+        children = unname(lapply(by_faction, function(f) {
+          colour <- unname(FACTION_COLOURS[f$faction_code[[1]]])
+          if (is.na(colour)) colour <- "#999999"
           list(
-            name = sprintf("%s (%.1f%%)", d$faction[[i]], d$share[[i]] * 100),
-            size = d$wins[[i]],
-            color = if (is.na(colour)) "#999999" else colour
+            name = sprintf("%s (%.1f%%)", f$faction[[1]],
+                           sum(f$wins) / side_total * 100),
+            color = colour,
+            children = unname(lapply(seq_len(nrow(f)), function(i) list(
+              name = sprintf("%s (%d)", f$identity[[i]], f$wins[[i]]),
+              size = f$wins[[i]],
+              color = colour
+            )))
           )
         }))
       )
