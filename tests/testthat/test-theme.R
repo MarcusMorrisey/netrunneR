@@ -81,7 +81,8 @@ test_that("the map's surface colours are distinct from the page ground", {
   # `map_nodata` is land nobody has reported a tournament in. If either
   # equals the page ground the map loses its edge and reads as a hole cut
   # in the page rather than as a map.
-  expect_named(NETRUNNER_MAP_SURFACE, c("map_water", "map_nodata", "map_edge"))
+  expect_named(NETRUNNER_MAP_SURFACE,
+               c("map_water", "map_nodata", "map_edge", "map_point"))
   expect_true(all(grepl("^#[0-9A-Fa-f]{6}$", NETRUNNER_MAP_SURFACE)))
   expect_false(any(toupper(NETRUNNER_MAP_SURFACE) ==
                      toupper(NETRUNNER_PALETTE[["ground"]])))
@@ -121,4 +122,21 @@ test_that("the app declares no tile provider at all", {
   src <- readLines(test_path("..", "..", "R", "mod_meta_map.R"), warn = FALSE)
   expect_true(any(grepl("tm_basemap(NULL)", src, fixed = TRUE)))
   expect_false(any(grepl("cartocdn|CartoDB|arcgisonline", src)))
+})
+
+
+test_that("the venue bubbles do not compete with the choropleth", {
+  # The ramp runs TO the accent, so amber bubbles sat on amber countries
+  # and the two layers read as one -- which defeats a point layer whose
+  # whole job is to be separable from the surface under it.
+  point <- NETRUNNER_MAP_SURFACE[["map_point"]]
+  expect_false(toupper(point) == toupper(NETRUNNER_PALETTE[["accent"]]))
+  expect_false(toupper(point) %in% toupper(NETRUNNER_MAP_RAMP))
+
+  # Separated on HUE, not only on lightness: that is what keeps the
+  # bubbles legible over the bright end of the ramp as well as the dim.
+  hue <- function(h) grDevices::rgb2hsv(grDevices::col2rgb(h))["h", 1]
+  gap <- abs(hue(point) - hue(NETRUNNER_MAP_RAMP[[6]]))
+  gap <- min(gap, 1 - gap)
+  expect_gt(gap, 0.25)
 })

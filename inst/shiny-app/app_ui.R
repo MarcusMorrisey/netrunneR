@@ -13,7 +13,19 @@ app_ui <- function() {
     # app root. Everything needing a selector lives there; everything
     # expressible as a Bootstrap variable lives in netrunner_theme().
     shiny::tags$head(
-      shiny::tags$link(rel = "stylesheet", type = "text/css", href = "netrunner.css")
+      # THE HREF CARRIES THE FILE'S MTIME. Without it the browser holds a
+      # cached netrunner.css across app restarts -- so a stylesheet
+      # change ships, the server serves it, and the page keeps rendering
+      # against the old one. That is not merely slow to notice: it looks
+      # exactly like a CSS change that did not work, and the obvious next
+      # move is to "fix" a rule that was already correct.
+      #
+      # The value only has to change when the file does, so its mtime is
+      # enough and needs no build step.
+      shiny::tags$link(
+        rel = "stylesheet", type = "text/css",
+        href = sprintf("netrunner.css?v=%s", stylesheet_version())
+      )
     ),
     # THE CHROME IS OUTSIDE `main`, and that is load-bearing rather than
     # tidy. Everything inside `main` is destroyed and rebuilt when the
@@ -38,4 +50,17 @@ app_ui <- function() {
     ),
     shiny::uiOutput("main")
   )
+}
+
+#' A cache-busting token for the stylesheet
+#'
+#' The file's modification time, as an integer. Falls back to the session
+#' start time when the file cannot be found -- a token that changes too
+#' often costs one re-download, while one that never changes costs a
+#' confusing afternoon.
+#' @keywords internal
+stylesheet_version <- function() {
+  path <- system.file("shiny-app", "www", "netrunner.css", package = "netrunneR")
+  if (!nzchar(path) || !file.exists(path)) return(as.integer(Sys.time()))
+  as.integer(file.info(path)$mtime)
 }

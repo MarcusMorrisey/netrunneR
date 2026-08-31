@@ -291,9 +291,15 @@ tournament_identity_wins <- function(tournaments, identities, factions = NULL) {
 #' the point, and the view says so above the chart rather than leaving a
 #' reader to read "evenly matched" off equal halves.
 #'
-#' Faction percentages are within side and identity counts are raw wins.
-#' A percentage three levels deep is a share of a share of a half, which
-#' is a number nobody can hold; the count is what a reader can compare.
+#' EACH LEVEL IS A SHARE OF THE ONE ABOVE IT. A faction's percentage is
+#' of its side; an identity's is of its FACTION, not of the side and not
+#' of everything. A share of a share of a half is a number nobody can
+#' hold, and the only denominator that helps at the bottom is the box the
+#' reader just clicked into.
+#'
+#' The count rides alongside it, because a percentage on its own hides
+#' how much is behind it -- 50% of a faction with four wins and 50% of
+#' one with four hundred are not the same claim.
 #'
 #' @param wins A data frame from tournament_identity_wins().
 #' @return A nested list suitable for `d3treeR::d3tree2()`, or NULL when
@@ -316,12 +322,14 @@ faction_treemap_hierarchy <- function(wins) {
         children = unname(lapply(by_faction, function(f) {
           colour <- unname(FACTION_COLOURS[f$faction_code[[1]]])
           if (is.na(colour)) colour <- "#999999"
+          faction_total <- sum(f$wins)
           list(
             name = sprintf("%s (%.1f%%)", f$faction[[1]],
                            sum(f$wins) / side_total * 100),
             color = colour,
             children = unname(lapply(seq_len(nrow(f)), function(i) list(
-              name = sprintf("%s (%d)", f$identity[[i]], f$wins[[i]]),
+              name = sprintf("%s (%d, %.1f%%)", f$identity[[i]], f$wins[[i]],
+                             f$wins[[i]] / faction_total * 100),
               size = f$wins[[i]],
               color = colour
             )))

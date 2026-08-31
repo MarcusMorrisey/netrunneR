@@ -242,8 +242,12 @@ test_that("the treemap nests side, faction and identity", {
   # can hold.
   expect_equal(anarch$name, "Anarch (100.0%)")
   expect_equal(anarch$color, unname(FACTION_COLOURS[["anarch"]]))
+  # Count AND share, because a percentage alone hides how much is behind
+  # it: 50% of a faction with four wins and 50% of one with four hundred
+  # are not the same claim. The share is of the FACTION, which is the box
+  # the reader just clicked into.
   expect_equal(vapply(anarch$children, function(x) x$name, character(1)),
-               c("Hoshiko (2)", "Reina (1)"))
+               c("Hoshiko (2, 66.7%)", "Reina (1, 33.3%)"))
   expect_equal(anarch$children[[1]]$size, 2L)
 })
 

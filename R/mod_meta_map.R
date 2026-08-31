@@ -343,11 +343,12 @@ build_tournament_map <- function(counts, venues) {
           frame = TRUE,
           frame.color = unname(NETRUNNER_PALETTE[["ink_quiet"]])
         ),
-        # The accent, because venues are the layer a reader is most
-        # likely to be hunting for, and it is the colour this app already
-        # uses to say so. Outlined in the ground colour so overlapping
-        # bubbles stay countable instead of merging into one blob.
-        fill = unname(NETRUNNER_PALETTE[["accent"]]),
+        # NOT the accent: see NETRUNNER_MAP_SURFACE["map_point"]. The
+        # choropleth ramp ends at the accent, so amber bubbles over amber
+        # countries made the two layers into one. Outlined in the ground
+        # colour so overlapping bubbles stay countable rather than merging
+        # into a single blob.
+        fill = unname(NETRUNNER_MAP_SURFACE[["map_point"]]),
         fill_alpha = 0.75,
         col = unname(NETRUNNER_PALETTE[["ground"]]),
         lwd = 0.6,

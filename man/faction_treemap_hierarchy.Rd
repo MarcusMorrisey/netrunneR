@@ -22,8 +22,14 @@ the point, and the view says so above the chart rather than leaving a
 reader to read "evenly matched" off equal halves.
 }
 \details{
-Faction percentages are within side and identity counts are raw wins.
-A percentage three levels deep is a share of a share of a half, which
-is a number nobody can hold; the count is what a reader can compare.
+EACH LEVEL IS A SHARE OF THE ONE ABOVE IT. A faction's percentage is
+of its side; an identity's is of its FACTION, not of the side and not
+of everything. A share of a share of a half is a number nobody can
+hold, and the only denominator that helps at the bottom is the box the
+reader just clicked into.
+
+The count rides alongside it, because a percentage on its own hides
+how much is behind it -- 50\% of a faction with four wins and 50\% of
+one with four hundred are not the same claim.
 }
 \keyword{internal}

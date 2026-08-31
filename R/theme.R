@@ -97,7 +97,18 @@ NETRUNNER_MAP_SURFACE <- c(
   # ramp -- see above.
   map_nodata = "#2A2F36",
   # Just visible against map_nodata, and against nothing else.
-  map_edge   = "#171B21"
+  map_edge   = "#171B21",
+  # THE VENUE BUBBLES, and deliberately not the accent. The choropleth's
+  # ramp runs TO #ffa600, so amber bubbles sat on amber countries and the
+  # two layers read as one -- which defeats a point layer whose whole job
+  # is to be separable from the surface under it.
+  #
+  # This is the panel slate brightened until it reads as a mark rather
+  # than a surface. It is complementary to the ramp -- that hue is about
+  # 39 degrees, this one about 200 -- so the bubbles separate on HUE and
+  # not only on lightness, which is what keeps them legible over the
+  # bright end of the ramp as well as the dim end.
+  map_point  = "#4FB3E8"
 )
 
 #' The app's base font, degrading rather than failing

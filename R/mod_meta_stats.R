@@ -88,8 +88,7 @@ mod_meta_stats_ui <- function(id) {
         shiny::uiOutput(ns("chord_slot"))
       ),
       abr_attribution_ui(),
-      shiny::uiOutput(ns("notes")),
-      shiny::uiOutput(ns("misfiled"))
+      shiny::uiOutput(ns("notes"))
     )
   )
 }
@@ -190,7 +189,19 @@ mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
           ), "info"))
         }
         if (is.null(identity_wins())) return(no_release_box())
-        d3treeR::d3tree2Output(session$ns("treemap"), height = "620px")
+        # WRAPPED IN A MIN-WIDTH SCROLLER. d3treeR sizes its boxes from
+        # the container ONCE, at render, and ships no resize handler --
+        # so a tab laid out at zero width (a background tab) draws a
+        # treemap of zero-width rectangles and never redraws it. The
+        # chord had the same failure and was fixed the same way.
+        #
+        # A min-width rather than a fixed width, so the map still fills a
+        # wide screen; the scroller is what keeps a narrow one usable
+        # instead of squashed.
+        shiny::div(
+          class = "nr-wide-scroll",
+          d3treeR::d3tree2Output(session$ns("treemap"), height = "620px")
+        )
       })
     })
 
@@ -205,7 +216,51 @@ mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
         shiny::req(!is.null(w))
         h <- faction_treemap_hierarchy(w)
         shiny::req(!is.null(h))
-        d3treeR::d3tree2(h, width = "100%", height = "600px")
+        # LABELS ARE SIZED TO THEIR BOX AND HIDDEN WHEN THEY CANNOT FIT.
+        # A treemap cannot repel labels the way a scatter plot can: every
+        # rectangle is where its value puts it, so a label that does not
+        # fit has nowhere to go. d3tree2 draws them all at one size
+        # anyway, which turned the small identity boxes into overlapping
+        # smears of text along the bottom of each faction.
+        #
+        # Drawing nothing there is the honest answer. The box is still
+        # visible, still hoverable and still clickable, and a reader who
+        # wants the small ones drills into the faction, where they get the
+        # whole width to themselves.
+        #
+        # The timeout is because d3tree2 animates its zoom and the boxes
+        # have no final geometry until that lands.
+        htmlwidgets::onRender(
+          d3treeR::d3tree2(h, width = "100%", height = "600px"),
+          "
+          function(el) {
+            function fitLabels() {
+              d3.select(el).selectAll('g.depth > g').each(function() {
+                var g = d3.select(this);
+                var box = g.select('rect.parent');
+                var label = g.select('text');
+                if (box.empty() || label.empty()) return;
+                var w = +box.attr('width'), h = +box.attr('height');
+                var chars = Math.max(label.text().length, 1);
+                var size = Math.max(9, Math.min(22, w / chars * 1.7, h * 0.4));
+                label
+                  .attr('x', +box.attr('x') + w / 2)
+                  .attr('y', +box.attr('y') + h / 2)
+                  .attr('dy', '0.35em')
+                  .attr('text-anchor', 'middle')
+                  .style('font-size', size + 'px')
+                  .style('font-weight', '600')
+                  .style('pointer-events', 'none')
+                  .style('display', (w < chars * 4.5 || h < 16) ? 'none' : null);
+              });
+            }
+            fitLabels();
+            el.addEventListener('click', function() {
+              window.setTimeout(fitLabels, 800);
+            });
+          }
+          "
+        )
       })
     }
 
@@ -317,22 +372,6 @@ mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
           "Drawn in grey, because there is no faction colour for: %s.",
           paste(sort(unknown), collapse = ", ")
         ), "warning")
-      })
-    })
-
-    output$misfiled <- shiny::renderUI({
-      safe_render(function() {
-        s <- shaped()
-        if (is.null(s) || !s$misfiled) return(NULL)
-        # Named rather than quietly dropped: these are wins that exist and
-        # are not in the chart, and the reason is an upstream entry error
-        # rather than anything this view decided.
-        alert_box(sprintf(paste(
-          "%s %s credited to a faction from the other side and left out --",
-          "a Corp identity recorded as the Runner winner, or the reverse.",
-          "The upstream entry is wrong; there is no reading of the game in",
-          "which they are right."
-        ), s$misfiled, if (s$misfiled == 1) "win was" else "wins were"), "info")
       })
     })
   })

@@ -147,35 +147,7 @@ test_that("the nav strip offers all three views", {
 })
 
 
-test_that("a wrong-side winner is named under the charts", {
-  ids <- rbind(stats_identities,
-               data.frame(code = "id_bad", faction_code = "haas-bioroid",
-                          stringsAsFactors = FALSE))
-  t <- stats_tournaments
-  t$winner_runner_identity[[1]] <- "id_bad"
-  shiny::testServer(
-    mod_meta_stats_server,
-    args = list(tournaments = t, identities = ids, factions = stats_factions),
-    {
-      session$flushReact()
-      expect_equal(shaped()$misfiled, 1L)
-      expect_match(as.character(output$misfiled$html), "other side")
-    }
-  )
-})
 
-test_that("nothing is said about wrong sides when there are none", {
-  shiny::testServer(
-    mod_meta_stats_server,
-    args = list(tournaments = stats_tournaments, identities = stats_identities,
-                factions = stats_factions),
-    {
-      session$flushReact()
-      expect_equal(shaped()$misfiled, 0L)
-      expect_null(output$misfiled$html)
-    }
-  )
-})
 
 
 test_that("every figure reads the same filtered rows", {
@@ -203,6 +175,30 @@ test_that("every figure reads the same filtered rows", {
       # Two tournaments in one quarter: one period, and both sides in it.
       expect_equal(length(unique(quarterly()$period)), 1L)
       expect_equal(sum(identity_wins()$wins[identity_wins()$side == "Runner"]), 2L)
+    }
+  )
+})
+
+
+test_that("wrong-side wins are still counted, just no longer announced", {
+  # The banner is gone from the page -- it was a standing caveat about
+  # two rows in four thousand, which is noise rather than information at
+  # that ratio. The COUNT stays in the shaped data, so nothing that wants
+  # it has lost it.
+  ids <- rbind(stats_identities,
+               data.frame(code = "id_bad", faction_code = "haas-bioroid",
+                          stringsAsFactors = FALSE))
+  t <- stats_tournaments
+  t$winner_runner_identity[[1]] <- "id_bad"
+  shiny::testServer(
+    mod_meta_stats_server,
+    args = list(tournaments = t, identities = ids, factions = stats_factions),
+    {
+      session$flushReact()
+      expect_equal(shaped()$misfiled, 1L)
+      # And the row itself is genuinely out of the charts.
+      expect_false("haas-bioroid" %in%
+                     shaped()$wins$faction_code[shaped()$wins$side == "Runner"])
     }
   )
 })
