@@ -196,11 +196,20 @@ rotation_periods <- function(rotation, max_date = Sys.Date()) {
 #' these, so the faction code is a complete and exact test -- naming the
 #' seven would be the same set, spelled in a way that goes stale.
 #'
-#' They win 153 of the 4,431 tournaments in the current release, 147 of
+#' They win 155 of the 4,431 tournaments in the current release, 148 of
 #' those on both sides at once, which is what a draft event looks like.
 #' The interesting residue is the 67 filed under `standard`: a draft
 #' identity cannot legally win a standard event, so those are
 #' mis-recorded rather than surprising.
+#'
+#' 155, NOT THE 153 FIRST REPORTED. The first count asked whether the
+#' Runner slot held a neutral-RUNNER identity or the Corp slot a
+#' neutral-CORP one, and so missed three tournaments that record a draft
+#' identity in the wrong slot entirely -- two Corp identities filed as
+#' the Runner winner, one the other way. This function returns the codes
+#' and the caller checks both slots against all of them, which is the
+#' right question: a draft identity anywhere in a result makes it a draft
+#' result, whichever column it landed in.
 #'
 #' @param identities The cardpool identity cards.
 #' @return Character vector of card codes.

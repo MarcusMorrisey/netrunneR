@@ -866,14 +866,21 @@ a.nr-preset:hover, a.nr-preset:focus {
 
 /* SELECTED IS THE ACCENT, and filled rather than outlined. A chip row
    where the on and off states differ only in border colour is a row
-   whose state you have to concentrate to read. */
-.nr-chip-row .btn-nr-chip.active {
+   whose state you have to concentrate to read.
+ *
+ * `.btn-check:checked + .btn`, NOT `.btn.active`. checkboxGroupButtons()
+ * renders Bootstrap 5's toggle pattern: a visually hidden checkbox
+ * carrying the state, and a sibling <label class="btn"> carrying the
+ * appearance. Nothing ever gets an `.active` class, so the first version
+ * of this rule matched nothing -- the chips filtered correctly and gave
+ * no sign at all of which one was on. */
+.nr-chip-row .btn-check:checked + .btn-nr-chip {
   background: var(--nr-accent-dim);
   border-color: var(--nr-accent);
   color: var(--nr-accent);
   font-weight: 600;
 }
-.nr-chip-row .btn-nr-chip:focus-visible {
+.nr-chip-row .btn-check:focus-visible + .btn-nr-chip {
   outline: 2px solid var(--nr-accent);
   outline-offset: 1px;
 }

@@ -230,8 +230,12 @@ mod_filter_bar_server <- function(id, tournaments = NULL, rotation = NULL,
                   shiny::tags$span(class = "nr-preset-label", "Type:"),
                   shinyWidgets::checkboxGroupButtons(
                     session$ns("types"), label = NULL,
+                    # trim = TRUE, or format() pads every count to the
+                    # width of the largest and the chips read
+                    # "worlds championship (   11)".
                     choices = stats::setNames(types$type, sprintf(
-                      "%s (%s)", types$type, format(types$n, big.mark = ",")
+                      "%s (%s)", types$type,
+                      format(types$n, big.mark = ",", trim = TRUE)
                     )),
                     selected = cur$types,
                     status = "nr-chip", size = "sm", individual = TRUE
