@@ -890,3 +890,45 @@ a.nr-preset:hover, a.nr-preset:focus {
    see the reasoning for. */
 .nr-chip-row .material-switch { margin: 0; }
 .nr-chip-row .form-group { margin-bottom: 0; }
+
+/* CLEAR ALL sits in the summary row, so it is reachable while the panel
+   is collapsed -- which is when a reader is most likely to have lost
+   track of what is applied. Pushed to the far end so it is never
+   mistaken for part of the applied-filters text beside it. */
+.nr-clear-all {
+  margin-left: auto;
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--nr-ink-quiet);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.nr-clear-all:hover {
+  color: var(--nr-accent);
+  border-bottom-color: var(--nr-accent);
+}
+
+/* The sub-type picker. bootstrap-select renders its own button and menu,
+   both of which arrive white; these are the surfaces it exposes. */
+.nr-chip-row .bootstrap-select > .btn,
+.nr-chip-row .bootstrap-select .dropdown-menu,
+.nr-chip-row .bootstrap-select .dropdown-menu .dropdown-item {
+  background: var(--nr-panel-solid);
+  color: var(--nr-ink);
+  border-color: var(--nr-panel-edge);
+}
+.nr-chip-row .bootstrap-select > .btn {
+  border-radius: 999px;
+  font-size: 0.74rem;
+}
+.nr-chip-row .bootstrap-select .dropdown-item.active,
+.nr-chip-row .bootstrap-select .dropdown-item:hover {
+  background: var(--nr-accent-dim);
+  color: var(--nr-accent);
+}
+.nr-chip-row .bootstrap-select .bs-searchbox input {
+  background: var(--nr-ground);
+  color: var(--nr-ink);
+  border: 1px solid var(--nr-panel-edge);
+}

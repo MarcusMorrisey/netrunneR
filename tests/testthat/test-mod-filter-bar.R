@@ -65,8 +65,7 @@ test_that("a preset is clipped to the data, not to the rotation", {
 
 test_that("dates filter inclusively at both ends", {
   d <- with_parsed_dates(tournaments_fixture)
-  f <- list(dates = as.Date(c("2019-05-04", "2021-09-11")), types = character(0),
-            include_draft = TRUE)
+  f <- list(dates = as.Date(c("2019-05-04", "2021-09-11")), types = character(0))
   expect_equal(nrow(apply_tournament_filters(d, f, character(0))), 2L)
 
   expect_equal(nrow(apply_tournament_filters(d, NULL)), 4L)
@@ -78,13 +77,13 @@ test_that("an empty type selection means every type, not none", {
   # filter is asking to see everything; a chart that vanishes instead
   # reads as a crash.
   d <- with_parsed_dates(tournaments_fixture)
-  f <- list(dates = NULL, types = character(0), include_draft = TRUE)
+  f <- list(dates = NULL, types = character(0))
   expect_equal(nrow(apply_tournament_filters(d, f)), 4L)
 })
 
 test_that("type chips narrow to the chosen types", {
   d <- with_parsed_dates(tournaments_fixture)
-  f <- list(dates = NULL, types = "store championship", include_draft = TRUE)
+  f <- list(dates = NULL, types = "store championship")
   expect_equal(nrow(apply_tournament_filters(d, f)), 2L)
 
   f$types <- c("store championship", "worlds championship")
@@ -99,25 +98,30 @@ test_that("a release with no type column ignores the type filter", {
   old <- tournaments_fixture
   old$type <- NULL
   d <- with_parsed_dates(old)
-  f <- list(dates = NULL, types = "store championship", include_draft = TRUE)
+  f <- list(dates = NULL, types = "store championship")
   expect_equal(nrow(apply_tournament_filters(d, f)), 4L)
 })
 
-test_that("draft identities are excluded by default and restorable", {
+test_that("draft identities are always excluded", {
+  # Not a default with a switch beside it. There is no reading of these
+  # charts in which a draft result belongs, and a control offering to put
+  # wrong data back would make every figure mean "unless someone flipped
+  # that".
   d <- with_parsed_dates(tournaments_fixture)
   codes <- draft_identity_codes(identities_fixture)
   expect_setequal(codes, c("id_draft_r", "id_draft_c"))
 
   out <- apply_tournament_filters(
-    d, list(dates = NULL, types = character(0), include_draft = FALSE), codes
+    d, list(dates = NULL, types = character(0)), codes
   )
   expect_equal(nrow(out), 3L)
   expect_false("id_draft_r" %in% out$winner_runner_identity)
 
+  # No combination of filter values brings them back.
   back <- apply_tournament_filters(
     d, list(dates = NULL, types = character(0), include_draft = TRUE), codes
   )
-  expect_equal(nrow(back), 4L)
+  expect_equal(nrow(back), 3L)
 })
 
 test_that("a draft winner on either side alone is still a draft result", {
@@ -128,9 +132,7 @@ test_that("a draft winner on either side alone is still a draft result", {
     stringsAsFactors = FALSE
   ))
   codes <- draft_identity_codes(identities_fixture)
-  out <- apply_tournament_filters(
-    d, list(dates = NULL, types = character(0), include_draft = FALSE), codes
-  )
+  out <- apply_tournament_filters(d, list(dates = NULL, types = character(0)), codes)
   expect_equal(nrow(out), 0L)
 })
 
@@ -169,7 +171,7 @@ test_that("tournament_types is empty when the column is absent", {
 
 # ---- the module ------------------------------------------------------
 
-test_that("the bar reports the full range, no types, no drafts, up front", {
+test_that("the bar reports the full range and no narrowing, up front", {
   # The first pass of every downstream reactive happens before renderUI
   # has produced a control. Without a populated starting state the views
   # draw nothing and flicker.
@@ -179,8 +181,8 @@ test_that("the bar reports the full range, no types, no drafts, up front", {
     {
       f <- session$getReturned()()
       expect_equal(f$dates, as.Date(c("2019-05-04", "2026-08-27")))
+      expect_equal(f$group, "all")
       expect_equal(f$types, character(0))
-      expect_false(f$include_draft)
     }
   )
 })
@@ -197,7 +199,7 @@ test_that("moving the slider changes what the bar reports", {
   )
 })
 
-test_that("chips and the draft switch reach the returned selection", {
+test_that("the group and the sub-type picker reach the returned selection", {
   shiny::testServer(
     mod_filter_bar_server,
     args = list(tournaments = tournaments_fixture, identities = identities_fixture),
@@ -205,16 +207,50 @@ test_that("chips and the draft switch reach the returned selection", {
       session$setInputs(types = "store championship")
       expect_equal(session$getReturned()()$types, "store championship")
 
-      # Clearing every chip sends NULL, and that is a real selection
-      # meaning "all types" -- not an absence to be ignored.
+      # Clearing the picker sends NULL, and that is a real selection
+      # meaning "every type in this group" -- not an absence to ignore.
       session$setInputs(types = NULL)
       expect_equal(session$getReturned()()$types, character(0))
 
-      session$setInputs(include_draft = TRUE)
-      expect_true(session$getReturned()()$include_draft)
+      session$setInputs(group = "competitive")
+      expect_equal(session$getReturned()()$group, "competitive")
       # And the date range is untouched by either.
       expect_equal(session$getReturned()()$dates,
                    as.Date(c("2019-05-04", "2026-08-27")))
+    }
+  )
+})
+
+test_that("changing group clears the sub-type selection", {
+  # Carrying it across would leave a competitive sub-type selected under
+  # "Casual", which matches nothing -- and an empty chart reads as an
+  # empty dataset rather than as a contradiction the reader just built.
+  shiny::testServer(
+    mod_filter_bar_server,
+    args = list(tournaments = tournaments_fixture, identities = identities_fixture),
+    {
+      session$setInputs(types = "store championship")
+      session$setInputs(group = "casual")
+      expect_equal(session$getReturned()()$types, character(0))
+      expect_equal(session$getReturned()()$group, "casual")
+    }
+  )
+})
+
+test_that("clear all resets every filter at once", {
+  shiny::testServer(
+    mod_filter_bar_server,
+    args = list(tournaments = tournaments_fixture, identities = identities_fixture),
+    {
+      session$setInputs(dates = as.Date(c("2021-01-01", "2022-01-01")))
+      session$setInputs(group = "competitive")
+      session$setInputs(types = "store championship")
+
+      session$setInputs(clear = 1)
+      f <- session$getReturned()()
+      expect_equal(f$dates, as.Date(c("2019-05-04", "2026-08-27")))
+      expect_equal(f$group, "all")
+      expect_equal(f$types, character(0))
     }
   )
 })
@@ -233,10 +269,14 @@ test_that("a preset applies its range immediately", {
     args = list(tournaments = tournaments_fixture, rotation = rotation,
                 identities = identities_fixture),
     {
-      # Newest first, so period 1 is "Second rotation".
-      session$setInputs(preset_1 = 1)
+      # CHRONOLOGICAL, so period 1 is the span before the first rotation
+      # and the LAST one is the most recent -- the same direction as the
+      # slider above the chips.
+      session$setInputs(preset_3 = 1)
       expect_equal(session$getReturned()()$dates,
                    c(as.Date("2020-01-01"), as.Date("2026-08-27")))
+      session$setInputs(preset_1 = 1)
+      expect_equal(session$getReturned()()$dates[[1]], as.Date("2019-05-04"))
 
       session$setInputs(preset_all = 1)
       expect_equal(session$getReturned()()$dates,
@@ -277,13 +317,16 @@ test_that("the collapsed bar still says what it is filtering to", {
 
       session$setInputs(types = "store championship")
       expect_match(output$range_label, "1 of 3 types")
-      session$setInputs(include_draft = TRUE)
-      expect_match(output$range_label, "incl. draft")
+      session$setInputs(group = "competitive")
+      expect_match(output$range_label, "competitive")
 
       html <- as.character(output$filter$html)
       expect_match(html, "nr-filter-summary", fixed = TRUE)
       # Open by default: a filter nobody can see is a filter nobody uses.
       expect_match(html, "<details", fixed = TRUE)
+      # And Clear all is in the summary row, so it is reachable while the
+      # panel is collapsed.
+      expect_match(html, "nr-clear-all", fixed = TRUE)
     }
   )
 })
@@ -298,7 +341,7 @@ test_that("the chips say the column is missing rather than showing none", {
     args = list(tournaments = old, identities = identities_fixture),
     {
       html <- as.character(output$filter$html)
-      expect_match(html, "predates the type column", fixed = TRUE)
+      expect_match(html, "predates the", fixed = TRUE)
     }
   )
 })
@@ -312,4 +355,58 @@ test_that("no tournaments means no bar and no invented range", {
       expect_null(output$filter$html)
     }
   )
+})
+
+
+test_that("the group narrows the data, not just the picker", {
+  # The bug this exists for: `group` was used to repopulate the sub-type
+  # dropdown and never to filter, so choosing "Competitive" changed the
+  # collapsed summary while every figure carried on showing everything.
+  # A filter that announces itself and does nothing is worse than no
+  # filter, because the label is evidence the reader trusts.
+  d <- with_parsed_dates(data.frame(
+    date = rep("2024.02.17.", 3),
+    type = c("worlds championship", "GNK / seasonal", "community tournament"),
+    winner_runner_identity = rep("id_a", 3),
+    winner_corp_identity = rep("id_j", 3),
+    stringsAsFactors = FALSE
+  ))
+
+  all_rows <- apply_tournament_filters(d, list(dates = NULL, group = "all",
+                                               types = character(0)))
+  expect_equal(nrow(all_rows), 3L)
+
+  comp <- apply_tournament_filters(d, list(dates = NULL, group = "competitive",
+                                           types = character(0)))
+  expect_equal(comp$type, "worlds championship")
+
+  cas <- apply_tournament_filters(d, list(dates = NULL, group = "casual",
+                                          types = character(0)))
+  expect_setequal(cas$type, c("GNK / seasonal", "community tournament"))
+})
+
+test_that("a sub-type narrows within the group it belongs to", {
+  d <- with_parsed_dates(data.frame(
+    date = rep("2024.02.17.", 3),
+    type = c("worlds championship", "store championship", "GNK / seasonal"),
+    winner_runner_identity = rep("id_a", 3),
+    winner_corp_identity = rep("id_j", 3),
+    stringsAsFactors = FALSE
+  ))
+  out <- apply_tournament_filters(
+    d, list(dates = NULL, group = "competitive", types = "store championship")
+  )
+  expect_equal(out$type, "store championship")
+})
+
+test_that("a release with no type column ignores group as well as sub-types", {
+  d <- with_parsed_dates(data.frame(
+    date = c("2024.02.17.", "2024.03.01."),
+    winner_runner_identity = c("id_a", "id_c"),
+    winner_corp_identity = c("id_j", "id_hb"),
+    stringsAsFactors = FALSE
+  ))
+  out <- apply_tournament_filters(d, list(dates = NULL, group = "competitive",
+                                          types = character(0)))
+  expect_equal(nrow(out), 2L)
 })

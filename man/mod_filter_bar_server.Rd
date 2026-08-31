@@ -28,7 +28,8 @@ a guess would silently drop real results.}
 }
 \value{
 A reactive returning a list of \code{dates} (length-2 Date),
-\code{types} (character, empty for all) and \code{include_draft} (logical).
+\code{group} ("all", "competitive" or "casual") and \code{types}
+(character, empty meaning every type in that group).
 }
 \description{
 Filter bar module server

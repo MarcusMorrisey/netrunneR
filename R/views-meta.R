@@ -146,6 +146,93 @@ parse_abr_date <- function(x) {
   suppressWarnings(as.Date(cleaned, format = "%Y-%m-%d"))
 }
 
+#' Which tournament types are competitive and which are casual
+#'
+#' A JUDGEMENT, WRITTEN DOWN RATHER THAN INFERRED. abr has no field for
+#' this: the 16 values it uses describe what an event was called, not how
+#' much its result is worth. The split below is a reading of that, and a
+#' reading can be wrong, so it lives in one named constant a person can
+#' argue with instead of being scattered through a filter.
+#'
+#' `competitive` is the sanctioned championship ladder -- events with
+#' entry requirements, standings that feed something else, or a title
+#' attached. `casual` is everything run for its own sake.
+#'
+#' THE FOUR ARGUABLE ONES, named so nobody has to guess whether they were
+#' considered:
+#'
+#'   * `players circuit` and `circuit breaker invitational` are
+#'     competitive: both gate entry on prior results.
+#'   * `team tournament` is competitive: it has standings and a winner,
+#'     and its 47 events are not casual play.
+#'   * `online event` and `asynchronous tournament` are casual. They
+#'     describe HOW an event ran rather than what was at stake, which is
+#'     the one place this axis genuinely does not fit -- an online
+#'     national championship would be filed under its championship type,
+#'     so what remains here is the informal remainder.
+#'
+#' A type in neither list belongs to neither group and is reachable only
+#' through "All". That is deliberate: a new abr type must be classified
+#' by a person, and silently defaulting it into one group would hide the
+#' decision. `tournament_types_ungrouped()` is what surfaces them.
+#'
+#' @format A named list of two character vectors.
+#' @export
+TOURNAMENT_TYPE_GROUPS <- list(
+  competitive = c(
+    "worlds championship",
+    "intercontinental championship",
+    "continental championship",
+    "national championship",
+    "megacity championship",
+    "regional championship",
+    "district championship",
+    "store championship",
+    "circuit breaker invitational",
+    "players circuit",
+    "team tournament"
+  ),
+  casual = c(
+    "GNK / seasonal",
+    "casual tournament kit",
+    "community tournament",
+    "online event",
+    "asynchronous tournament"
+  )
+)
+
+#' The types in one group, restricted to what the data actually holds
+#'
+#' Intersected with the present types rather than returned whole, so a
+#' group never offers a sub-type that would select nothing.
+#'
+#' @param group One of "all", "competitive", "casual".
+#' @param types A data frame from tournament_types().
+#' @return Character vector of type names, in the data's own frequency
+#'   order.
+#' @export
+types_in_group <- function(group, types) {
+  if (is.null(types) || !nrow(types)) return(character(0))
+  if (identical(group, "all")) return(types$type)
+  want <- TOURNAMENT_TYPE_GROUPS[[group]]
+  if (is.null(want)) return(types$type)
+  types$type[types$type %in% want]
+}
+
+#' Types present in the data that no group claims
+#'
+#' Reported rather than absorbed. A type abr adds after this constant was
+#' written is a decision waiting to be made, and defaulting it into a
+#' group would make the decision invisible.
+#'
+#' @param types A data frame from tournament_types().
+#' @return Character vector, empty when every present type is classified.
+#' @export
+tournament_types_ungrouped <- function(types) {
+  if (is.null(types) || !nrow(types)) return(character(0))
+  setdiff(types$type, unlist(TOURNAMENT_TYPE_GROUPS, use.names = FALSE))
+}
+
 #' The rotation periods, as ranges a date filter can use
 #'
 #' A rotation is recorded as a single START date, so the PERIOD it names
@@ -161,8 +248,9 @@ parse_abr_date <- function(x) {
 #' @param rotation The cardpool `rotation` table, or NULL.
 #' @param max_date Date. The end of the data, for the open-ended last
 #'   period.
-#' @return A data frame of `label`, `start`, `end`, newest first. Zero
-#'   rows when there is no rotation table, rather than invented periods.
+#' @return A data frame of `label`, `start`, `end`, OLDEST FIRST so the
+#'   chips read in the same direction as the slider above them. Zero rows
+#'   when there is no rotation table, rather than invented periods.
 #' @export
 rotation_periods <- function(rotation, max_date = Sys.Date()) {
   empty <- data.frame(label = character(0), start = as.Date(character(0)),
@@ -183,7 +271,11 @@ rotation_periods <- function(rotation, max_date = Sys.Date()) {
     stringsAsFactors = FALSE
   )
   out <- rbind(pre, out)
-  out[order(out$start, decreasing = TRUE), , drop = FALSE]
+  # CHRONOLOGICAL, oldest first. These are rendered as a row of chips
+  # under a date slider that runs left to right in time, and returning
+  # them newest-first put the most recent rotation on the LEFT -- a row
+  # of shortcuts running backwards against the axis directly above it.
+  out[order(out$start), , drop = FALSE]
 }
 
 #' The identities that mean "this was a draft"
