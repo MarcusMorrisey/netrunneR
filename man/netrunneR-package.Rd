@@ -6,7 +6,7 @@
 \alias{netrunneR-package}
 \title{netrunneR: Offline Mirror and Analysis Toolkit for Netrunner Card-Game Data}
 \description{
-Maintains an offline, versioned mirror of Netrunner card-game data sources (NetrunnerDB, AlwaysBeRunning, the community cardpool repository, the Jinteki implementation repository and the Comprehensive Rules hub) with per-lineage fetch and build dispatch, a shared atomic promote/validate/ledger pipeline, and derived ratings and matchup views shared by a scheduled sync container and a Shiny app.
+Maintains an offline, versioned mirror of Netrunner card-game data sources (NetrunnerDB, AlwaysBeRunning, the community cardpool repository, the Jinteki implementation repository, the Comprehensive Rules hub and NSG's official Cobra tournament platform) with per-lineage fetch and build dispatch, a shared atomic promote/validate/ledger pipeline, and derived ratings and matchup views shared by a scheduled sync container and a Shiny app.
 }
 \author{
 \strong{Maintainer}: Marcus Morrisey \email{marcus.morrisey@gmail.com}

@@ -14,7 +14,7 @@
 \item{...}{Ignored.}
 }
 \description{
-Dispatches to the abr or nrdb build routine by lineage name, since both
-lineages share the netrunneR_api_poll class and fetch method but have
-distinct schemas, allowlists and reconciliation logic.
+Dispatches to the abr, nrdb or cobra build routine by lineage name, since
+all three lineages share the netrunneR_api_poll class and fetch method
+but have distinct schemas, allowlists and reconciliation logic.
 }

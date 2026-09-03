@@ -1,7 +1,7 @@
 #' Fetch an api-poll lineage's raw data
 #'
 #' The single S3 method for api-poll lineages: delegates the request
-#' sequence to the per-lineage internal helper for abr or nrdb. Each of
+#' sequence to the per-lineage internal helper for abr, nrdb or cobra. Each of
 #' those helpers derives its own httr2::req_throttle() rate from the
 #' lineage's own pacing policy (lineage$pacing) via pacing_rate() below,
 #' so .LINEAGE_REGISTRY's pacing entry (R/lineage.R) is the real,
@@ -25,6 +25,8 @@ fetch_lineage.netrunneR_api_poll <- function(lineage, attempt_dir, ...) {
     fetch_abr(lineage, attempt_dir)
   } else if (identical(lineage$name, "nrdb")) {
     fetch_nrdb(lineage, attempt_dir)
+  } else if (identical(lineage$name, "cobra")) {
+    fetch_cobra(lineage, attempt_dir)
   } else {
     rlang::abort(sprintf("No api-poll fetch helper for lineage '%s'", lineage$name), class = "netrunneR_no_fetch_method")
   }

@@ -38,7 +38,7 @@
 #' repeatedly-callable computation over already-loaded `cardpool` and
 #' `implementation` release data, exactly like `compute_identity_ratings()`
 #' (R/views-ratings.R) -- it is not promoted, versioned, or resolved via
-#' `lineage()`/`resolve_release()`, and `matchup` is not one of the five
+#' `lineage()`/`resolve_release()`, and `matchup` is not one of the six
 #' `BUILTIN_LINEAGES`. The `cardpool_release_id`/`implementation_release_id`
 #' parameters below exist purely as cache/provenance metadata in the
 #' sidecar manifest, not as inputs to a promote/rollback mechanism.

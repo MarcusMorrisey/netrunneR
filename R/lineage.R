@@ -55,7 +55,7 @@ store_base <- function() {
 
 #' The built-in lineage registry
 #'
-#' The single source of truth for the five built-in lineage names and
+#' The single source of truth for the six built-in lineage names and
 #' their static details: BUILTIN_LINEAGES and lineage() both read this
 #' registry rather than each independently enumerating the same names,
 #' so a name can never be known to one and not the other.
@@ -69,6 +69,10 @@ store_base <- function() {
              pacing = list(min_delay_s = 2, max_delay_s = 2),
              build_module_path = "R/build-abr.R",
              base_url = "https://alwaysberunning.net/api"),
+  cobra = list(source_type = "api_poll", schedule = "daily", schema_version = 1L,
+               pacing = list(min_delay_s = 0.75, max_delay_s = 1.5),
+               build_module_path = "R/build-cobra.R",
+               base_url = "https://tournaments.nullsignal.games"),
   cardpool = list(source_type = "git_mirror", schedule = "daily", schema_version = 1L,
                   pacing = NULL, build_module_path = "R/build-cardpool.R",
                   repo_url = "https://github.com/Null-Signal-Games/netrunner-cards-json.git"),
@@ -80,14 +84,14 @@ store_base <- function() {
                         repo_url = "https://github.com/mtgred/netrunner.git", ref = "master")
 )
 
-#' The five built-in lineage names
+#' The six built-in lineage names
 #'
 #' Derived from .LINEAGE_REGISTRY rather than typed out separately, so
 #' this list and lineage()'s dispatch table can never drift apart.
 #' @export
 BUILTIN_LINEAGES <- names(.LINEAGE_REGISTRY)
 
-#' Resolve one of the five built-in lineages by name
+#' Resolve one of the six built-in lineages by name
 #'
 #' Each entry's store_root is file.path(store_base(), name) with no case
 #' transform on the lowercase name, so the path R opens is byte-identical

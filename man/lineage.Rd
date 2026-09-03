@@ -2,7 +2,7 @@
 % Please edit documentation in R/lineage.R
 \name{lineage}
 \alias{lineage}
-\title{Resolve one of the five built-in lineages by name}
+\title{Resolve one of the six built-in lineages by name}
 \usage{
 lineage(name)
 }

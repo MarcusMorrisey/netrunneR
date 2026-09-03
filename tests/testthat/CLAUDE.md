@@ -22,10 +22,13 @@ Test files and shared fixtures. Several files enforce package invariants by stat
 | `test-config.R` | `check_config()` startup validation, `LLM_USE_POLICY` and `LLM_USE_POLICY_PRECAUTIONARY` assertions | Adding a required env var or runtime policy constant |
 | `test-fetch-api-poll.R` | Shared api_poll dispatch, pagination derivation, 5xx hard stop, checkpoint resume | Changing shared api-poll fetch behavior |
 | `test-fetch-nrdb.R` | nrdb User-Agent construction, `compare_shape()`, bounded retries | Changing the nrdb fetch helper |
+| `test-fetch-cobra.R` | Cobra type-page discovery, tail probing, checkpointed pool resume, bundle shape check | Changing the Cobra fetch helper |
 | `test-fetch-git-mirror.R` | Clone and checkout against a throwaway local repo, default `main` ref | Changing git-mirror fetch or ref defaults |
 | `test-fetch-web-archive.R` | Hub index parsing against a fixture modeled on the real page, PDF pooling | Fixing the rules-hub scraper |
 | `test-abr-backfill.R` | Checkpoint resume, tombstoning, and outage detection separating fresh failures from known-bad retries | Changing backfill, tombstone, or outage-abort logic |
 | `test-abr-allowlist.R` | Fail-closed allowlist, deny-pattern scan, and tournament cardinality with permanent exclusions | Changing ABR columns or the personal-data defenses |
+| `test-cobra-allowlist.R` | Fail-closed allowlists and `COBRA_DENY_PATTERN` scan excluding player display names | Changing Cobra columns or the personal-data defenses |
+| `test-build-cobra.R` | Cobra table flattening from a pool bundle fixture, dispatch by name | Changing Cobra build or api_poll dispatch |
 | `test-build-cardpool.R` | git_mirror dispatch by name and the cardpool build against fixture JSON | Changing cardpool build or git-mirror dispatch |
 | `test-build-nrdb.R` | Review/ruling build against real field shapes, nested list-column dropping | Changing nrdb build or allowlists |
 | `test-build-implementation.R` | Trait extraction and release_id shape against a fixture card-definition file | Changing trait extraction |

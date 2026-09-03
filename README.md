@@ -1,7 +1,7 @@
 # netrunneR
 
 Offline mirror and analysis toolkit for Netrunner card-game data. The
-package maintains a versioned, local, SQLite-backed mirror of five
+package maintains a versioned, local, SQLite-backed mirror of six
 upstream sources, promotes each new build atomically, and exposes derived
 ratings and matchup views shared by a scheduled sync container and a Shiny
 app.
@@ -15,11 +15,11 @@ app.
 | `cardpool`       | `git_mirror`  | [Null Signal Games card JSON repository](https://github.com/Null-Signal-Games/netrunner-cards-json)        | Cycles, factions, packs, cards          |
 | `implementation` | `git_mirror`  | [The Jinteki implementation repository](https://github.com/mtgred/netrunner)         | Normalized ice/breaker trait rows       |
 | `rules`          | `web_archive` | [The Comprehensive Rules hub](https://nullsignal.games/rules/comp-rules/)                   | Rules PDFs, content-addressed, versioned |
+| `cobra`          | `api_poll`    | [NSG's official Cobra tournament platform](https://tournaments.nullsignal.games/)           | Tournaments, stages, rounds, pairings, standings, faction/identity counts, cut conversion rates |
 
-Only these five are wired up. `new_lineage()` is a public extension point
-for registering others; `cobra` and `assets` are named extension points
-with no code behind them and are not required for the extension point to
-work.
+Only these six are wired up. `new_lineage()` is a public extension point
+for registering others; `assets` is a named extension point with no code
+behind it and is not required for the extension point to work.
 
 ## Architecture
 
@@ -119,7 +119,7 @@ run the wrapper with no flags at all. The two are required together in
 that case -- if either is unset the CLI aborts with "nothing to run"
 rather than guessing; a partial mix of one flag and one env var is not a
 supported combination, since the fallback only triggers when *both* flags
-are absent. `LINEAGE` accepts the same five lineage names as `--lineage`
+are absent. `LINEAGE` accepts the same six lineage names as `--lineage`
 (see the table above); `MODE` accepts the same three modes as `--mode`.
 
 ```sh

@@ -79,7 +79,7 @@ There is no separate "matchup release": this function is a plain,
 repeatedly-callable computation over already-loaded \code{cardpool} and
 \code{implementation} release data, exactly like \code{compute_identity_ratings()}
 (R/views-ratings.R) -- it is not promoted, versioned, or resolved via
-\code{lineage()}/\code{resolve_release()}, and \code{matchup} is not one of the five
+\code{lineage()}/\code{resolve_release()}, and \code{matchup} is not one of the six
 \code{BUILTIN_LINEAGES}. The \code{cardpool_release_id}/\code{implementation_release_id}
 parameters below exist purely as cache/provenance metadata in the
 sidecar manifest, not as inputs to a promote/rollback mechanism.

@@ -15,7 +15,7 @@
 }
 \description{
 The single S3 method for api-poll lineages: delegates the request
-sequence to the per-lineage internal helper for abr or nrdb. Each of
+sequence to the per-lineage internal helper for abr, nrdb or cobra. Each of
 those helpers derives its own httr2::req_throttle() rate from the
 lineage's own pacing policy (lineage$pacing) via pacing_rate() below,
 so .LINEAGE_REGISTRY's pacing entry (R/lineage.R) is the real,

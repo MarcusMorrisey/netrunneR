@@ -1,11 +1,11 @@
-# build_revision() must be identical for all five lineages given matching
+# build_revision() must be identical for all built-in lineages given matching
 # shared inputs -- a MUST-level property, not narrowed to git-mirror
 # lineages. find_package_root() resolves to the real source root under
 # devtools::test() and to pkg_root/pkg-src (created ahead of R CMD check
 # by .ci/check.R, mirroring the Dockerfile) under an installed package, so
 # no custom fixture is needed here -- build_revision() is exercised as-is
 # in both contexts.
-test_that("build_revision() is identical for all five lineages given the same static inputs", {
+test_that("build_revision() is identical for all built-in lineages given the same static inputs", {
   li_a <- lineage("abr")
   li_b <- lineage("nrdb")
 
