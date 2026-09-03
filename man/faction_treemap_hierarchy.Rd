@@ -7,23 +7,29 @@
 faction_treemap_hierarchy(wins)
 }
 \arguments{
-\item{wins}{The \code{wins} frame from tournament_faction_wins().}
+\item{wins}{A data frame from tournament_identity_wins().}
 }
 \value{
 A nested list suitable for \code{d3treeR::d3tree2()}, or NULL when
 there is nothing to draw.
 }
 \description{
-Two branches, Runner and Corp, each holding its factions. The two
-branches are equal in area BY CONSTRUCTION and not by measurement --
-see tournament_faction_wins(). They are kept because the drill-down is
-the point: the proportions inside each branch are what vary, and the
-view says so above the chart rather than leaving a reader to conclude
-from equal halves that the sides are evenly matched.
+THREE LEVELS: side, then faction, then identity. The two branches are
+equal in area BY CONSTRUCTION and not by measurement -- every
+tournament records one Runner winner and one Corp winner, so the split
+is a fact about the format. They are kept because the drill-down is
+the point, and the view says so above the chart rather than leaving a
+reader to read "evenly matched" off equal halves.
 }
 \details{
-Percentages in the labels are within side, matching the waffle, so the
-two charts on the page cannot quote different numbers for the same
-faction.
+EACH LEVEL IS A SHARE OF THE ONE ABOVE IT. A faction's percentage is
+of its side; an identity's is of its FACTION, not of the side and not
+of everything. A share of a share of a half is a number nobody can
+hold, and the only denominator that helps at the bottom is the box the
+reader just clicked into.
+
+The count rides alongside it, because a percentage on its own hides
+how much is behind it -- 50\% of a faction with four wins and 50\% of
+one with four hundred are not the same claim.
 }
 \keyword{internal}

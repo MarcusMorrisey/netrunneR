@@ -932,3 +932,17 @@ a.nr-preset:hover, a.nr-preset:focus {
   color: var(--nr-ink);
   border: 1px solid var(--nr-panel-edge);
 }
+
+/* A FLOOR UNDER THE WIDTH, for widgets that measure their container once
+   and never again. d3treeR sizes its rectangles at render time and ships
+   no resize handler, so a tab laid out at zero width -- a background tab
+   -- draws a treemap of zero-width boxes and keeps it.
+   A min-width means the measurement is never zero; the scroller is what
+   stops that floor from squashing a narrow screen. */
+.nr-wide-scroll {
+  overflow-x: auto;
+  min-width: 0;
+}
+.nr-wide-scroll > * {
+  min-width: 900px;
+}

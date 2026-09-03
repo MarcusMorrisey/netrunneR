@@ -174,6 +174,16 @@ app_server <- function(input, output, session, app_data) {
   # marker. It is a separate slot from the filter so that re-render
   # cannot take the filter's slider down with it.
   output$nav <- shiny::renderUI(netrunneR::suite_nav_ui(view()))
+  # Rendered once, not per-navigation like output$main: the release
+  # this process loaded does not change between views, only which
+  # view is shown.
+  output$release_info <- shiny::renderUI(shiny::div(
+    style = "font-size: 11px; color: #8a8f98; padding: 2px 12px;",
+    sprintf(
+      "cardpool %s \u00b7 implementation %s",
+      app_data$cardpool_release_id, app_data$implementation_release_id
+    )
+  ))
 
   output$main <- shiny::renderUI({
     switch(view(),

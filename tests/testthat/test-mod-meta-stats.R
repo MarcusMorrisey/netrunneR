@@ -98,7 +98,9 @@ test_that("no abr release renders a message, not an empty chart", {
       session$flushReact()
       expect_null(shaped())
       expect_match(as.character(output$treemap_slot$html), "nothing to chart")
-      expect_match(as.character(output$waffle_slot$html), "nothing to chart")
+      expect_match(as.character(output$area_slot$html), "nothing to chart")
+      expect_match(as.character(output$bump_slot$html), "nothing to chart")
+      expect_match(as.character(output$chord_slot$html), "nothing to chart")
     }
   )
 })
@@ -131,16 +133,6 @@ test_that("nothing is flagged when every faction has a colour", {
   )
 })
 
-test_that("the waffle builds when ggplot2 is available", {
-  skip_if_not_installed("ggplot2")
-  wins <- tournament_faction_wins(stats_tournaments, stats_identities,
-                                  stats_factions)$wins
-  p <- build_faction_waffle(wins)
-  expect_s3_class(p, "ggplot")
-  # 100 squares per side, and the plot draws exactly what
-  # faction_waffle_squares() produced.
-  expect_equal(nrow(p$data), 200L)
-})
 
 test_that("the nav strip offers all three views", {
   # Rendered HTML escapes the apostrophes in the onclick handler, so the
@@ -155,7 +147,44 @@ test_that("the nav strip offers all three views", {
 })
 
 
-test_that("a wrong-side winner is named under the charts", {
+
+
+
+test_that("every figure reads the same filtered rows", {
+  # The point of one filter bar: narrow it and all four figures move
+  # together, because each derives from in_range() rather than from its
+  # own copy of the data.
+  filters <- shiny::reactiveVal(
+    list(dates = NULL, group = "all", types = character(0))
+  )
+  shiny::testServer(
+    mod_meta_stats_server,
+    args = list(tournaments = stats_tournaments, identities = stats_identities,
+                factions = stats_factions, filters = filters),
+    {
+      session$flushReact()
+      expect_equal(nrow(in_range()), 5L)
+      expect_false(is.null(identity_wins()))
+      expect_false(is.null(quarterly()))
+      expect_false(is.null(pairings()))
+
+      filters(list(dates = as.Date(c("2019-01-01", "2019-12-31")),
+                   group = "all", types = character(0)))
+      session$flushReact()
+      expect_equal(nrow(in_range()), 2L)
+      # Two tournaments in one quarter: one period, and both sides in it.
+      expect_equal(length(unique(quarterly()$period)), 1L)
+      expect_equal(sum(identity_wins()$wins[identity_wins()$side == "Runner"]), 2L)
+    }
+  )
+})
+
+
+test_that("wrong-side wins are still counted, just no longer announced", {
+  # The banner is gone from the page -- it was a standing caveat about
+  # two rows in four thousand, which is noise rather than information at
+  # that ratio. The COUNT stays in the shaped data, so nothing that wants
+  # it has lost it.
   ids <- rbind(stats_identities,
                data.frame(code = "id_bad", faction_code = "haas-bioroid",
                           stringsAsFactors = FALSE))
@@ -167,20 +196,9 @@ test_that("a wrong-side winner is named under the charts", {
     {
       session$flushReact()
       expect_equal(shaped()$misfiled, 1L)
-      expect_match(as.character(output$misfiled$html), "other side")
-    }
-  )
-})
-
-test_that("nothing is said about wrong sides when there are none", {
-  shiny::testServer(
-    mod_meta_stats_server,
-    args = list(tournaments = stats_tournaments, identities = stats_identities,
-                factions = stats_factions),
-    {
-      session$flushReact()
-      expect_equal(shaped()$misfiled, 0L)
-      expect_null(output$misfiled$html)
+      # And the row itself is genuinely out of the charts.
+      expect_false("haas-bioroid" %in%
+                     shaped()$wins$faction_code[shaped()$wins$side == "Runner"])
     }
   )
 })

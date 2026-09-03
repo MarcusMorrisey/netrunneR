@@ -203,10 +203,14 @@ read_matchup_overrides <- function(path = system.file("extdata", "matchup_overri
 #'   from), `tournaments` (the abr `tournament` table, NULL when no abr
 #'   release is active), `identities` and `factions` (the cardpool
 #'   identity cards and the faction lookup, which the meta stats view
-#'   needs and `cards` cannot supply), or
-#'   `missing_lineages` (character vector, non-NULL) if either required
-#'   release is unavailable -- callers branch on `missing_lineages`
-#'   before touching the rest.
+#'   needs and `cards` cannot supply), `cardpool_release_id` and
+#'   `implementation_release_id` (the release directory names
+#'   `compute_ice_breaker_matchups()` was called with -- already computed
+#'   for that call, surfaced here rather than recomputed, so a
+#'   long-running app can show which release it is serving without a
+#'   second call into the store), or `missing_lineages` (character
+#'   vector, non-NULL) if either required release is unavailable --
+#'   callers branch on `missing_lineages` before touching the rest.
 #' @export
 load_ice_breaker_app_data <- function() {
   cardpool_result <- read_active_release_tables(
@@ -284,6 +288,12 @@ load_ice_breaker_app_data <- function() {
     tournaments = tournaments,
     identities = identities,
     factions = cardpool_result$tables$faction,
+    # Already computed above for compute_ice_breaker_matchups() -- a
+    # process-lifetime app has no other way to say which release it is
+    # showing, since the data it loaded is a snapshot taken once at
+    # startup (see this function's own opening comment).
+    cardpool_release_id = basename(cardpool_result$release$release_dir),
+    implementation_release_id = basename(implementation_result$release$release_dir),
     missing_lineages = NULL
   )
 }

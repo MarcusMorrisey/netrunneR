@@ -50,6 +50,8 @@ Suggests:
     ggplot2,
     treemap,
     d3treeR,
+    plotly,
+    chorddiag,
     testthat (>= 3.0.0),
     withr,
     callr,

@@ -1,17 +1,3 @@
-test_that("largest_remainder always totals exactly, and is deterministic", {
-  # The point of the function. Independent rounding gives 98 here.
-  shares <- c(1, 1, 1) / 3
-  expect_equal(sum(largest_remainder(shares, 100L)), 100L)
-  expect_equal(largest_remainder(shares, 100L), c(34L, 33L, 33L))
-
-  # Ties break by position, so the same input draws the same chart every
-  # time -- a waffle that reshuffles itself between renders is a bug the
-  # reader has no way to see.
-  expect_equal(largest_remainder(c(0.5, 0.5), 3L), c(2L, 1L))
-
-  expect_equal(largest_remainder(numeric(0)), integer(0))
-  expect_equal(sum(largest_remainder(c(0.999, 0.001), 100L)), 100L)
-})
 
 fake_identities <- data.frame(
   code = c("id_a", "id_c", "id_s", "id_hb", "id_j", "id_nbn",
@@ -118,49 +104,9 @@ test_that("faction_display_name falls back to the code", {
   expect_equal(faction_display_name("nbn", NULL), "nbn")
 })
 
-test_that("the waffle is 100 squares per side, in a 5-row grid", {
-  wins <- tournament_faction_wins(fake_tournaments, fake_identities,
-                                  fake_factions)$wins
-  sq <- faction_waffle_squares(wins)
 
-  expect_equal(as.integer(table(sq$side)[["Runner"]]), 100L)
-  expect_equal(as.integer(table(sq$side)[["Corp"]]), 100L)
-  expect_equal(sort(unique(sq$row)), 1:5)
-  expect_equal(max(sq$column), 20L)
 
-  # Anarch is half of the Runner wins, so half the Runner squares.
-  runner <- sq[sq$side == "Runner", ]
-  expect_equal(sum(runner$faction_code == "anarch"), 50L)
-})
 
-test_that("faction_waffle_squares survives an empty frame", {
-  expect_equal(nrow(faction_waffle_squares(NULL)), 0L)
-  expect_equal(
-    nrow(faction_waffle_squares(tournament_faction_wins(NULL, NULL)$wins)), 0L
-  )
-})
-
-test_that("the treemap hierarchy nests factions under sides with colours", {
-  wins <- tournament_faction_wins(fake_tournaments, fake_identities,
-                                  fake_factions)$wins
-  h <- faction_treemap_hierarchy(wins)
-
-  expect_equal(length(h$children), 2L)
-  expect_equal(vapply(h$children, function(x) x$name, character(1)),
-               c("Runner", "Corp"))
-
-  anarch <- h$children[[1]]$children[[1]]
-  expect_equal(anarch$size, 2L)
-  expect_equal(anarch$color, unname(FACTION_COLOURS[["anarch"]]))
-  # Percentages are within side, matching the waffle, so the two charts
-  # cannot quote different numbers for the same faction.
-  expect_equal(anarch$name, "Anarch (50.0%)")
-})
-
-test_that("faction_treemap_hierarchy returns NULL rather than an empty widget", {
-  expect_null(faction_treemap_hierarchy(NULL))
-  expect_null(faction_treemap_hierarchy(tournament_faction_wins(NULL, NULL)$wins))
-})
 
 test_that("every ordered faction has a colour, and vice versa", {
   # FACTION_ORDER is derived from FACTION_COLOURS, so this holds by
@@ -210,27 +156,7 @@ test_that("the two Neutrals get distinguishable labels", {
   expect_equal(res$wins$faction[res$wins$faction_code == "anarch"], "Anarch")
 })
 
-test_that("a faction too small for one square is reported, not padded", {
-  # One square is one percent; a faction under half a percent rounds to
-  # nothing. Topping it up to one square would quietly break the only
-  # promise the chart makes.
-  t <- data.frame(
-    winner_runner_identity = c(rep("id_a", 400), "id_s"),
-    winner_corp_identity = rep("id_j", 401), stringsAsFactors = FALSE
-  )
-  res <- tournament_faction_wins(t, fake_identities, fake_factions)
-  small <- factions_below_resolution(res$wins)
 
-  expect_equal(small$faction_code, "shaper")
-  expect_equal(sum(faction_waffle_squares(res$wins)$side == "Runner"), 100L)
-  expect_false("shaper" %in% faction_waffle_squares(res$wins)$faction_code)
-})
-
-test_that("factions_below_resolution is empty when everything is drawn", {
-  wins <- tournament_faction_wins(fake_tournaments, fake_identities,
-                                  fake_factions)$wins
-  expect_equal(nrow(factions_below_resolution(wins)), 0L)
-})
 
 
 test_that("an unknown faction survives the side filter", {
@@ -246,4 +172,88 @@ test_that("an unknown faction survives the side filter", {
 
   expect_equal(res$misfiled, 0L)
   expect_true("brand-new" %in% res$wins$faction_code)
+})
+
+
+# ---- identity-level counting and the three-level treemap -------------
+
+test_that("identity wins break a faction down to the cards that won", {
+  ids <- data.frame(
+    code = c("id_a1", "id_a2", "id_c", "id_j"),
+    title = c("Hoshiko", "Reina", "Steve", "Palana"),
+    faction_code = c("anarch", "anarch", "criminal", "jinteki"),
+    stringsAsFactors = FALSE
+  )
+  t <- data.frame(
+    winner_runner_identity = c("id_a1", "id_a1", "id_a2", "id_c"),
+    winner_corp_identity = rep("id_j", 4), stringsAsFactors = FALSE
+  )
+  w <- tournament_identity_wins(t, ids, fake_factions)
+
+  runner <- w[w$side == "Runner", ]
+  # Ordered by faction order, then wins descending within a faction.
+  expect_equal(runner$identity, c("Hoshiko", "Reina", "Steve"))
+  expect_equal(runner$wins, c(2L, 1L, 1L))
+  expect_equal(runner$faction_code, c("anarch", "anarch", "criminal"))
+})
+
+test_that("identity wins fall back to the code when a release has no titles", {
+  # A visible raw code beats a blank label, which reads as missing data.
+  ids <- data.frame(code = "id_a1", faction_code = "anarch",
+                    stringsAsFactors = FALSE)
+  t <- data.frame(winner_runner_identity = "id_a1",
+                  winner_corp_identity = "id_j", stringsAsFactors = FALSE)
+  w <- tournament_identity_wins(t, ids, fake_factions)
+  expect_equal(w$identity[w$side == "Runner"], "id_a1")
+})
+
+test_that("a wrong-side identity is dropped from the breakdown too", {
+  # The totals already drop these; a treemap is exactly where one stray
+  # card would appear as a faction that cannot be on that side.
+  ids <- data.frame(code = c("id_a", "id_hb", "id_j"),
+                    title = c("Hoshiko", "Jeeves", "Palana"),
+                    faction_code = c("anarch", "haas-bioroid", "jinteki"),
+                    stringsAsFactors = FALSE)
+  t <- data.frame(winner_runner_identity = c("id_a", "id_hb"),
+                  winner_corp_identity = c("id_j", "id_j"),
+                  stringsAsFactors = FALSE)
+  w <- tournament_identity_wins(t, ids, fake_factions)
+  expect_equal(w$identity[w$side == "Runner"], "Hoshiko")
+})
+
+test_that("the treemap nests side, faction and identity", {
+  ids <- data.frame(
+    code = c("id_a1", "id_a2", "id_j"),
+    title = c("Hoshiko", "Reina", "Palana"),
+    faction_code = c("anarch", "anarch", "jinteki"),
+    stringsAsFactors = FALSE
+  )
+  t <- data.frame(winner_runner_identity = c("id_a1", "id_a1", "id_a2"),
+                  winner_corp_identity = rep("id_j", 3),
+                  stringsAsFactors = FALSE)
+  h <- faction_treemap_hierarchy(tournament_identity_wins(t, ids, fake_factions))
+
+  expect_equal(vapply(h$children, function(x) x$name, character(1)),
+               c("Runner", "Corp"))
+
+  anarch <- h$children[[1]]$children[[1]]
+  # Faction level carries its share of the side; identity level carries
+  # raw wins, because a share of a share of a half is a number nobody
+  # can hold.
+  expect_equal(anarch$name, "Anarch (100.0%)")
+  expect_equal(anarch$color, unname(FACTION_COLOURS[["anarch"]]))
+  # Count AND share, because a percentage alone hides how much is behind
+  # it: 50% of a faction with four wins and 50% of one with four hundred
+  # are not the same claim. The share is of the FACTION, which is the box
+  # the reader just clicked into.
+  expect_equal(vapply(anarch$children, function(x) x$name, character(1)),
+               c("Hoshiko (2, 66.7%)", "Reina (1, 33.3%)"))
+  expect_equal(anarch$children[[1]]$size, 2L)
+})
+
+test_that("the treemap returns NULL rather than an empty widget", {
+  expect_null(faction_treemap_hierarchy(NULL))
+  expect_null(faction_treemap_hierarchy(
+    tournament_identity_wins(NULL, NULL)
+  ))
 })
