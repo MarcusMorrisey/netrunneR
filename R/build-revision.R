@@ -7,7 +7,7 @@
 #' One digest::digest sha256 over a fixed ordering of: the lineage's own
 #' build module bytes, every shared build and write module, every file
 #' under inst/sql/schema, the lineage's schema-version constant and the
-#' renv.lock hash. Applied identically to all five lineages so a change to
+#' renv.lock hash. Applied identically to all six lineages so a change to
 #' shared code or DDL forces a rebuild everywhere it can affect output --
 #' narrowing this to git-mirror-only lineages would let a shared-code or
 #' DDL change silently change nrdb/abr/rules output without a new revision.

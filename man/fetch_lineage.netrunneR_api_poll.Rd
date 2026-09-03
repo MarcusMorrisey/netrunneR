@@ -15,7 +15,7 @@
 }
 \description{
 The single S3 method for api-poll lineages: delegates the request
-sequence to the per-lineage internal helper for abr or nrdb. Each of
+sequence to the per-lineage internal helper for abr, nrdb or cobra. Each of
 those helpers derives its own httr2::req_throttle() rate from the
 lineage's own pacing policy (lineage$pacing) via pacing_rate() below,
 so .LINEAGE_REGISTRY's pacing entry (R/lineage.R) is the real,
@@ -27,6 +27,6 @@ from capture_response_body().
 Invariant: capture_response_body() (R/capture.R) is the only function
 in the package permitted to write httr2 response bytes to disk. No
 fetch_lineage() method -- including this dispatcher and the
-abr/nrdb helpers it delegates to -- may write a response or its
+abr/nrdb/cobra helpers it delegates to -- may write a response or its
 headers to disk directly.
 }

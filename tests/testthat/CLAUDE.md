@@ -15,7 +15,7 @@ Test files and shared fixtures. Several files enforce package invariants by stat
 | `test-release.R` | `resolve_release()` single-capture path derivation and missing-active abort | Changing release resolution |
 | `test-ledger.R` | Ledger append/read round-trip and `check_ledger_consistency()` | Adding ledger event types or changing durability |
 | `test-lock-contention.R` | Lock contention surfacing as a typed condition, not process termination | Changing locking or contention handling |
-| `test-build-revision.R` | Build revision identical across all five lineages; loud abort on missing inputs | Changing what feeds `build_revision()` |
+| `test-build-revision.R` | Build revision identical across all six lineages; loud abort on missing inputs | Changing what feeds `build_revision()` |
 | `test-validate.R` | `validate_release()` pass/fail aggregation and two check primitives | Adding a validation rule or changing aggregation |
 | `test-cli.R` | Flag/env-var precedence, mode validation, `--release-id` gating | Adding a CLI flag or changing precedence |
 | `test-app.R` | `require_abr_attribution()`, `require_implementation_license_notice()`, `require_cardpool_disclaimer()`, `require_rules_disclaimer()` guards | Adding or changing an app.R attribution/notice/disclaimer guard |
@@ -26,6 +26,8 @@ Test files and shared fixtures. Several files enforce package invariants by stat
 | `test-fetch-web-archive.R` | Hub index parsing against a fixture modeled on the real page, PDF pooling | Fixing the rules-hub scraper |
 | `test-abr-backfill.R` | Checkpoint resume, tombstoning, and outage detection separating fresh failures from known-bad retries | Changing backfill, tombstone, or outage-abort logic |
 | `test-abr-allowlist.R` | Fail-closed allowlist, deny-pattern scan, and tournament cardinality with permanent exclusions | Changing ABR columns or the personal-data defenses |
+| `test-fetch-cobra.R` | api_poll dispatch to `fetch_cobra()`, `cobra_get()` 401/403/404/406-as-absent and 5xx retry/hard-stop, the pure discovery/backfill-walk helpers, `cobra_content_identity()` | Changing the Cobra crawl, its retry policy, or the object-pool identity digest |
+| `test-cobra-allowlist.R` | All ten `COBRA_*_ALLOWLIST`s writing real table shapes via `flatten_cobra_*()`, fail-closed `all_of()`, and `COBRA_DENY_PATTERN` catching Cobra real personal-data field names | Changing Cobra tables, bundle flattening, or the personal-data defenses |
 | `test-build-cardpool.R` | git_mirror dispatch by name and the cardpool build against fixture JSON | Changing cardpool build or git-mirror dispatch |
 | `test-build-nrdb.R` | Review/ruling build against real field shapes, nested list-column dropping | Changing nrdb build or allowlists |
 | `test-build-implementation.R` | Trait extraction and release_id shape against a fixture card-definition file | Changing trait extraction |

@@ -1,5 +1,22 @@
 # netrunneR (development)
 
+* Add the `cobra` lineage, mirroring NSG's official tournament platform
+  (tournaments.nullsignal.games): tournaments, stages, rounds, pairings,
+  standings, faction/identity counts and cut-conversion rates, across ten
+  processed tables. Unlike `abr`, Cobra has no complete index endpoint,
+  so `fetch_cobra()` combines three id-discovery mechanisms every run --
+  scraping the 12 public type-listing pages, probing a short tail above
+  the highest known id, and advancing a bounded batch of a persistent
+  low-to-high backfill walk -- into a content-addressed, checkpointed
+  object pool, the same "cheap to resume" idiom `run_abr_backfill()`
+  established. Cobra's pairings and standings responses carry real
+  player display names directly (`player1_name`, `name_with_pronouns`,
+  ...), unlike ABR's identity-only fields; every such field is excluded
+  by two independent fail-closed layers -- a named `dplyr::select()`
+  allowlist per table and an independent `check_deny_pattern()` scan --
+  before any table is written, on the same DL-002 precedent `abr`
+  established. `cobra` was previously a named extension point with no
+  code behind it; `assets` remains one.
 * The lane board distinguishes "cannot break" from "not computable". A
   Fracter stacked under a Code Gate produced no matchup row, and an
   absent row rendered as `not_computable` -- which says we do not know,

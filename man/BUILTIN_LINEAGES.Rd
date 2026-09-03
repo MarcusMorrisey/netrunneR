@@ -2,7 +2,7 @@
 % Please edit documentation in R/lineage.R
 \name{BUILTIN_LINEAGES}
 \alias{BUILTIN_LINEAGES}
-\title{The five built-in lineage names}
+\title{The six built-in lineage names}
 \usage{
 BUILTIN_LINEAGES
 }

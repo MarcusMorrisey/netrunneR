@@ -1,8 +1,9 @@
 #' Build an api-poll lineage's processed release
 #'
-#' Dispatches to the abr or nrdb build routine by lineage name, since both
-#' lineages share the netrunneR_api_poll class and fetch method but have
-#' distinct schemas, allowlists and reconciliation logic.
+#' Dispatches to the abr, nrdb or cobra build routine by lineage name,
+#' since all three lineages share the netrunneR_api_poll class and fetch
+#' dispatch but have distinct schemas, allowlists and reconciliation
+#' logic.
 #'
 #' @param lineage A lineage object of class netrunneR_api_poll.
 #' @param staged_raw The value returned by the matching internal fetch helper.
@@ -14,6 +15,8 @@ build_lineage.netrunneR_api_poll <- function(lineage, staged_raw, ...) {
     build_abr(lineage, staged_raw)
   } else if (identical(lineage$name, "nrdb")) {
     build_nrdb(lineage, staged_raw)
+  } else if (identical(lineage$name, "cobra")) {
+    build_cobra(lineage, staged_raw)
   } else {
     rlang::abort(sprintf("No api-poll build method for lineage '%s'", lineage$name), class = "netrunneR_no_build_method")
   }

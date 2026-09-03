@@ -1,6 +1,6 @@
 # netrunneR
 
-R package maintaining an offline, versioned mirror of five Netrunner data sources with atomic release promotion, plus derived ratings and matchup views.
+R package maintaining an offline, versioned mirror of six Netrunner data sources with atomic release promotion, plus derived ratings and matchup views.
 
 ## Files
 

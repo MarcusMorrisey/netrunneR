@@ -55,7 +55,7 @@ store_base <- function() {
 
 #' The built-in lineage registry
 #'
-#' The single source of truth for the five built-in lineage names and
+#' The single source of truth for the six built-in lineage names and
 #' their static details: BUILTIN_LINEAGES and lineage() both read this
 #' registry rather than each independently enumerating the same names,
 #' so a name can never be known to one and not the other.
@@ -77,17 +77,26 @@ store_base <- function() {
                hub_url = "https://nullsignal.games/rules/comp-rules/"),
   implementation = list(source_type = "git_mirror", schedule = "daily", schema_version = 2L,
                         pacing = NULL, build_module_path = "R/build-implementation.R",
-                        repo_url = "https://github.com/mtgred/netrunner.git", ref = "master")
+                        repo_url = "https://github.com/mtgred/netrunner.git", ref = "master"),
+  # Cobra (tournaments.nullsignal.games) is NSG's own official tournament
+  # platform, also community-run -- same conservative pacing abr uses,
+  # since fetch_cobra() (R/fetch-cobra.R) issues many small per-tournament
+  # requests across its discovery/tail-probe/backfill-walk crawl, not one
+  # paginated call the way abr's tournament list is.
+  cobra = list(source_type = "api_poll", schedule = "daily", schema_version = 1L,
+               pacing = list(min_delay_s = 2, max_delay_s = 2),
+               build_module_path = "R/build-cobra.R",
+               base_url = "https://tournaments.nullsignal.games")
 )
 
-#' The five built-in lineage names
+#' The six built-in lineage names
 #'
 #' Derived from .LINEAGE_REGISTRY rather than typed out separately, so
 #' this list and lineage()'s dispatch table can never drift apart.
 #' @export
 BUILTIN_LINEAGES <- names(.LINEAGE_REGISTRY)
 
-#' Resolve one of the five built-in lineages by name
+#' Resolve one of the six built-in lineages by name
 #'
 #' Each entry's store_root is file.path(store_base(), name) with no case
 #' transform on the lowercase name, so the path R opens is byte-identical

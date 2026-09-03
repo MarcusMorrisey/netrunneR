@@ -2,9 +2,9 @@
 
 ## Overview
 
-This directory holds the whole netrunneR package: five external Netrunner
+This directory holds the whole netrunneR package: six external Netrunner
 data sources ("lineages") mirrored into local SQLite-backed release stores
-with atomic promote semantics. All five run the same sync pipeline; only
+with atomic promote semantics. All six run the same sync pipeline; only
 fetching and building vary, and both vary by S3 dispatch on the lineage's
 `source_type` rather than by branching inside the pipeline.
 
@@ -32,7 +32,7 @@ not enforced by the language.
 ### The lineage abstraction
 
 `.LINEAGE_REGISTRY` in `lineage.R` is the single source of truth for the
-five built-in lineage names and their static configuration: schedule,
+six built-in lineage names and their static configuration: schedule,
 schema version, pacing, build module path, plus per-type extras
 (`repo_url`/`ref` for git-mirror lineages, `hub_url` for the web-archive
 lineage). `lineage(name)` resolves a name into an S3 object classed
@@ -43,11 +43,11 @@ There are three source types, and each has exactly one
 
 | Source type   | Lineages                | Fetch mechanism                                          |
 | ------------- | ----------------------- | -------------------------------------------------------- |
-| `api_poll`    | nrdb, abr               | HTTP with throttle pacing; 5xx handling differs by lineage (below) |
+| `api_poll`    | nrdb, abr, cobra        | HTTP with throttle pacing; 5xx handling differs by lineage (below) |
 | `git_mirror`  | cardpool, implementation | `gert::git_clone()` plus checkout, no pacing              |
 | `web_archive` | rules                   | Scrape an HTML index, pool PDFs by content hash           |
 
-Within `api_poll`, 5xx handling is not uniform across the two lineages.
+Within `api_poll`, 5xx handling is not uniform across the three lineages.
 `abr_get()` (`R/fetch-abr.R`) disables httr2's default error handling,
 checks `resp_status(resp) >= 500` explicitly, and aborts immediately
 with a custom `netrunneR_abr_5xx` condition, protecting a volunteer-run
@@ -55,7 +55,13 @@ server from a retry storm. `nrdb_get()` (`R/fetch-nrdb.R`) has no
 equivalent: it only adds `httr2::req_retry(max_tries = 5)` on top of
 httr2's default behavior, which retries transient/429/503 statuses and
 otherwise raises httr2's ordinary generic error on any other non-2xx
-status, including most 5xx.
+status, including most 5xx. `cobra_get()` (`R/fetch-cobra.R`) applies the
+same defensive discipline abr uses, since tournaments.nullsignal.games is
+also NSG-community-run: it retries a 429/5xx with capped exponential
+backoff, then hard-stops with a custom `netrunneR_cobra_5xx` condition
+once retries are exhausted, and treats a 401/403/404/406 as "this
+tournament id or page does not exist" rather than an error, matching the
+public, unauthenticated crawl this lineage runs.
 
 Git-mirror lineages carry no pacing deliberately: the upstream is GitHub,
 not a volunteer-run community server, so the courtesy throttle that
@@ -121,7 +127,7 @@ The composite is what makes the no-op check honest in both directions:
 - Same source, changed build module or DDL, means a new, distinct,
   non-colliding release even though nothing upstream moved.
 
-`build_revision` is computed identically for all five lineages rather than
+`build_revision` is computed identically for all six lineages rather than
 only for git-mirror lineages, so a change to shared code or shared DDL
 forces a rebuild everywhere it could affect output. Narrowing it would let
 a shared-code change silently leave stale releases in place.
