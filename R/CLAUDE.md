@@ -1,6 +1,6 @@
 # R/
 
-Package source: five lineage mirrors sharing one fetch/build/validate/promote pipeline, dispatched by S3 on `source_type`.
+Package source: six lineage mirrors sharing one fetch/build/validate/promote pipeline, dispatched by S3 on `source_type`.
 
 ## Files
 
@@ -19,14 +19,16 @@ Package source: five lineage mirrors sharing one fetch/build/validate/promote pi
 | `capture.R` | `capture_response_body()`, the sole httr2-bytes-to-disk boundary | Adding any fetch path that touches response bytes |
 | `config.R` | `LLM_USE_POLICY`, `LLM_USE_POLICY_PRECAUTIONARY`, `check_config()` startup validation | Adding a required env var or runtime policy constant |
 | `cli.R` | `netrunneR_cli()`, `resolve_cli_triple()`, `NETRUNNER_MODES` | Adding a CLI flag, changing flag/env-var precedence or mode validation |
-| `fetch-api-poll.R` | S3 fetch method for api_poll lineages, delegating to abr/nrdb helpers | Changing shared api-poll pacing, user-agent, or delegation |
+| `fetch-api-poll.R` | S3 fetch method for api_poll lineages, delegating to abr/nrdb/cobra helpers | Changing shared api-poll pacing, user-agent, or delegation |
 | `fetch-abr.R` | ABR tournaments/entries/videos/upcoming fetch, throttling, 5xx hard stop | Debugging ABR fetches, pagination, cookie-jar handling, row-limit caps |
 | `abr-backfill.R` | Resumable ABR entries backfill, checkpoints, tombstones, outage detection | Debugging stalled backfills, tombstoned tournaments, false outage aborts |
 | `fetch-nrdb.R` | NetrunnerDB reviews/rulings fetch, `compare_shape()`, retry backoff | Debugging nrdb fetches or the response-envelope shape check |
+| `fetch-cobra.R` | Cobra tournament-bundle fetch: discovery/tail-probe/backfill-walk id strategy, checkpointed object pool, `cobra_get()` 5xx/429 backoff | Debugging Cobra fetches, id discovery, or the checkpointed pool |
 | `fetch-git-mirror.R` | S3 fetch method cloning and checking out a configured ref with gert | Changing clone behavior, ref defaults, or git-derived `source_revision` |
 | `fetch-web-archive.R` | Rules hub scrape, `parse_rules_hub_index()`, `head_last_modified()`, `pool_pdf()` | Fixing the hub scraper, PDF pooling, or version/date extraction |
 | `build-abr.R` | api_poll build dispatch, `ABR_TOURNAMENT_ALLOWLIST`, `build_abr()` | Changing ABR columns, cardinality checks, or api_poll build dispatch |
 | `build-nrdb.R` | `NRDB_REVIEW_ALLOWLIST`, `NRDB_RULING_ALLOWLIST`, `build_nrdb()` | Changing nrdb columns or review/ruling table construction |
+| `build-cobra.R` | `COBRA_*_ALLOWLIST` constants, `COBRA_DENY_PATTERN`, `flatten_cobra_*()`, `build_cobra()` | Changing Cobra's ten tables, allowlists, or bundle-flattening logic |
 | `build-cardpool.R` | git_mirror build dispatch, cardpool allowlists, `read_json_tibble()`, `apply_schema()` | Changing cardpool tables, JSON ingestion, or schema application |
 | `build-implementation.R` | Ice/breaker trait extraction, cardpool code cross-check | Changing trait parsing or the non-blocking cardpool cross-check |
 | `build-rules.R` | web_archive build dispatch, `check_version_monotonic()`, `check_pdf_hashes()` | Changing rules tables, version-order policy, or PDF hash re-verification |

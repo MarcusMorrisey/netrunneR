@@ -10,12 +10,12 @@ release's shape.
 ## Invariants
 
 **A DDL edit is never local to one lineage.** Every file under `schema/` is
-hashed into `build_revision()`, which is a single value shared by all five
+hashed into `build_revision()`, which is a single value shared by all six
 lineages. Changing `abr.sql` therefore forces a new release of cardpool,
 implementation, nrdb and rules as well, none of whose data changed. That is
 deliberate -- the revision answers "was this release built by the same code and
 the same schema", and a partial answer to that is worse than an over-broad one
--- but it means a one-column addition costs five rebuilds and five promotions.
+-- but it means a one-column addition costs six rebuilds and six promotions.
 
 **A column admitted here must also be admitted upstream.** The build layer
 selects with `all_of()` against an allowlist before writing, so a column that

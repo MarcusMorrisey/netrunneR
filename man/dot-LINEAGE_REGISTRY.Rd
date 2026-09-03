@@ -7,7 +7,7 @@
 .LINEAGE_REGISTRY
 }
 \description{
-The single source of truth for the five built-in lineage names and
+The single source of truth for the six built-in lineage names and
 their static details: BUILTIN_LINEAGES and lineage() both read this
 registry rather than each independently enumerating the same names,
 so a name can never be known to one and not the other.

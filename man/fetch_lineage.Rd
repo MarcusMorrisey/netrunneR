@@ -23,5 +23,6 @@ S3 generic dispatched on the lineage's source_type class
 Methods write only under attempt_dir and must route every byte derived
 from an httr2_response through \code{\link[=capture_response_body]{capture_response_body()}}.
 The netrunneR_api_poll method lives in R/fetch-api-poll.R and delegates
-to per-lineage helpers in R/fetch-abr.R and R/fetch-nrdb.R. (ref: DL-005)
+to per-lineage helpers in R/fetch-abr.R, R/fetch-nrdb.R and
+R/fetch-cobra.R. (ref: DL-005)
 }
