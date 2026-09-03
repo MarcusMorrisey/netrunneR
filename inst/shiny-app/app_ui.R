@@ -40,6 +40,14 @@ app_ui <- function() {
     # the widget mounted is the only fix that does not involve
     # out-thinking renderUI's cache.
     shiny::uiOutput("nav"),
+    # A process-lifetime app has no other way to say which release it
+    # is showing (R/operations.R's load_ice_breaker_app_data() loads
+    # data once at startup) -- inline-styled rather than a new CSS
+    # class, and kept out of suite_nav_ui() (R/mod_lane_board.R), a
+    # shared, exported component with no other caller yet: nothing
+    # here decides where a release caption belongs across a future
+    # suite of apps, only that this one needs to show it somewhere.
+    shiny::uiOutput("release_info"),
     # conditionalPanel HIDES rather than unmounts, which is the whole
     # point: the slider stays alive and keeps its value while the reader
     # is on a view that has no dates to filter. A server-side condition

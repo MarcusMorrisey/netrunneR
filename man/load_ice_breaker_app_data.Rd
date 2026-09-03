@@ -13,10 +13,14 @@ each NULL when the release predates that schema), \code{matchup} and
 from), \code{tournaments} (the abr \code{tournament} table, NULL when no abr
 release is active), \code{identities} and \code{factions} (the cardpool
 identity cards and the faction lookup, which the meta stats view
-needs and \code{cards} cannot supply), or
-\code{missing_lineages} (character vector, non-NULL) if either required
-release is unavailable -- callers branch on \code{missing_lineages}
-before touching the rest.
+needs and \code{cards} cannot supply), \code{cardpool_release_id} and
+\code{implementation_release_id} (the release directory names
+\code{compute_ice_breaker_matchups()} was called with -- already computed
+for that call, surfaced here rather than recomputed, so a
+long-running app can show which release it is serving without a
+second call into the store), or \code{missing_lineages} (character
+vector, non-NULL) if either required release is unavailable --
+callers branch on \code{missing_lineages} before touching the rest.
 }
 \description{
 Hoisted out of \code{app_server()} (called once from \code{inst/shiny-app/app.R},
