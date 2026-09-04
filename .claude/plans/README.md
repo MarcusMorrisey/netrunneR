@@ -29,39 +29,49 @@ are referenced from the compose and systemd files. The cost-model plan
 continues from `DL-011` rather than restarting, so an id means one thing
 across both repositories.
 
-`DL-031` through `DL-039` belong to Deck Compare (the ice/breaker app's
+`DL-031` through `DL-040` belong to Deck Compare (the ice/breaker app's
 NetrunnerDB decklist fetch and pairing feature: `R/fetch-deck.R`,
 `R/deck-compare.R`, the `all_codes` addition to `load_ice_breaker_app_data()`
-in `R/operations.R`, and the shared render helpers extracted from
-`R/mod_matchup_explorer.R`). That plan continues from `DL-030` rather than
-restarting, for the same reason the cost-model plan continues from
-`DL-011`.
+in `R/operations.R`, the shared render helpers extracted from
+`R/mod_matchup_explorer.R`, and the nav-destination view module wired in
+milestone M-005). That plan continues from `DL-030` rather than restarting,
+for the same reason the cost-model plan continues from `DL-011`.
 
-**A real collision happened here, corrected rather than merely renumbered
-away.** The abr/cobra cross-reference plan (Phase 1 of the phased design at
+**A real collision happened here, corrected twice.** The abr/cobra
+cross-reference plan (Phase 1 of the phased design at
 `docs/netrunneR/plans/2026-09-03-abr-cobra-xref/plan.md` in the homelab repo)
 was planned concurrently with Deck Compare, in a separate session, and
 independently computed the same "next available" starting point from this
 same file -- landing its own Phase 1 decision (`R/build-cobra.R`'s
 `abr_code`-is-a-plain-reference call) at `DL-031`/`DL-032`, the same numbers
-Deck Compare had already claimed for two of its own decisions. `DL-032`
-specifically was live in committed code under both meanings at once before
-this was caught: `R/build-cobra.R:30` and `R/deck-compare.R`/`R/README.md`
-each citing the same id for two unrelated decisions.
+Deck Compare had already claimed. `DL-032` was live in committed code under
+both meanings at once before this was caught.
 
-Resolved by renumbering the smaller, more recently landed footprint: the
-abr/cobra Phase 1 decision moved from `DL-031, DL-032` to `DL-040, DL-041`
-in `R/build-cobra.R` (regenerated `man/COBRA_TOURNAMENT_ALLOWLIST.Rd`
-alongside it). Deck Compare's citations across `R/fetch-deck.R`,
-`R/deck-compare.R`, `R/operations.R`, `R/mod_matchup_explorer.R` and
-`R/README.md` were left untouched, since renumbering them would have meant
-editing a footprint already spread across five files plus documentation
-that had just been synced, against one that was one file, one line.
+First correction moved cobra's pair to `DL-040`/`DL-041`, checked only
+against Deck Compare's LANDED code at the time (`DL-031`-`DL-039` across
+`R/fetch-deck.R`, `R/deck-compare.R`, `R/operations.R`,
+`R/mod_matchup_explorer.R`, `R/README.md`), not against the FULL plan,
+which already specified milestone M-005 (not yet built) citing `DL-040`
+for its own decision. That created the exact same class of collision a
+second time, this time self-inflicted, caught before M-005 was built by
+reading the plan's complete decision list rather than only its landed
+footprint.
 
-The high-water mark is now `DL-041`. Any future abr/cobra Phase 2 work
-reserves headroom starting there, not from the old `DL-033`-`DL-038` range
-this entry used to (wrongly) claim for it -- that range was never actually
-used by Phase 1 and now belongs to Deck Compare instead.
+Second correction moves cobra's pair again, to `DL-042`/`DL-043`, past
+Deck Compare's true high-water mark including its unbuilt milestone.
+`DL-041` is left as a deliberate gap rather than reused, so cobra's two
+decisions stay a contiguous, easily-cited pair. `man/COBRA_TOURNAMENT_ALLOWLIST.Rd`
+regenerated to match on both corrections.
+
+**The lesson, for whichever session reads this next:** compute "next
+available id" against a plan's full decision list (including unbuilt
+milestones), never only its landed code. A plan that reserves ids ahead of
+where it has built to is the normal case, not an edge case.
+
+The high-water mark is now `DL-043`. Any future abr/cobra Phase 2 work
+reserves headroom starting at `DL-044`, not from the old `DL-033`-`DL-038`
+range this entry originally (wrongly) claimed for it -- that range was
+never actually used by Phase 1 and belongs to Deck Compare instead.
 
 ## One decision is deliberately unmade
 

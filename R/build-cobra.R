@@ -27,7 +27,7 @@
 #'
 #' No cross-reference table exists, and none is built here: a built
 #' cross-reference is gated on cobra carrying live data and a named
-#' consumer needing the combined read. (ref: DL-040, DL-041)
+#' consumer needing the combined read. (ref: DL-042, DL-043)
 #' @keywords internal
 COBRA_TOURNAMENT_ALLOWLIST <- c(
   "tournament_id", "name", "slug", "abr_code", "private", "date", "time_zone",
