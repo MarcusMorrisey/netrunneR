@@ -12,7 +12,7 @@ testthat suite, edition 3.
 
 | Directory | What | When to read |
 | --- | --- | --- |
-| `testthat/` | Shared setup plus 21 test files, one per module or invariant | Adding tests, debugging a failure, checking which invariants are enforced |
+| `testthat/` | Shared setup plus 47 test files, one per module or invariant | Adding tests, debugging a failure, checking which invariants are enforced |
 
 ## Test
 

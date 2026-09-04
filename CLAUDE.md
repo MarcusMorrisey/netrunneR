@@ -26,7 +26,7 @@ R package maintaining an offline, versioned mirror of six Netrunner data sources
 | `tests/` | testthat entry point and the full test suite | Adding tests, debugging failures, checking enforced invariants |
 | `inst/` | Installed assets: CLI wrapper, Shiny app, SQL schemas | Changing the container entry point, the app, or a lineage's DDL |
 | `.ci/` | Rscript entry points for check, test, document, coverage, renv restore | Changing what CI runs or how dependencies are restored |
-| `man/` | Generated roxygen2 `.Rd` documentation (232 files). Regenerate with `make document` | Never edit directly; regenerate after editing roxygen comments in `R/*.R`, then COMMIT the result -- `make docs-current` fails if you do not |
+| `man/` | Generated roxygen2 `.Rd` documentation (269 files). Regenerate with `make document` | Never edit directly; regenerate after editing roxygen comments in `R/*.R`, then COMMIT the result -- `make docs-current` fails if you do not |
 | `.claude/` | Planning artefacts that outlive the session that produced them | Picking up a milestone, checking what a decision id refers to |
 | `docs/` | Generated pkgdown site, git-ignored. Regenerate with `pkgdown::build_site()` | Never edit directly; served by the `netrunner-pkgdown` container |
 
