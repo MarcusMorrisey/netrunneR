@@ -1,14 +1,15 @@
 test_that("resolve_deck_codes() puts an unknown code in unresolved and still resolves the rest", {
   all_codes <- mini_pool_cardpool()[c("code", "title", "type_code")]
   deck <- list(
-    id = 1, name = "Test Corp", identity_code = "id01",
-    cards = c(ice01 = 3L, zzz99 = 2L)
+    id = 1, name = "Test Corp",
+    cards = c(id01 = 1L, ice01 = 3L, zzz99 = 2L)
   )
 
   resolved <- resolve_deck_codes(deck, all_codes)
 
   expect_equal(resolved$unresolved, "zzz99")
   expect_equal(resolved$ice, "ice01")
+  expect_equal(resolved$identity, "id01")
 })
 
 test_that("resolve_deck_codes() puts an agenda code in other_known, not unresolved", {
@@ -17,8 +18,8 @@ test_that("resolve_deck_codes() puts an agenda code in other_known, not unresolv
   # not unresolved.
   all_codes <- mini_pool_cardpool()[c("code", "title", "type_code")]
   deck <- list(
-    id = 1, name = "Test Corp", identity_code = "id01",
-    cards = c(ice01 = 3L, agn01 = 3L)
+    id = 1, name = "Test Corp",
+    cards = c(id01 = 1L, ice01 = 3L, agn01 = 3L)
   )
 
   resolved <- resolve_deck_codes(deck, all_codes)
@@ -29,14 +30,14 @@ test_that("resolve_deck_codes() puts an agenda code in other_known, not unresolv
 
 test_that("resolve_deck_codes() refuses a zero-card deck", {
   all_codes <- mini_pool_cardpool()[c("code", "title", "type_code")]
-  deck <- list(id = 1, name = "Empty", identity_code = "id01", cards = c())
+  deck <- list(id = 1, name = "Empty", cards = c())
 
   expect_error(resolve_deck_codes(deck, all_codes))
 })
 
-test_that("resolve_deck_codes() refuses a deck with no identity_code", {
+test_that("resolve_deck_codes() refuses a deck with no identity card among its known codes", {
   all_codes <- mini_pool_cardpool()[c("code", "title", "type_code")]
-  deck <- list(id = 1, name = "No Identity", identity_code = NA_character_, cards = c(ice01 = 3L))
+  deck <- list(id = 1, name = "No Identity", cards = c(ice01 = 3L))
 
   expect_error(resolve_deck_codes(deck, all_codes))
 })

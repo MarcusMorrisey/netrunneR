@@ -77,10 +77,18 @@ available id" against a plan's full decision list (including unbuilt
 milestones), never only its landed code. A plan that reserves ids ahead of
 where it has built to is the normal case, not an edge case.
 
-The high-water mark is now `DL-043`. Any future abr/cobra Phase 2 work
+The high-water mark was `DL-043`. Any future abr/cobra Phase 2 work
 reserves headroom starting at `DL-044`, not from the old `DL-033`-`DL-038`
 range this entry originally (wrongly) claimed for it -- that range was
 never actually used by Phase 1 and belongs to Deck Compare instead.
+
+`DL-045` is a post-landing fix to Deck Compare itself, not part of the
+original `DL-031`..`DL-040` plan: `resolve_deck_codes()` was reading a
+`deck$identity` field that the live NetrunnerDB `/decklist/<id>` envelope
+has never actually returned (the same gap R/README.md's decklist-mirroring
+postmortem had already named). Fixed by finding the identity via
+`type_code == "identity"` against the resolved cardpool codes instead.
+`DL-044` stays reserved for abr/cobra; the high-water mark is now `DL-045`.
 
 ## One decision is deliberately unmade
 

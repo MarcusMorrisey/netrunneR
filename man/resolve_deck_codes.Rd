@@ -7,15 +7,16 @@
 resolve_deck_codes(deck, all_codes)
 }
 \arguments{
-\item{deck}{A list as returned by \code{fetch_deck()}: \code{id}, \code{name}, \code{identity_code}
-and \code{cards}, a named integer vector of card code to quantity.}
+\item{deck}{A list as returned by \code{fetch_deck()}: \code{id}, \code{name} and \code{cards}, a named
+integer vector of card code to quantity, the identity's own code included.}
 
 \item{all_codes}{A tibble of \code{code}, \code{title}, \code{type_code} for every card in the
 active cardpool release, as returned by \code{load_ice_breaker_app_data()}.}
 }
 \value{
-A list of four code sets: \code{ice}, \code{breakers}, \code{other_known} (present in
-\code{all_codes} but neither), and \code{unresolved} (absent from \code{all_codes} entirely).
+A list of five code sets: \code{identity}, \code{ice}, \code{breakers}, \code{other_known}
+(present in \code{all_codes} but none of the above), and \code{unresolved} (absent from
+\code{all_codes} entirely).
 }
 \description{
 Resolve a fetched deck against the active cardpool release
@@ -23,8 +24,15 @@ Resolve a fetched deck against the active cardpool release
 \details{
 The join is on \code{code} and only ever on \code{code}. A title join against this
 cardpool produces zero matches rather than an error, so it fails silently and looks
-like an empty deck. Refuses outright only on a zero-card deck or a missing
-\code{identity_code}; an unresolved code narrows the comparison and never aborts it.
+like an empty deck. Refuses outright only on a zero-card deck or a deck whose
+identity resolves to nothing; an unresolved code narrows the comparison and never
+aborts it.
+
+The identity is not read from the fetch: the live \verb{/decklist/<id>} envelope carries
+no \code{identity} field (R/README.md's "Decklist mirroring was removed, not repaired"
+documented this exact gap first). Instead it is found here, among the codes already
+known to this release, via \code{type_code == "identity"} -- the same idiom
+\code{load_ice_breaker_app_data()} uses. (DL-045)
 
 \code{unresolved} reports one honest state, "not in cardpool release \if{html}{\out{<id>}}". It does not
 split version skew from a reprint alias. That split is a stated requirement of the

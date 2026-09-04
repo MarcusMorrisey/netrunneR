@@ -38,7 +38,11 @@ mini_pool_cardpool <- function() {
     # An agenda: known to the cardpool release but neither ice nor a
     # breaker, so it must appear in all_codes and never in `cards`
     # (ice_breaker_pool()'s restriction). See DL-035.
-    "agn01", "Corporate War",    "core",     "neutral-corp",  "agenda",   "corp",     "",    0L,    NA_integer_, ""
+    "agn01", "Corporate War",    "core",     "neutral-corp",  "agenda",   "corp",     "",    0L,    NA_integer_, "",
+    # An identity: resolve_deck_codes() finds a deck's identity via
+    # type_code == "identity" (DL-045), so Deck Compare fixtures need one
+    # real row of this type to resolve against.
+    "id01",   "Test Identity",   "core",     "neutral-corp",  "identity", "corp",     "",    NA_integer_, NA_integer_, ""
   )
 }
 

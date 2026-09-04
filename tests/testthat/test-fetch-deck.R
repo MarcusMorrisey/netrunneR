@@ -22,6 +22,9 @@ test_that("fetch_deck() yields NULL for a NULL ref without issuing a request", {
 })
 
 test_that("fetch_deck() returns the parsed deck from a well-formed envelope", {
+  # No `identity` field on the envelope: the live NRDB response never carries
+  # one (DL-045). The identity card, "id01", arrives like any other card, at
+  # quantity 1, inside `cards`.
   withr::local_envvar(NRDB_CONTACT = "fixture@example.test")
 
   httr2::local_mocked_responses(function(req) {
@@ -32,8 +35,7 @@ test_that("fetch_deck() returns the parsed deck from a well-formed envelope", {
         data = list(list(
           id = 12345L,
           name = "Fixture Deck",
-          identity = "id01",
-          cards = list(`ice01` = 3L, `brk01` = 2L)
+          cards = list(`id01` = 1L, `ice01` = 3L, `brk01` = 2L)
         ))
       ),
       auto_unbox = TRUE
@@ -44,7 +46,8 @@ test_that("fetch_deck() returns the parsed deck from a well-formed envelope", {
   deck <- fetch_deck("12345", li)
 
   expect_identical(deck$name, "Fixture Deck")
-  expect_identical(deck$identity_code, "id01")
+  expect_false("identity_code" %in% names(deck))
+  expect_identical(unname(deck$cards[["id01"]]), 1L)
   expect_identical(unname(deck$cards[["ice01"]]), 3L)
   expect_identical(unname(deck$cards[["brk01"]]), 2L)
 })

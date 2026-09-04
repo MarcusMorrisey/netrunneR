@@ -26,13 +26,24 @@ parse_deck_ref <- function(ref) {
 #'
 #' @param ref A bare numeric deck id or a netrunnerdb.com deck/decklist URL.
 #' @param lineage The `nrdb` lineage entry, supplying base_url and pacing only.
-#' @return A list of `id`, `name`, `identity_code` and `cards`, where `cards` is a named
-#'   integer vector of card code to quantity. `NULL` ref yields `NULL` rather than an error.
+#' @return A list of `id`, `name` and `cards`, where `cards` is a named integer vector of
+#'   card code to quantity, the identity's own code included at quantity 1. `NULL` ref
+#'   yields `NULL` rather than an error.
 #' @details Routes through [nrdb_get()] so the NRDB_CONTACT user agent, `pacing_rate()`
 #'   throttling and the five-try retry come from the registry rather than a second httr2
 #'   pipeline. The response body is memory-only via `capture_response_body()`; nothing is
 #'   written to disk, and this file's name keeps it inside test-capture-boundary.R's
-#'   `R/*fetch*.R` AST scan, which is why the network half is not in deck-compare.R. (DL-033, DL-039)
+#'   `R/*fetch*.R` AST scan, which is why the network half is not in deck-compare.R.
+#'   (DL-033, DL-039)
+#'
+#'   Does not read an `identity` field: the live `/decklist/<id>` envelope carries no such
+#'   field, and never has -- this is the exact gap R/README.md's "Decklist mirroring was
+#'   removed, not repaired" section already recorded ("an `identity_code` with no
+#'   upstream source at all") before Deck Compare re-introduced the same assumption. The
+#'   identity card is still identifiable: it is present in `cards` like any other card, at
+#'   quantity 1, and [resolve_deck_codes()] finds it there via the cardpool's own
+#'   `type_code == "identity"`, the same idiom `load_ice_breaker_app_data()` already uses.
+#'   (DL-045)
 #' @keywords internal
 fetch_deck <- function(ref, lineage) {
   id <- parse_deck_ref(ref)
@@ -48,7 +59,6 @@ fetch_deck <- function(ref, lineage) {
   list(
     id = deck$id,
     name = deck$name,
-    identity_code = deck$identity,
     cards = cards
   )
 }

@@ -12,8 +12,9 @@ fetch_deck(ref, lineage)
 \item{lineage}{The \code{nrdb} lineage entry, supplying base_url and pacing only.}
 }
 \value{
-A list of \code{id}, \code{name}, \code{identity_code} and \code{cards}, where \code{cards} is a named
-integer vector of card code to quantity. \code{NULL} ref yields \code{NULL} rather than an error.
+A list of \code{id}, \code{name} and \code{cards}, where \code{cards} is a named integer vector of
+card code to quantity, the identity's own code included at quantity 1. \code{NULL} ref
+yields \code{NULL} rather than an error.
 }
 \description{
 Fetch a NetrunnerDB decklist
@@ -23,6 +24,16 @@ Routes through \code{\link[=nrdb_get]{nrdb_get()}} so the NRDB_CONTACT user agen
 throttling and the five-try retry come from the registry rather than a second httr2
 pipeline. The response body is memory-only via \code{capture_response_body()}; nothing is
 written to disk, and this file's name keeps it inside test-capture-boundary.R's
-\verb{R/*fetch*.R} AST scan, which is why the network half is not in deck-compare.R. (DL-033, DL-039)
+\verb{R/*fetch*.R} AST scan, which is why the network half is not in deck-compare.R.
+(DL-033, DL-039)
+
+Does not read an \code{identity} field: the live \verb{/decklist/<id>} envelope carries no such
+field, and never has -- this is the exact gap R/README.md's "Decklist mirroring was
+removed, not repaired" section already recorded ("an \code{identity_code} with no
+upstream source at all") before Deck Compare re-introduced the same assumption. The
+identity card is still identifiable: it is present in \code{cards} like any other card, at
+quantity 1, and \code{\link[=resolve_deck_codes]{resolve_deck_codes()}} finds it there via the cardpool's own
+\code{type_code == "identity"}, the same idiom \code{load_ice_breaker_app_data()} already uses.
+(DL-045)
 }
 \keyword{internal}

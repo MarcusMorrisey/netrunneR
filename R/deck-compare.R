@@ -10,16 +10,24 @@
 
 #' Resolve a fetched deck against the active cardpool release
 #'
-#' @param deck A list as returned by `fetch_deck()`: `id`, `name`, `identity_code`
-#'   and `cards`, a named integer vector of card code to quantity.
+#' @param deck A list as returned by `fetch_deck()`: `id`, `name` and `cards`, a named
+#'   integer vector of card code to quantity, the identity's own code included.
 #' @param all_codes A tibble of `code`, `title`, `type_code` for every card in the
 #'   active cardpool release, as returned by `load_ice_breaker_app_data()`.
-#' @return A list of four code sets: `ice`, `breakers`, `other_known` (present in
-#'   `all_codes` but neither), and `unresolved` (absent from `all_codes` entirely).
+#' @return A list of five code sets: `identity`, `ice`, `breakers`, `other_known`
+#'   (present in `all_codes` but none of the above), and `unresolved` (absent from
+#'   `all_codes` entirely).
 #' @details The join is on `code` and only ever on `code`. A title join against this
 #'   cardpool produces zero matches rather than an error, so it fails silently and looks
-#'   like an empty deck. Refuses outright only on a zero-card deck or a missing
-#'   `identity_code`; an unresolved code narrows the comparison and never aborts it.
+#'   like an empty deck. Refuses outright only on a zero-card deck or a deck whose
+#'   identity resolves to nothing; an unresolved code narrows the comparison and never
+#'   aborts it.
+#'
+#'   The identity is not read from the fetch: the live `/decklist/<id>` envelope carries
+#'   no `identity` field (R/README.md's "Decklist mirroring was removed, not repaired"
+#'   documented this exact gap first). Instead it is found here, among the codes already
+#'   known to this release, via `type_code == "identity"` -- the same idiom
+#'   `load_ice_breaker_app_data()` uses. (DL-045)
 #'
 #'   `unresolved` reports one honest state, "not in cardpool release <id>". It does not
 #'   split version skew from a reprint alias. That split is a stated requirement of the
@@ -31,11 +39,16 @@
 #' @keywords internal
 resolve_deck_codes <- function(deck, all_codes) {
   codes <- names(deck$cards)
-  if (length(codes) == 0 || is.null(deck$identity_code) || is.na(deck$identity_code)) {
-    stop("resolve_deck_codes(): deck has zero cards or no identity_code", call. = FALSE)
+  if (length(codes) == 0) {
+    stop("resolve_deck_codes(): deck has zero cards", call. = FALSE)
   }
 
   known <- all_codes[all_codes$code %in% codes, , drop = FALSE]
+
+  identity <- known$code[known$type_code == "identity"]
+  if (length(identity) == 0) {
+    stop("resolve_deck_codes(): no identity card found among this deck's known codes", call. = FALSE)
+  }
 
   # ice_breaker_pool()'s type test (type_code == "ice" | type_code == "program"),
   # reused rather than reinvented -- its subtype half (has_card_subtype(keywords,
@@ -50,10 +63,10 @@ resolve_deck_codes <- function(deck, all_codes) {
 
   ice <- known$code[known$type_code == "ice"]
   breakers <- known$code[known$type_code == "program"]
-  other_known <- known$code[!is_pool_type]
+  other_known <- known$code[!is_pool_type & known$type_code != "identity"]
   unresolved <- setdiff(codes, all_codes$code)
 
-  list(ice = ice, breakers = breakers, other_known = other_known, unresolved = unresolved)
+  list(identity = identity, ice = ice, breakers = breakers, other_known = other_known, unresolved = unresolved)
 }
 
 #' Pair a Corp deck's resolved ice against a Runner deck's resolved breakers

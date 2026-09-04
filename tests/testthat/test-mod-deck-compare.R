@@ -14,8 +14,11 @@ deck_compare_args <- function() {
   )
 }
 
-fixture_deck <- function(cards, identity_code = "id01") {
-  list(id = 1, name = "Fixture Deck", identity_code = identity_code, cards = cards)
+fixture_deck <- function(cards) {
+  # Identity code "id01" folded into `cards` like any other card, at
+  # quantity 1 -- matches fetch_deck()'s real shape now that the identity
+  # is found via type_code == "identity" rather than a fetched field (DL-045).
+  list(id = 1, name = "Fixture Deck", cards = c(cards, id01 = 1L))
 }
 
 test_that("a successful compare populates the result reactive with the expected pair count", {
