@@ -52,8 +52,26 @@ test_that("load_ice_breaker_app_data() loads from a promoted fixture store", {
   local_store_fixture()
   app_data <- load_ice_breaker_app_data()
   expect_null(app_data$missing_lineages)
-  expect_equal(sort(app_data$cards$code), sort(mini_pool_cardpool()$code))
+  # `cards` stays restricted to ice_breaker_pool(): agn01 (an agenda) is
+  # in the mini-pool cardpool but must not be in `cards`. See DL-035.
+  ice_breaker_codes <- mini_pool_cardpool()$code[mini_pool_cardpool()$type_code %in% c("ice", "program")]
+  expect_equal(sort(app_data$cards$code), sort(ice_breaker_codes))
   expect_true(nrow(app_data$matchup) > 0)
+})
+
+test_that("load_ice_breaker_app_data() exposes all_codes for every cardpool card", {
+  local_store_fixture()
+  app_data <- load_ice_breaker_app_data()
+  expect_named(app_data$all_codes, c("code", "title", "type_code"))
+  expect_equal(sort(app_data$all_codes$code), sort(mini_pool_cardpool()$code))
+
+  # A known agenda code is absent from `cards` (ice_breaker_pool()) but
+  # present in all_codes -- the distinction Deck Compare's unresolved
+  # state depends on (DL-035).
+  expect_true("agn01" %in% app_data$all_codes$code)
+  expect_false("agn01" %in% app_data$cards$code)
+
+  expect_true(nrow(app_data$all_codes) > nrow(app_data$cards))
 })
 
 test_that("load_ice_breaker_app_data() names exactly the lineages that are missing", {

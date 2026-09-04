@@ -21,6 +21,17 @@ long-running app can show which release it is serving without a
 second call into the store), or \code{missing_lineages} (character
 vector, non-NULL) if either required release is unavailable --
 callers branch on \code{missing_lineages} before touching the rest.
+
+\code{cards} remains \code{ice_breaker_pool(card)} and therefore still holds only
+ice and icebreakers. Adds \code{all_codes}: a tibble of \code{code}, \code{title} and \code{type_code}
+for EVERY card in the active cardpool release, projected from the \code{all_cards} object
+already materialised here for the identities split.
+
+\code{all_codes} exists because \code{cards} cannot answer "does this release know this code".
+A deck's Agenda, Event and Operation codes are absent from \code{cards} for a reason that
+has nothing to do with the release being stale, so asking \code{cards} merges "unknown to
+this release" with "known but not ice or a breaker" - the exact merge Deck Compare's
+unresolved-code state is required not to make. Ask \code{all_codes}, never \code{cards}. (DL-035)
 }
 \description{
 Hoisted out of \code{app_server()} (called once from \code{inst/shiny-app/app.R},

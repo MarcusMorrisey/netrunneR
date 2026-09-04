@@ -211,6 +211,17 @@ read_matchup_overrides <- function(path = system.file("extdata", "matchup_overri
 #'   second call into the store), or `missing_lineages` (character
 #'   vector, non-NULL) if either required release is unavailable --
 #'   callers branch on `missing_lineages` before touching the rest.
+#'
+#'   `cards` remains `ice_breaker_pool(card)` and therefore still holds only
+#'   ice and icebreakers. Adds `all_codes`: a tibble of `code`, `title` and `type_code`
+#'   for EVERY card in the active cardpool release, projected from the `all_cards` object
+#'   already materialised here for the identities split.
+#'
+#'   `all_codes` exists because `cards` cannot answer "does this release know this code".
+#'   A deck's Agenda, Event and Operation codes are absent from `cards` for a reason that
+#'   has nothing to do with the release being stale, so asking `cards` merges "unknown to
+#'   this release" with "known but not ice or a breaker" - the exact merge Deck Compare's
+#'   unresolved-code state is required not to make. Ask `all_codes`, never `cards`. (DL-035)
 #' @export
 load_ice_breaker_app_data <- function() {
   cardpool_result <- read_active_release_tables(
@@ -275,6 +286,10 @@ load_ice_breaker_app_data <- function() {
 
   list(
     cards = cards,
+    # Three-column projection of `all_cards`, already materialised above
+    # for the identities split, for every card in the release -- not
+    # just ice and breakers. See this function's @return for why.
+    all_codes = all_cards[c("code", "title", "type_code")],
     legality = legality,
     matchup = matchup_result$matchups,
     # Carried through alongside the matchup table it was used to build,

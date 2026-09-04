@@ -34,7 +34,11 @@ mini_pool_cardpool <- function() {
     "brk03", "Idle Breaker",    "core",     "neutral-runner","program",  "runner",   "",    3L,    2L,        "Icebreaker - Killer",
     "brk04", "Fixed Breaker",   "core",     "neutral-runner","program",  "runner",   "",    4L,    2L,        "Icebreaker - Fracter",
     "brk05", "Stealth Breaker", "core",     "neutral-runner","program",  "runner",   "",    3L,    1L,        "Icebreaker - Fracter",
-    "brk06", "Counter Breaker", "core",     "neutral-runner","program",  "runner",   "",    3L,    1L,        "Icebreaker - Fracter"
+    "brk06", "Counter Breaker", "core",     "neutral-runner","program",  "runner",   "",    3L,    1L,        "Icebreaker - Fracter",
+    # An agenda: known to the cardpool release but neither ice nor a
+    # breaker, so it must appear in all_codes and never in `cards`
+    # (ice_breaker_pool()'s restriction). See DL-035.
+    "agn01", "Corporate War",    "core",     "neutral-corp",  "agenda",   "corp",     "",    0L,    NA_integer_, ""
   )
 }
 
