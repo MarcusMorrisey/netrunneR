@@ -156,17 +156,7 @@ mod_matchup_explorer_server <- function(id, compare_code, cards, matchup,
     })
 
     display <- shiny::reactive({
-      d <- all_pairs()
-      codes <- legal_codes()
-      if (!is.null(codes) && nrow(d) > 0) {
-        # BOTH sides must be legal: a Standard breaker measured against
-        # rotated ice is not a Standard matchup.
-        d <- d[d$ice_code %in% codes & d$breaker_code %in% codes, , drop = FALSE]
-      }
-      if (nrow(d) == 0) return(d)
-      d$ice_title     <- cards$title[match(d$ice_code, cards$code)]
-      d$breaker_title <- cards$title[match(d$breaker_code, cards$code)]
-      d[order(d$cost_to_break, na.last = TRUE), , drop = FALSE]
+      matchup_display(all_pairs(), legal_codes(), cards)
     })
 
     output$matchup_status <- shiny::renderUI({
@@ -190,32 +180,18 @@ mod_matchup_explorer_server <- function(id, compare_code, cards, matchup,
         d <- d[, c(counterpart_code, counterpart_title, "cost_to_break",
                    "credit_differential", "source"), drop = FALSE]
 
-        # An NA renders as an em dash, not as an empty cell. reactable
-        # prints NA as a zero-width space, which is indistinguishable
-        # from a value we happen to have not filled in -- and
-        # not_computable is a first-class state here, not a blank. The
-        # wireframe prints "BREAK ---" for the same reason. Em dash as a
-        # \u escape: R CMD check warns on non-ASCII bytes in R source.
-        na_dash <- function(value) if (is.na(value)) "\u2014" else value
-
         # Column defs are name-keyed, and which column holds the
         # counterpart depends on the opened card's type, so the list is
         # assembled with setNames() rather than written as a literal with
         # both possible names present -- reactable warns about a colDef
         # naming a column that is not in the data.
         column_defs <- stats::setNames(
-          list(
-            reactable::colDef(show = FALSE),
-            reactable::colDef(name = counterpart_label),
-            reactable::colDef(name = "Cost to break", cell = na_dash),
-            reactable::colDef(name = "Credit differential (rez - break; + favors runner)",
-                              cell = na_dash),
-            reactable::colDef(
-              name = "Source",
-              cell = function(value) {
-                if (value == "not_computable") "not yet computable" else value
-              }
-            )
+          c(
+            list(
+              reactable::colDef(show = FALSE),
+              reactable::colDef(name = counterpart_label)
+            ),
+            matchup_value_coldefs()
           ),
           c(counterpart_code, counterpart_title, "cost_to_break",
             "credit_differential", "source")
@@ -268,6 +244,68 @@ mod_matchup_explorer_server <- function(id, compare_code, cards, matchup,
     shiny::outputOptions(output, "matchup_status", suspendWhenHidden = FALSE)
     shiny::outputOptions(output, "matchup_table", suspendWhenHidden = FALSE)
   })
+}
+
+#' Shared matchup display pipeline
+#'
+#' @param matchup A matchup tibble as returned by [compute_ice_breaker_matchups()].
+#' @param codes Optional character vector of permitted codes; `NULL` permits all.
+#' @param cards The card table supplying titles.
+#' @return The matchup rows filtered to the code set, with `ice_title` and `breaker_title`
+#'   joined by `code`, ordered by `cost_to_break` with `na.last = TRUE`.
+#' @details Extracted so the explorer and Deck Compare share the pipeline and not the
+#'   table. The reactable itself is deliberately not shared: the explorer collapses to one
+#'   Counterpart column only because its subject is constant on every row, while Deck
+#'   Compare varies on both axes, so a shared component would need a mode flag - the very
+#'   selector this module's doc comment removed. (DL-036)
+#' @keywords internal
+matchup_display <- function(matchup, codes, cards) {
+  d <- matchup
+  if (!is.null(codes) && nrow(d) > 0) {
+    # BOTH sides must be legal/permitted: a pair with one side outside
+    # the code set is not a pair in that code set.
+    d <- d[d$ice_code %in% codes & d$breaker_code %in% codes, , drop = FALSE]
+  }
+  if (nrow(d) == 0) return(d)
+  d$ice_title     <- cards$title[match(d$ice_code, cards$code)]
+  d$breaker_title <- cards$title[match(d$breaker_code, cards$code)]
+  d[order(d$cost_to_break, na.last = TRUE), , drop = FALSE]
+}
+
+#' Render an NA cell as an em dash
+#'
+#' @param x A scalar value, possibly `NA`.
+#' @return The value unchanged, or an em dash when `NA`.
+#' @details The em dash is written as a unicode escape because R CMD check warns on
+#'   non-ASCII bytes in R source. reactable renders `NA` as a zero-width space,
+#'   indistinguishable from a value nobody filled in, and `not_computable` is a
+#'   first-class state here rather than a blank. (DL-036)
+#' @keywords internal
+matchup_na_dash <- function(x) if (is.na(x)) "\u2014" else x
+
+#' The value column definitions shared by every matchup table
+#'
+#' @return A named list of `reactable::colDef()` objects for `cost_to_break`,
+#'   `credit_differential` and `source`. Identity columns (e.g. the explorer's
+#'   Counterpart column) are NOT included here and stay with each caller: the
+#'   explorer collapses to one identity column because its subject is constant on
+#'   every row, while Deck Compare varies on both axes and needs different identity
+#'   columns of its own. (DL-036)
+#' @keywords internal
+matchup_value_coldefs <- function() {
+  list(
+    cost_to_break = reactable::colDef(name = "Cost to break", cell = matchup_na_dash),
+    credit_differential = reactable::colDef(
+      name = "Credit differential (rez - break; + favors runner)",
+      cell = matchup_na_dash
+    ),
+    source = reactable::colDef(
+      name = "Source",
+      cell = function(value) {
+        if (value == "not_computable") "not yet computable" else value
+      }
+    )
+  )
 }
 
 #' Everything inside the matchup modal, as one tagList
