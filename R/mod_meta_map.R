@@ -162,8 +162,19 @@ mod_meta_map_server <- function(id, tournaments = NULL, filters = NULL,
           # invisible looks exactly like "no tournaments here". Named
           # rather than dropped.
           if (length(s$unmatched)) {
+            # Distinguishes "this basemap doesn't carry a polygon this
+            # small" from "the name didn't match" -- an earlier version
+            # of the underlying rename table tried to fix this class of
+            # gap by guessing spellings, and the guesses broke two
+            # countries that already matched (see country_map_name()).
+            # This reads as a basemap resolution limit because that is
+            # what it is, not an invitation to try another rename.
             alert_box(sprintf(
-              "Not drawn, because the world map has no polygon under these names: %s.",
+              paste(
+                "Not drawn: %s. Small states and territories a world map",
+                "at this scale doesn't carry -- not a spelling mismatch,",
+                "and not something renaming these names would fix."
+              ),
               paste(s$unmatched, collapse = ", ")
             ), "warning")
           },
