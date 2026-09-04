@@ -219,6 +219,77 @@ all, and an unserializable nested `cards` list-column that reached
 mirrors reviews and rulings only. This is a closed decision, not a gap to
 fill back in.
 
+### Deck Compare: ephemeral by design, not a seventh lineage
+
+Deck Compare lets a user paste a NetrunnerDB deck id or URL and see it
+matched up against the active cardpool release. It is deliberately not
+built as a sixth (now seventh) lineage: nothing it fetches is persisted.
+A decklist is a live input to a one-off comparison, not mirrored data
+with a schedule, a store, or a promote step. This is the distinction
+that separates it from the decklist-mirroring feature removed above --
+that feature tried to store decklists durably and hit real upstream
+data-shape problems doing it; Deck Compare never writes one to disk at
+all, so none of those problems apply.
+
+`R/fetch-deck.R` holds every httr2 call for decks, and *only* for decks,
+for one concrete reason: `tests/testthat/test-capture-boundary.R` runs
+its no-response-bodies-on-disk AST scan over the glob `R/*fetch*.R`. A
+file named anything else would sit outside that gate silently -- nothing
+would fail to say so. `fetch_deck()` itself routes through the existing
+`nrdb_get()`, so the `NRDB_CONTACT` user agent, `pacing_rate()` throttle
+and five-try retry come from the registry rather than a second httr2
+pipeline. (DL-033)
+
+`check_deck_envelope()` validates `success` is `TRUE`, `total` is `1`,
+and `data` is present and non-empty, before any field is read.
+Deliberately not `compare_shape()` (the check `/reviews` and `/rulings`
+use): `compare_shape()` only asserts a bare `data` list is present, which
+is correct for those endpoints but wrong here -- applied to the decklist
+endpoint it would accept an error envelope carrying `success: false`
+alongside a `data` key. (DL-034)
+
+`R/deck-compare.R` is the pure half: no HTTP, no I/O, no reactivity,
+everything a function of `(deck, all_codes, matchup)`. `resolve_deck_codes()`
+joins a deck's card codes against `all_codes` on `code` and only ever on
+`code` -- a title join against this cardpool would produce zero matches
+silently rather than erroring. `unresolved` codes report one honest
+state, "not in cardpool release `<id>`", not a two-cause split between
+version skew and a reprint alias. That is a deliberate, user-confirmed
+reversal of the original feature spec: `cardpool.sql` carries no
+previous-versions or reprint-alias column on `card`, `printing`,
+`card_set` or `restriction_card`, so the split could only ever be
+inference presented as measurement. The gap is a follow-up owned by the
+cardpool lineage, not something this ephemeral module should paper over.
+(DL-032)
+
+`all_codes` -- a `code`/`title`/`type_code` projection of the full
+cardpool card table, distinct from the `cards` object that
+`load_ice_breaker_app_data()` already restricted to ice and icebreakers
+-- exists so Deck Compare can tell "this release doesn't know this code"
+apart from "this release knows it, but it's an Agenda/Event/Operation,
+not ice or a breaker". `cards` alone cannot answer that. (DL-035)
+
+`deck_matchups()` selects rows from the precomputed matchup tibble whose
+`ice_code` and `breaker_code` both appear in the two decks being
+compared; nothing is recomputed, and `cost_to_break`/`credit_differential`/
+`source` arrive exactly as `compute_ice_breaker_matchups()` left them,
+`not_computable` included. Copy counts return as a separate named lookup,
+not a column, because `cost_to_break` and `credit_differential` are
+per-title properties, invariant to how many copies a deck runs. Unresolved
+codes narrow the comparison and never abort it -- the same degrade-and-label
+idiom `not_computable` and `fill_missing_columns()` already establish
+elsewhere in this codebase. (DL-038)
+
+`mod_matchup_explorer.R`'s filter/join/sort pipeline and value-column
+rendering were extracted into `matchup_display()`, `matchup_na_dash()`
+and `matchup_value_coldefs()` ahead of Deck Compare landing, so the
+explorer and Deck Compare share the pipeline rather than the table. The
+`reactable` itself stays unshared on purpose: the explorer collapses to
+one Counterpart column because its subject is constant on every row,
+while Deck Compare varies on both axes -- a shared table component would
+need a mode flag reintroducing the selector this module's own doc
+comment already removed. (DL-036)
+
 ### Rules version ordering: trust the hub, warn on disagreement
 
 `check_version_monotonic()` had two real bugs and prompted one design
