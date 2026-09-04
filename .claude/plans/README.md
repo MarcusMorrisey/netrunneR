@@ -20,6 +20,10 @@ built package.
 | `step-3-cost-model/plan.json` | The authoritative plan. 3 milestones, 20 decisions (DL-011..DL-030), 10 risks, per-card acceptance criteria. |
 | `step-3-cost-model/context.json` | The context the plan was built from: task spec, constraints, entry points, rejected alternatives, invisible knowledge. |
 | `step-3-cost-model/qr-plan-design.json` | The quality-review items the plan was verified against. |
+| `deck-compare/plan.json` | The authoritative plan for Deck Compare (the ice/breaker app's NetrunnerDB decklist fetch and pairing feature). 5 milestones, decisions DL-031..DL-040. |
+| `deck-compare/context.json` | The context the plan was built from: task spec, constraints, entry points, rejected alternatives. |
+| `deck-compare/qr-plan-design.json` | The quality-review items the plan was verified against. |
+| `deck-compare/architect-findings.md` | Findings from the plan-design QR remediation pass. |
 
 ## Decision ids
 
@@ -35,7 +39,12 @@ NetrunnerDB decklist fetch and pairing feature: `R/fetch-deck.R`,
 in `R/operations.R`, the shared render helpers extracted from
 `R/mod_matchup_explorer.R`, and the nav-destination view module wired in
 milestone M-005). That plan continues from `DL-030` rather than restarting,
-for the same reason the cost-model plan continues from `DL-011`.
+for the same reason the cost-model plan continues from `DL-011`. Its
+planner state lives at `deck-compare/`, in this same directory, moved here
+from a Windows workstation's temp directory rather than left there --
+that was itself a gap this ledger had for a while: it discussed this
+plan's decisions in more depth than any other entry while the plan.json
+they came from existed nowhere durable.
 
 **A real collision happened here, corrected twice.** The abr/cobra
 cross-reference plan (Phase 1 of the phased design at

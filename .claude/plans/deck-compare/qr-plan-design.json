@@ -1,0 +1,358 @@
+{
+  "phase": "plan-design",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every non-trivial choice has a logged DL entry with multi-step reasoning",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "planning_context.decisions",
+      "check": "Each DL entry has a reasoning field that is a chain (premise -> implication -> conclusion), not a single assertion",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "planning_context.decisions",
+      "check": "No choice appearing in a code_intent behavior lacks a corresponding DL entry",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2,
+      "finding": "mod_deck_compare.R behavior 'a refused fetch or a refused deck ... leaves any prior result standing rather than blanking the view' (milestone 4) is a non-trivial UX choice with no supporting DL entry; its decision_refs (DL-037, DL-036, DL-038) cover persistence, extraction, and copy-count placement, none address stale-result-on-failure behavior"
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Every decision_ref resolves to an existing DL id",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002a",
+      "parent_id": "qa-002",
+      "scope": "milestones[].code_intents[]",
+      "check": "The union of all decision_refs is a subset of the DL id set",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002b",
+      "parent_id": "qa-002",
+      "scope": "planning_context.risks",
+      "check": "Each risk's decision_ref resolves to an existing DL id",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "No architectural assumption remains unvalidated",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-003a",
+      "parent_id": "qa-003",
+      "scope": "DL-031",
+      "check": "The entry-point assumption from context.json is promoted to a decision with cited evidence rather than left as an inference",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-003b",
+      "parent_id": "qa-003",
+      "scope": "R-001",
+      "check": "The unmeasured version-skew-frequency assumption is carried as a risk with mitigation, not asserted as fact",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-003c",
+      "parent_id": "qa-003",
+      "scope": "R-002",
+      "check": "The unmeasured NRDB pacing-headroom assumption is carried as a risk with mitigation, not asserted as fact",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "Any plan decision departing from a stated task-spec MUST is recorded as a departure",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 2,
+      "finding": "DL-032 collapses the task-spec MUST two-cause split (version skew vs reprint/unmapped) into one generic \"not in cardpool release\" state, with no decision-log entry or plan note flagging this as a departure from a stated task-spec MUST."
+    },
+    {
+      "id": "qa-004a",
+      "parent_id": "qa-004",
+      "scope": "DL-032",
+      "check": "DL-032 reverses the task spec's two-cause-split MUST and says so explicitly, so the divergence is visible to a reader holding the original spec",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 2,
+      "finding": "DL-032 justifies merging the two causes on schema grounds but never states that this reverses the task-spec MUST requiring a two-cause split; a reader holding the original spec is not alerted to the divergence."
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "No orphan milestones and no orphan decisions",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-005",
+      "version": 2
+    },
+    {
+      "id": "qa-005a",
+      "parent_id": "qa-005",
+      "scope": "milestones",
+      "check": "Every milestone has at least one code_intent",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-005",
+      "version": 2
+    },
+    {
+      "id": "qa-005b",
+      "parent_id": "qa-005",
+      "scope": "planning_context.decisions",
+      "check": "Every DL id appears in at least one code_intent's decision_refs",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-005",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "milestone_dependencies",
+      "check": "Every dependency edge references an existing milestone",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-006a",
+      "parent_id": "qa-006",
+      "scope": "waves",
+      "check": "Wave assignment is consistent with the dependency edges (no milestone precedes its prerequisite)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "invisible_knowledge",
+      "check": "The persistence-vs-reading distinction and the three named decklist failure modes appear in IK",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-invisible-knowledge",
+      "version": 2
+    },
+    {
+      "id": "qa-008",
+      "scope": "DL-032",
+      "check": "DL-032's schema claim (no reprint-alias column on card, printing, card_set, restriction_card) is stated as verified",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-decision-reasoning",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "*",
+      "check": "Every follow-up gap named in the plan has a concrete carrier rather than existing only as prose",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2,
+      "finding": "Cardpool schema gap (reprint/previous-versions column missing) is named as a follow-up for the lineage owner only in DL-032 prose reasoning; no milestone task, code_intent, documentation block, or README entry carries it forward as a concrete action."
+    },
+    {
+      "id": "qa-010",
+      "scope": "planning_context.risks",
+      "check": "Each risk's mitigation is actionable within this plan, not a restatement",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-actionability",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "planning_context.constraints",
+      "check": "Constraints carry identifiers and distinguishable provenance",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "concern-knowledge-durability",
+      "version": 2,
+      "finding": "Constraints are unnumbered prose strings (MUST/MUST NOT ...) with no stable identifier (e.g. C-1) and no provenance tag distinguishing user-stated vs inferred vs verified-by-subagent constraints."
+    },
+    {
+      "id": "qa-012",
+      "scope": "readme_entries",
+      "check": "At least one README entry exists for the new files and nav destination",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "concern-knowledge-durability",
+      "version": 2,
+      "finding": "plan.json readme_entries is empty despite adding R/deck-compare.R and a new suite-nav Deck Compare destination; no README update planned for either."
+    },
+    {
+      "id": "qa-013",
+      "scope": "*",
+      "check": "Milestone documentation blocks are populated where roxygen exports are added",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2,
+      "finding": "Every milestone (M-001..M-005) has documentation.module_comment=false, docstrings=[], function_blocks=[] even though acceptance criteria repeatedly require \"make document regenerates man/ for the new exports\" (M-001, M-005) \u2014 roxygen content for exported functions like load_ice_breaker_app_data, mod_deck_compare_ui/server is never specified in a milestone documentation block."
+    },
+    {
+      "id": "qa-014",
+      "scope": "*",
+      "check": "Acceptance criteria stop at local verification, respecting the no-push constraint",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "DL-036",
+      "check": "The extraction decision names shared-vs-different so the rejected mode-flag path is not re-attempted",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-decision-reasoning",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "DL-035",
+      "check": "DL-035 establishes why app_data$cards cannot answer the question",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-decision-reasoning",
+      "version": 2
+    },
+    {
+      "id": "qa-019",
+      "scope": "DL-033",
+      "check": "The file-split decision is justified by the test-capture-boundary.R glob rather than by taste, so a later rename does not silently leave the gate",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-decision-reasoning",
+      "version": 2
+    },
+    {
+      "id": "qa-020",
+      "scope": "DL-034",
+      "check": "The separate-validator decision names the concrete envelope difference that makes compare_shape() insufficient",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-decision-reasoning",
+      "version": 2
+    },
+    {
+      "id": "qa-021",
+      "scope": "DL-037",
+      "check": "The session-scoped-state decision ties back to the closed persistence decision, not merely to convenience",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-decision-reasoning",
+      "version": 2
+    },
+    {
+      "id": "qa-022",
+      "scope": "DL-038",
+      "check": "The copy-count decision states the invariance property that makes a column wrong, not just a placement preference",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-decision-reasoning",
+      "version": 2
+    },
+    {
+      "id": "qa-023",
+      "scope": "DL-039",
+      "check": "The lineage() reuse decision establishes that the call is side-effect-free from a Shiny session",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-decision-reasoning",
+      "version": 2
+    },
+    {
+      "id": "qa-024",
+      "scope": "milestones[].acceptance_criteria",
+      "check": "Each milestone's acceptance criteria are objectively checkable, not subjective judgements",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-actionability",
+      "version": 2
+    },
+    {
+      "id": "qa-025",
+      "scope": "invisible_knowledge.invariants",
+      "check": "Each invariant states a failure mode that is silent or non-obvious, justifying its capture",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "component-invisible-knowledge",
+      "version": 2,
+      "finding": "IK entries for the shared-rendering convention and the release-pin-cycle-template do not state a silent/non-obvious failure mode; only 3 of 5 IK entries do."
+    },
+    {
+      "id": "qa-026",
+      "scope": "planning_context.rejected_alternatives",
+      "check": "The superseded full-duplicate-module alternative is recorded as rejected so it is not revived",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-knowledge-durability",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "*",
+      "check": "DL numbering is contiguous from decision_id_start",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "*",
+      "check": "Milestone and intent naming is consistent in form",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2
+    }
+  ]
+}

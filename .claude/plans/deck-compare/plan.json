@@ -1,0 +1,728 @@
+{
+  "plan_id": "b7c406cb-16b2-4756-bfeb-fcb450c799d9",
+  "created_at": "2026-09-04T00:44:12.171892",
+  "frozen_at": null,
+  "overview": {
+    "problem": "netrunneR's Shiny ice/breaker suite answers the ice-versus-breaker question one card at a time: the matchup explorer is entered WITH a card, from the card detail modal, and shows that card against everything it can meet across the whole cardpool. The question a player actually brings to a match is narrower and two-sided - given THIS Corp deck and THIS Runner deck, what does each piece of ice cost each installed breaker. Nothing in the app takes two decks as input. A Deck Compare destination on the suite nav fetches a Corp deck and a Runner deck from NetrunnerDB by id or URL, resolves their card codes against the active cardpool release, and renders every ice-versus-breaker pairing between them, grouped by ice with copy counts. The decks are ephemeral: fetched, compared, discarded with the session. No table, no lineage, no release cadence - the persistence half is precisely what R/README.md records as a closed decision after decklist mirroring was removed rather than repaired.",
+    "approach": "Five milestones, split so the network boundary, the pure computation and the UI are each testable on their own terms. M-001 widens load_ice_breaker_app_data() to also return all_codes, without which the view cannot tell a code this cardpool release does not know from a known card that is simply not ice or a breaker. M-002 puts the NetrunnerDB request in R/fetch-deck.R - the name matters, because test-capture-boundary.R's static AST scan globs R/*fetch*.R and a file named otherwise would silently sit outside the repo's own no-response-bodies-on-disk gate - routing through the existing nrdb_get() wrapper and validating the decklist envelope's success/total/data shape, which is a different shape from the bare data envelope /reviews and /rulings return. M-003 is pure: resolve codes against all_codes, select the matching rows out of the precomputed matchup tibble, recompute nothing, and return ice copy counts alongside rather than as a column. M-004 extracts the three genuinely shared render pieces out of mod_matchup_explorer.R - the display pipeline, the em-dash NA renderer, the value column definitions - and deliberately not the reactable itself, whose single Counterpart column exists only because that view's subject is constant on every row. M-005 adds the module and lights up a fourth suite_nav_ui() entry. Milestone ordering runs M-001 first, then M-002 through M-004 in parallel, then M-005. Every milestone lands make document, make test at FAIL 0 and a clean make docs-current in the same commit; nothing is pushed or opened as a PR without asking first."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-031",
+        "version": 1,
+        "decision": "Deck Compare is a fourth suite_nav_ui() destination, not a modal off the lane board",
+        "reasoning": "The matchup modal is always entered WITH a card, because the card it compares is the card you opened -> deck compare is entered with no card selected and takes its own two inputs, so a modal would have no opener to hang from -> the nav strip already carries an nr-suite-item-inert 'Not built yet' state, which is the app's own declaration that the destination list is the growth axis -> a fourth built entry uses the mechanism already there instead of inventing a third modal that must contend with the shared #shiny-modal slot"
+      },
+      {
+        "id": "DL-032",
+        "version": 2,
+        "decision": "DEPARTURE from a stated task-spec MUST, explicitly confirmed with the user during plan-design: an unresolved deck card code reports ONE honest state, \"not in cardpool release <id>\" listing the unresolved codes, instead of the two-cause split (version skew vs reprint/unmapped) the original task spec required",
+        "reasoning": "The task spec states a MUST to distinguish two causes for an unresolved code - (a) version skew, code newer than the pinned release, (b) reprint/unmapped - and this decision reverses that MUST rather than satisfying it, which is recorded here so a reader holding the original spec sees the divergence instead of tripping over it -> the split is only computable from a previous-versions or reprint-alias column, and cardpool.sql has none on card, printing, card_set or restriction_card (confirmed by direct schema read), so labelling a code version-skew rather than reprint would be an unmeasured inference dressed as a finding, which is worse than the merge the MUST was written to prevent -> a single state naming the release the codes were checked against is fully derivable from data actually held, and the release id leaves the skew case self-evident to a reader who recognises a newer code -> the user was shown this tradeoff during plan-design and agreed to the override, so it is a confirmed policy choice and not an unexplained divergence -> the underlying schema gap is carried forward as a concrete R/README.md follow-up entry owned by the cardpool lineage, so the requirement the MUST was protecting is reopened where it can actually be satisfied, not silently dropped"
+      },
+      {
+        "id": "DL-033",
+        "version": 1,
+        "decision": "The network half lives in R/fetch-deck.R, separate from the pure resolve-and-pair half in R/deck-compare.R",
+        "reasoning": "tests/testthat/test-capture-boundary.R runs a static AST scan over the glob R/*fetch*.R asserting no response body reaches disk except through capture_response_body() -> a file named R/deck-compare.R is invisible to that scan, so putting an httr2 call there silently leaves the repo's own no-persistence gate -> naming the network file R/fetch-deck.R puts the new request under the existing gate at zero cost, and leaves deck-compare.R a pure function testable without any mock"
+      },
+      {
+        "id": "DL-034",
+        "version": 1,
+        "decision": "The deck endpoint gets its own envelope validator rather than reusing compare_shape()",
+        "reasoning": "compare_shape() checks only that a bare {data: [...]} envelope carries a data list, which is the real shape of /reviews and /rulings -> the decklist endpoint's envelope additionally carries success and total, and a truncated or error response can still present a data key -> a validator asserting success is TRUE, total is 1 and data is present rejects a malformed deck response that compare_shape() would accept as fine"
+      },
+      {
+        "id": "DL-035",
+        "version": 1,
+        "decision": "load_ice_breaker_app_data() additionally returns all_codes (code, title, type_code for every card in the release)",
+        "reasoning": "app_data$cards is ice_breaker_pool(card), so it holds only ice and icebreakers -> a deck's Agenda, Event and Operation codes are absent from it for a reason that has nothing to do with the release being stale -> without the full code set the view cannot tell 'this code is unknown to this cardpool release' from 'this code is a known card that is simply not ice or a breaker', and merging those two is exactly the failure the honest-single-state decision forbids -> all_cards is already materialised inside that function for the identities split, so exposing a three-column projection of it costs one line and no extra read"
+      },
+      {
+        "id": "DL-036",
+        "version": 1,
+        "decision": "Three narrow helpers are extracted from mod_matchup_explorer.R, not the reactable itself",
+        "reasoning": "The explorer's table collapses to a single Counterpart column because its subject is constant on every row -> deck compare varies on both the ice and the breaker axis, so its column set is genuinely different and a shared table component would need a mode flag that reintroduces the very selector the explorer's own doc comment killed -> what is genuinely common is narrower: the display pipeline (code-set filter, title join, sort by cost_to_break), the na_dash em-dash cell renderer, and the cost/differential/source colDefs -> extracting those three shares everything that is actually the same and nothing that is not"
+      },
+      {
+        "id": "DL-037",
+        "version": 1,
+        "decision": "Fetched decks live in session-scoped reactiveVal() state and are discarded on disconnect",
+        "reasoning": "Persisting a deck means a table, a lineage entry and a release cadence, which is the shape of the decklist-mirroring feature R/README.md calls a closed decision -> the three failure modes that killed it (wrong date field, fabricated identity_code, unserializable nested list-column into dbWriteTable()) were all persistence-layer mistakes, none inherent to fetching or displaying -> holding the deck in reactive state makes the no-persistence constraint structural rather than a matter of discipline, since nrdb_get()'s capture_response_body() is already memory-only"
+      },
+      {
+        "id": "DL-038",
+        "version": 1,
+        "decision": "Copy counts render as a badge on the ICE group header, never as a column on the matchup tibble",
+        "reasoning": "cost_to_break and credit_differential are properties of a card title against another card title -> running three copies of the same ICE does not change what any breaker pays to break it -> a copy column on the shared tibble would therefore be a value the single-card modal must carry and ignore, so the count belongs where it is actually true, on the grouped row header"
+      },
+      {
+        "id": "DL-039",
+        "version": 1,
+        "decision": "lineage('nrdb') is called from the Shiny session purely to supply base_url and pacing to nrdb_get()",
+        "reasoning": "lineage() in R/lineage.R builds its result from .LINEAGE_REGISTRY and touches no filesystem, verified pure -> calling it from a session therefore opens no store and promotes no release -> nrdb_get() needs only base_url and pacing, so reusing the registry entry keeps the NRDB_CONTACT user agent, the pacing_rate() throttle and the five-try retry policy in one place instead of a second httr2 pipeline drifting from the first"
+      },
+      {
+        "id": "DL-040",
+        "version": 1,
+        "decision": "A refused fetch or refused deck leaves any prior Deck Compare result standing rather than blanking the view",
+        "reasoning": "Compare is an explicit button press against two free-text deck references, so a typo or a transient NRDB failure is an ordinary, expected outcome rather than an exceptional one -> blanking the table on failure destroys the comparison the user was reading, which is the only thing on screen worth keeping, and costs a full refetch of two decks through a paced endpoint to recover -> holding the previous result and surfacing the failure through alert_box() keeps the failure legible without making it destructive, and matches the codebase degrade-and-label idiom (not_computable, fill_missing_columns()) rather than the abort idiom -> the risk of a stale result being mistaken for a fresh one is bounded by the alert being rendered adjacent to it and by the status output naming which deck reference failed"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Reach Deck Compare as a third modal off the lane board, mirroring how the matchup explorer is opened from the card detail modal.",
+        "rejection_reason": "The matchup modal is entered WITH a card because the card you opened IS its subject. Deck Compare has no such opener - it starts from two typed references and no selection - so a modal would need an entry control invented for it. Both existing modals also share the single #shiny-modal slot and must replace rather than stack, each carrying its own marker div for the delegated dismiss handler; a third adds that contention for nothing.",
+        "decision_ref": "DL-031"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Infer whether an unresolved code is version skew or a reprint alias and label the two separately.",
+        "rejection_reason": "cardpool.sql has no previous-versions or reprint-alias column on card, printing, card_set or restriction_card. The inference would rest on nothing measurable and would present a guess in the register of a finding. The schema gap goes to the cardpool lineage owner as a follow-up instead.",
+        "decision_ref": "DL-032"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Port jinteki.net's Mongo previous-versions fallback in lookup-card directly.",
+        "rejection_reason": "With no equivalent field in netrunneR's schema the port would compile and then silently no-op, which is worse than not having it: a fallback that never fires reads as a fallback that works.",
+        "decision_ref": "DL-032"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "One R/deck-compare.R holding fetch, compute and render together.",
+        "rejection_reason": "test-capture-boundary.R's AST scan globs R/*fetch*.R, so an httr2 call in a file named deck-compare.R leaves the repo's own no-persistence gate without anyone noticing. It also welds the pure computation to a network mock in every test.",
+        "decision_ref": "DL-033"
+      },
+      {
+        "id": "RA-005",
+        "alternative": "Reuse compare_shape() for the decklist envelope.",
+        "rejection_reason": "compare_shape() asserts only that a data list is present, which is the true shape of /reviews and /rulings. A decklist error response carrying success FALSE alongside a data key would pass it.",
+        "decision_ref": "DL-034"
+      },
+      {
+        "id": "RA-006",
+        "alternative": "Abort the whole comparison when any deck card fails to resolve.",
+        "rejection_reason": "The codebase's established idiom is degrade and label - compute_ice_breaker_matchups()'s own not_computable source value and fill_missing_columns(). A hard abort would be a new failure mode invented for one view. (An earlier justification citing a 'DL-008 abort-and-report precedent' was a false cross-reference from an unrelated project; grep for DL-008 returns nothing in this repo.)",
+        "decision_ref": "DL-032"
+      },
+      {
+        "id": "RA-007",
+        "alternative": "Share the whole matchup reactable between the explorer and Deck Compare, parameterised by mode.",
+        "rejection_reason": "The explorer collapses to a single Counterpart column precisely because its subject is constant on every row; Deck Compare varies on both axes. A shared component needs a mode flag, which is the control mod_matchup_explorer.R's own doc comment deleted for having one legal value.",
+        "decision_ref": "DL-036"
+      },
+      {
+        "id": "RA-008",
+        "alternative": "Persist fetched decks as a sixth mirrored lineage with a store_root and a release cadence.",
+        "rejection_reason": "That is the exact shape of the decklist-mirroring feature R/README.md records as removed rather than repaired. Decks here are per-comparison inputs, not a schedule-synced source.",
+        "decision_ref": "DL-037"
+      },
+      {
+        "id": "RA-009",
+        "alternative": "A full ice-by-breaker matrix grid instead of a grouped table.",
+        "rejection_reason": "Defensible at deck scale, roughly forty cells, but reactable's row grouping already renders 'grouped by ice, expandable to breakers' natively. Building a grid component costs more and answers the same question.",
+        "decision_ref": "DL-038"
+      },
+      {
+        "id": "RA-010",
+        "alternative": "Add a copy-count column to the shared matchup tibble.",
+        "rejection_reason": "cost_to_break and credit_differential are per-title properties; three copies of an ice do not change what a breaker pays. The column would be a value the single-card modal carries and ignores.",
+        "decision_ref": "DL-038"
+      }
+    ],
+    "constraints": [
+      "C-01 (user-stated): No persistence of any kind: no dbWriteTable(), no SQL table, no store_root, no .LINEAGE_REGISTRY entry, no fetch_lineage or build_lineage method for decks.",
+      "C-02 (verified): Deck card codes resolve in the same identity space as cardpool.sqlite's card.code - 5-digit NRDB codes, verified identical, no translation layer.",
+      "C-03 (user-stated): All deck-fetch HTTP routes through nrdb_get() in R/fetch-nrdb.R, inheriting the NRDB_CONTACT user agent, pacing_rate() throttling and req_retry backoff.",
+      "C-04 (verified): The decklist envelope is validated as success TRUE, total 1, data present - a different envelope from the bare data shape the reviews and rulings endpoints return.",
+      "C-05 (user-stated): An unresolved deck code narrows the comparison and never aborts it; only a zero-card or zero-identity deck is refused outright.",
+      "C-06 (user-stated): Release-pinning transparency extends the existing output$release_info caption convention - 11px, #8a8f98, inline style, no new CSS class, no warning banner, no modal.",
+      "C-07 (verified): make test at FAIL 0 and a clean make docs-current, with regenerated man/ and NAMESPACE committed in the same commit, before anything lands.",
+      "C-08 (user-stated): No push, no commit-and-push, no PR against netrunneR without asking first. Standing instruction for this session.",
+      "C-09 (user-stated): Nothing resembling the removed decklist-mirroring feature is rebuilt, and none of its three failure modes - wrong date field, fabricated identity_code, unserializable nested list-column into dbWriteTable() - recurs in the new code."
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "Real-world frequency of a deck citing a card newer than the pinned cardpool release is unmeasured. If common, the unresolved caption becomes the normal state rather than the exception and reads as breakage.",
+        "mitigation": "The caption names the release id it checked against, so the cause is legible without a heuristic. If the state proves common in use, the answer is bumping the cardpool release pin, not adding inference to the view.",
+        "anchor": null,
+        "decision_ref": "DL-032"
+      },
+      {
+        "id": "R-002",
+        "risk": "NRDB pacing headroom under interactive load is inferred from the scheduled-sync pacing config, not observed. Repeated Compare clicks could queue behind the throttle and read as a hung button.",
+        "mitigation": "The Compare button disables while a fetch is in flight and the status output says a fetch is running, so the throttle is visible rather than silent.",
+        "anchor": null,
+        "decision_ref": "DL-039"
+      },
+      {
+        "id": "R-003",
+        "risk": "Extracting helpers out of mod_matchup_explorer.R changes a module with live tests and a live view; a regression there is a regression in shipped behaviour, not in new code.",
+        "mitigation": "The existing test-mod-matchup-explorer.R testServer cases are the regression guard and pass unchanged; the extraction adds helper-level cases rather than replacing them.",
+        "anchor": null,
+        "decision_ref": "DL-036"
+      }
+    ],
+    "decision_id_start": 31
+  },
+  "invisible_knowledge": {
+    "system": "netrunneR mirrors five lineages (nrdb, abr, cardpool, rules, implementation) into versioned release directories promoted by an active symlink, and the Shiny app reads whichever release is active at process start via load_ice_breaker_app_data(). Deck Compare is not a sixth lineage and never becomes one: it is a read of a live third-party endpoint whose result exists only inside one browser session. The distinction that makes this legitimate rather than a rebuild of the deleted decklist-mirroring feature is that all three of that feature's failure modes - the wrong date field, the fabricated identity_code, the unserializable nested list-column handed to dbWriteTable() - were persistence-layer mistakes. None of them is reachable from fetching and displaying. Storing is what was closed; reading was never the problem.",
+    "invariants": [
+      "Card identity is always the 5-digit NRDB code and never the title. A title join against this cardpool produces zero matches rather than an error, so it fails silently and looks like an empty result.",
+      "app_data$cards is ice_breaker_pool(card) and holds only ice and icebreakers. Any question of the form 'does this release know this code' must be asked of all_codes, never of cards.",
+      "compute_ice_breaker_matchups() output is read, never recomputed downstream. cost_to_break, credit_differential and source arrive as that function left them, not_computable included.",
+      "No response body reaches disk except through capture_response_body(), which is memory-only. test-capture-boundary.R enforces this by AST scan over R/*fetch*.R.",
+      "Shiny view modules are instantiated exactly once per session; only which UI renders into the main slot changes. Re-instantiating on navigation fails silently: no error is raised, observers accumulate invisibly and the view simply comes back empty, which reads as a data problem rather than a lifecycle one.",
+      "man/ and NAMESPACE are regenerated by make document and committed in the SAME commit as the roxygen change. The failure is non-obvious because the source change itself compiles, tests pass, and nothing is wrong locally - make docs-current only fails later, at the gate, on a commit that already looks complete."
+    ],
+    "tradeoffs": [
+      "One honest unresolved-code state instead of a version-skew versus reprint split. The split needs a previous-versions or reprint-alias column that cardpool.sql does not have on any of card, printing, card_set or restriction_card, so it could only ever be a guess wearing a finding's clothes. The cost is that a reader must recognise a newer code themselves; the schema gap is flagged to the cardpool lineage owner as a separate follow-up.",
+      "Three narrow helpers shared instead of a whole table component. Sharing the reactable would need a mode flag distinguishing subject-anchored from two-axis rendering, which is the selector mod_matchup_explorer.R's own doc comment deleted. Narrow sharing costs a little duplication in the column assembly and buys no mode flag.",
+      "No cross-session cache. A popular deck refetched by several people costs several paced requests. The pacing headroom under real interactive load is inferred from the scheduled-sync config rather than measured; a cache is the answer if that inference proves wrong, and it is additive.",
+      "Copy counts render on the ice group header rather than in the tibble. This keeps the shared matchup data honest at the price of the count living in the view layer, where a future export would have to reassemble it."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 1,
+      "number": 1,
+      "name": "Cardpool code visibility",
+      "files": [
+        "R/operations.R",
+        "tests/testthat/test-operations.R"
+      ],
+      "flags": [],
+      "requirements": [
+        "load_ice_breaker_app_data() returns all_codes alongside cards and identities",
+        "all_codes carries code title and type_code for every card in the active cardpool release",
+        "the ice/breaker restriction on app_data$cards is unchanged"
+      ],
+      "acceptance_criteria": [
+        "A testthat case asserts all_codes contains a known agenda code that app_data$cards does not",
+        "A testthat case asserts nrow(all_codes) exceeds nrow(cards) against the mini-pool fixture",
+        "make document regenerates man/load_ice_breaker_app_data.Rd for the extended @return and make docs-current reports clean",
+        "make test reports FAIL 0"
+      ],
+      "tests": [
+        "unit testthat backed by helper-mini-pool.R fixtures"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 1,
+          "file": "R/operations.R",
+          "function": "load_ice_breaker_app_data",
+          "behavior": "The returned list carries all_codes, a three-column projection (code, title, type_code) of the cardpool release's full card table, taken from the all_cards object already materialised for the identities split. app_data$cards keeps its ice_breaker_pool() restriction untouched. The roxygen @return block names all_codes and states why it exists: cards holds only ice and breakers, so it cannot distinguish a code this release does not know from a code that is a known non-ice non-breaker card.",
+          "decision_refs": [
+            "DL-035"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [
+          {
+            "function": "load_ice_breaker_app_data",
+            "comment": "#' @return A list of the app's read-only data for one process. Existing elements are\n#'   unchanged; `cards` remains `ice_breaker_pool(card)` and therefore still holds only\n#'   ice and icebreakers. Adds `all_codes`: a tibble of `code`, `title` and `type_code`\n#'   for EVERY card in the active cardpool release, projected from the `all_cards` object\n#'   already materialised here for the identities split.\n#'\n#'   `all_codes` exists because `cards` cannot answer \"does this release know this code\".\n#'   A deck's Agenda, Event and Operation codes are absent from `cards` for a reason that\n#'   has nothing to do with the release being stale, so asking `cards` merges \"unknown to\n#'   this release\" with \"known but not ice or a breaker\" - the exact merge Deck Compare's\n#'   unresolved-code state is required not to make. Ask `all_codes`, never `cards`. (DL-035)",
+            "decision_ref": "DL-035",
+            "source": null
+          }
+        ],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 1,
+      "number": 2,
+      "name": "NetrunnerDB deck fetch",
+      "files": [
+        "R/fetch-deck.R",
+        "tests/testthat/test-fetch-deck.R"
+      ],
+      "flags": [],
+      "requirements": [
+        "parse_deck_ref() accepts a bare numeric id or an NRDB decklist/deck/deck view URL and yields the id",
+        "fetch_deck() routes through nrdb_get() with lineage('nrdb') for base_url and pacing",
+        "the decklist envelope is validated as success TRUE and total 1 with a present data element before any field is read",
+        "a nil input yields a nil result rather than an error following the reference implementation's guard",
+        "fetch_deck() returns a plain list of id name identity_code and a code-to-quantity integer vector"
+      ],
+      "acceptance_criteria": [
+        "A testthat case with httr2::local_mocked_responses() returns the parsed deck from a well formed envelope",
+        "A testthat case asserts an envelope with success FALSE is refused with a message naming the deck id",
+        "A testthat case asserts an envelope with total 0 is refused",
+        "A testthat case asserts a decklist URL with a trailing slug parses to the same id as the bare number",
+        "test-capture-boundary.R still passes with the new file inside its R/*fetch*.R glob",
+        "make test reports FAIL 0"
+      ],
+      "tests": [
+        "unit testthat with httr2::local_mocked_responses following test-fetch-nrdb.R"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 1,
+          "file": "R/fetch-deck.R",
+          "function": "parse_deck_ref",
+          "behavior": "Accepts a bare numeric id or a netrunnerdb.com URL and yields the deck id as a character scalar. Splits the input on the alternation decklist/, deck/view/, deck/, takes the segment after the split, then splits that on / and keeps the first part so a trailing title slug is discarded. A NULL or empty input yields NULL rather than an error, matching the nil-in nil-out guard the jinteki reference implementation uses at the same boundary.",
+          "decision_refs": [
+            "DL-033"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 1,
+          "file": "R/fetch-deck.R",
+          "function": "fetch_deck",
+          "behavior": "Issues GET /decklist/<id> through nrdb_get(lineage('nrdb'), ...), so the NRDB_CONTACT user agent, the pacing_rate() throttle and the five-try retry come from the registry entry rather than a second httr2 pipeline. lineage() is pure and opens no store, so calling it from a Shiny session promotes nothing. The response body never reaches disk; nrdb_get()'s capture_response_body() is memory-only, and this file sits inside test-capture-boundary.R's R/*fetch*.R glob so that stays enforced. Returns a plain list of id, name, identity_code and cards, where cards is a named integer vector of code to quantity, flattened from the named list jsonlite::fromJSON(simplifyVector = TRUE) produces.",
+          "decision_refs": [
+            "DL-033",
+            "DL-039",
+            "DL-037"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 1,
+          "file": "R/fetch-deck.R",
+          "function": "check_deck_envelope",
+          "behavior": "Asserts the decklist envelope is success identical to TRUE, total identical to 1, and data present and non-empty, before any field of the deck is read. Refuses with a message naming the deck id and which of the three conditions failed. This is a distinct check from compare_shape(), which asserts only that a bare data list is present because that is the real shape of /reviews and /rulings; applied here it would accept an error envelope carrying success FALSE alongside a data key.",
+          "decision_refs": [
+            "DL-034"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": "# R/fetch-deck.R - NetrunnerDB decklist fetch.\n#\n# The network half of Deck Compare lives here and not in deck-compare.R for one concrete\n# reason: tests/testthat/test-capture-boundary.R runs its no-response-bodies-on-disk AST\n# scan over the glob R/*fetch*.R. A file named otherwise would sit outside that gate with\n# nothing failing to say so. Keep every httr2 call for decks in this file. (DL-033)\n#\n# Nothing here persists anything. Decks are ephemeral inputs, not a sixth lineage; see\n# R/README.md on why that distinction is what separates this from the removed\n# decklist-mirroring feature.",
+        "docstrings": [],
+        "function_blocks": [
+          {
+            "function": "fetch_deck",
+            "comment": "#' Fetch a NetrunnerDB decklist\n#'\n#' @param ref A bare numeric deck id or a netrunnerdb.com deck/decklist URL.\n#' @param lineage The `nrdb` lineage entry, supplying base_url and pacing only.\n#' @return A list of `id`, `name`, `identity_code` and `cards`, where `cards` is a named\n#'   integer vector of card code to quantity. `NULL` ref yields `NULL` rather than an error.\n#' @details Routes through [nrdb_get()] so the NRDB_CONTACT user agent, `pacing_rate()`\n#'   throttling and the five-try retry come from the registry rather than a second httr2\n#'   pipeline. The response body is memory-only via `capture_response_body()`; nothing is\n#'   written to disk, and this file's name keeps it inside test-capture-boundary.R's\n#'   `R/*fetch*.R` AST scan, which is why the network half is not in deck-compare.R. (DL-033, DL-039)\n#' @keywords internal",
+            "decision_ref": "DL-033",
+            "source": null
+          },
+          {
+            "function": "validate_decklist_envelope",
+            "comment": "#' @details Validates the decklist envelope as `success` identical to `TRUE`, `total`\n#'   identical to `1`, and `data` present and non-empty, before any deck field is read.\n#'   This is deliberately NOT [compare_shape()], which asserts only that a bare `data`\n#'   list is present because that is the real shape of /reviews and /rulings. Applied to\n#'   the decklist endpoint, compare_shape() would accept an error envelope carrying\n#'   `success: false` alongside a `data` key. (DL-034)",
+            "decision_ref": "DL-034",
+            "source": null
+          }
+        ],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 1,
+      "number": 3,
+      "name": "Deck resolution and pairing",
+      "files": [
+        "R/deck-compare.R",
+        "tests/testthat/test-deck-compare.R"
+      ],
+      "flags": [],
+      "requirements": [
+        "resolve_deck_codes() partitions a deck's codes against all_codes into resolved ice resolved breakers other known cards and unresolved codes",
+        "deck_matchups() selects the rows of the precomputed matchup tibble whose ice_code and breaker_code both appear in the two decks",
+        "the returned tibble carries exactly compute_ice_breaker_matchups()'s columns with no copy count added",
+        "ice copy counts are returned as a separate code-to-quantity lookup",
+        "an unresolved code narrows the comparison and never aborts it",
+        "a deck with zero cards or zero identity is refused outright"
+      ],
+      "acceptance_criteria": [
+        "A testthat case asserts a deck code absent from all_codes lands in unresolved while the rest of the comparison still returns rows",
+        "A testthat case asserts a deck agenda code lands in other known cards and not in unresolved",
+        "A testthat case asserts the pairing row count equals unique deck ice titles times unique deck breaker titles present in the matchup tibble",
+        "A testthat case asserts the returned columns match compute_ice_breaker_matchups()'s columns exactly",
+        "A testthat case asserts a zero-card deck is refused",
+        "make test reports FAIL 0"
+      ],
+      "tests": [
+        "unit testthat pure functions backed by helper-mini-pool.R with no network mock required"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 1,
+          "file": "R/deck-compare.R",
+          "function": "resolve_deck_codes",
+          "behavior": "Partitions a fetched deck's codes against all_codes into four sets: ice, breakers (via the same ice_breaker_pool() type and subtype test the app already uses), other_known (codes present in all_codes but neither), and unresolved (codes absent from all_codes entirely). The join is on code and only ever on code; title is never a join key, because a title join silently produces zero matches rather than an error. Refuses outright only when the deck carries zero cards or no identity_code.",
+          "decision_refs": [
+            "DL-035",
+            "DL-032"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 1,
+          "file": "R/deck-compare.R",
+          "function": "deck_matchups",
+          "behavior": "Selects the rows of the precomputed matchup tibble whose ice_code is in the Corp deck's resolved ice and whose breaker_code is in the Runner deck's resolved breakers. Nothing is recomputed: cost_to_break, credit_differential and source arrive as compute_ice_breaker_matchups() left them, including not_computable, and the column set is returned unchanged. Copy counts are returned as a separate named integer vector keyed by ice code rather than as a column, because cost_to_break and credit_differential are per-title properties invariant to how many copies a deck runs. Unresolved codes narrow the result and never abort it, matching the degrade-and-label idiom not_computable and fill_missing_columns() already establish.",
+          "decision_refs": [
+            "DL-038",
+            "DL-032"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": "# R/deck-compare.R - pure deck resolution and pairing.\n#\n# No HTTP, no I/O, no reactivity: everything here is a function of (deck, all_codes,\n# matchup) and is testable with fixtures and no mock. Codes resolve on `code` and only on\n# `code`; a title join yields zero matches silently rather than erroring.\n#\n# Unresolved codes report one state, \"not in cardpool release <id>\". That is a deliberate,\n# user-confirmed reversal of the original spec's two-cause split, because the schema holds\n# no reprint-alias column to compute it from. See DL-032 and the follow-up in R/README.md.",
+        "docstrings": [],
+        "function_blocks": [
+          {
+            "function": "resolve_deck_codes",
+            "comment": "#' Resolve a fetched deck against the active cardpool release\n#'\n#' @return A list of four code sets: `ice`, `breakers`, `other_known` (present in\n#'   `all_codes` but neither), and `unresolved` (absent from `all_codes` entirely).\n#' @details The join is on `code` and only ever on `code`. A title join against this\n#'   cardpool produces zero matches rather than an error, so it fails silently and looks\n#'   like an empty deck. Refuses outright only on a zero-card deck or a missing\n#'   `identity_code`; an unresolved code narrows the comparison and never aborts it.\n#'\n#'   `unresolved` reports one honest state, \"not in cardpool release <id>\". It does not\n#'   split version skew from a reprint alias. That split is a stated requirement of the\n#'   original feature spec which this implementation deliberately reverses, with the\n#'   user's confirmation, because cardpool.sql carries no previous-versions or\n#'   reprint-alias column on card, printing, card_set or restriction_card - the split\n#'   could only be inference presented as measurement. The schema gap is an open\n#'   follow-up owned by the cardpool lineage; see R/README.md. (DL-032, DL-035)\n#' @keywords internal",
+            "decision_ref": "DL-032",
+            "source": null
+          },
+          {
+            "function": "deck_matchups",
+            "comment": "#' @return The rows of the precomputed matchup tibble whose `ice_code` is in the Corp\n#'   deck's resolved ice and whose `breaker_code` is in the Runner deck's resolved\n#'   breakers, with the column set of [compute_ice_breaker_matchups()] unchanged, plus a\n#'   separate named integer vector of ice copy counts keyed by code.\n#' @details Nothing is recomputed: `cost_to_break`, `credit_differential` and `source`\n#'   arrive as compute_ice_breaker_matchups() left them, `not_computable` included.\n#'   Copy counts are returned alongside rather than as a column because both values are\n#'   per-title properties invariant to how many copies a deck runs; a copy column would\n#'   be a field the single-card modal must carry and ignore. (DL-038, DL-032)\n#' @keywords internal",
+            "decision_ref": "DL-038",
+            "source": null
+          }
+        ],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-004",
+      "version": 1,
+      "number": 4,
+      "name": "Shared matchup render helpers",
+      "files": [
+        "R/mod_matchup_explorer.R",
+        "tests/testthat/test-matchup-render-helpers.R"
+      ],
+      "flags": [],
+      "requirements": [
+        "matchup_display() applies a code-set filter joins ice and breaker titles from cards and sorts by cost_to_break with NA last",
+        "matchup_na_dash() renders NA as an em dash written as a unicode escape",
+        "matchup_value_coldefs() supplies the cost to break credit differential and source column definitions including the not yet computable relabel",
+        "mod_matchup_explorer_server() renders through those three helpers and its visible output is unchanged"
+      ],
+      "acceptance_criteria": [
+        "A testthat case asserts matchup_display() with a NULL code set returns every row sorted by cost_to_break",
+        "A testthat case asserts matchup_display() with a code set drops a pair whose breaker is outside the set",
+        "A testthat case asserts matchup_na_dash() returns the em dash for NA and the value otherwise",
+        "The existing test-mod-matchup-explorer.R testServer cases pass unchanged",
+        "make docs-current reports clean after make document",
+        "make test reports FAIL 0"
+      ],
+      "tests": [
+        "unit testthat on the extracted helpers plus the unchanged testServer cases as a regression guard"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-004-001",
+          "version": 1,
+          "file": "R/mod_matchup_explorer.R",
+          "function": "matchup_display",
+          "behavior": "Takes a matchup tibble, an optional character vector of permitted codes, and cards; drops pairs where either side falls outside the code set when one is supplied; joins ice_title and breaker_title from cards by code; and orders by cost_to_break with na.last TRUE. mod_matchup_explorer_server()'s display reactive is this call, and the deck compare view's is the same call with a different code set, which is the one thing the two views genuinely share.",
+          "decision_refs": [
+            "DL-036"
+          ]
+        },
+        {
+          "id": "CI-M-004-002",
+          "version": 1,
+          "file": "R/mod_matchup_explorer.R",
+          "function": "matchup_na_dash",
+          "behavior": "Renders NA as an em dash and any other value unchanged, the em dash written as a unicode escape because R CMD check warns on non-ASCII bytes in R source. reactable prints NA as a zero-width space, indistinguishable from a value nobody filled in, and not_computable is a first-class state here rather than a blank.",
+          "decision_refs": [
+            "DL-036"
+          ]
+        },
+        {
+          "id": "CI-M-004-003",
+          "version": 1,
+          "file": "R/mod_matchup_explorer.R",
+          "function": "matchup_value_coldefs",
+          "behavior": "Returns the three value column definitions both views render identically: Cost to break and the credit differential column, both through matchup_na_dash, and Source with its not_computable to not yet computable relabel. The identity columns stay with each caller: the explorer collapses to one Counterpart column because its subject is constant on every row, while deck compare varies on both axes, so a shared table component would need a mode flag reintroducing the selector this module's own doc comment removed.",
+          "decision_refs": [
+            "DL-036"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [
+          {
+            "function": "matchup_display",
+            "comment": "#' Shared matchup display pipeline\n#'\n#' @param matchup A matchup tibble as returned by [compute_ice_breaker_matchups()].\n#' @param codes Optional character vector of permitted codes; `NULL` permits all.\n#' @param cards The card table supplying titles.\n#' @return The matchup rows filtered to the code set, with `ice_title` and `breaker_title`\n#'   joined by `code`, ordered by `cost_to_break` with `na.last = TRUE`.\n#' @details Extracted so the explorer and Deck Compare share the pipeline and not the\n#'   table. The reactable itself is deliberately not shared: the explorer collapses to one\n#'   Counterpart column only because its subject is constant on every row, while Deck\n#'   Compare varies on both axes, so a shared component would need a mode flag - the very\n#'   selector this module's doc comment removed. (DL-036)\n#' @keywords internal",
+            "decision_ref": "DL-036",
+            "source": null
+          },
+          {
+            "function": "matchup_na_dash",
+            "comment": "#' @return The value unchanged, or an em dash when `NA`.\n#' @details The em dash is written as a unicode escape because R CMD check warns on\n#'   non-ASCII bytes in R source. reactable renders `NA` as a zero-width space,\n#'   indistinguishable from a value nobody filled in, and `not_computable` is a\n#'   first-class state here rather than a blank. (DL-036)\n#' @keywords internal",
+            "decision_ref": "DL-036",
+            "source": null
+          }
+        ],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-005",
+      "version": 2,
+      "number": 5,
+      "name": "Deck Compare view and nav wiring",
+      "files": [
+        "R/mod_deck_compare.R",
+        "R/mod_lane_board.R",
+        "inst/shiny-app/app_server.R",
+        "tests/testthat/test-mod-deck-compare.R"
+      ],
+      "flags": [],
+      "requirements": [
+        "suite_nav_ui() carries a deckCompare entry in built and in its item list labelled Deck Compare",
+        "app_server() accepts deckCompare on the nav_view input and renders mod_deck_compare_ui() in the swapped main slot",
+        "mod_deck_compare_server() is instantiated once per session alongside the other view modules",
+        "the view takes a Corp deck reference and a Runner deck reference as text inputs plus a Compare action button",
+        "results render as a reactable grouped by ICE with a copy count badge on each group header and expandable breaker rows",
+        "unresolved codes render as a single caption reading not in cardpool release followed by the release id and the unresolved codes",
+        "the caption uses the release_info inline style of 11px #8a8f98",
+        "fetch failure and refusal render through alert_box() and leave any prior result on screen"
+      ],
+      "acceptance_criteria": [
+        "A shiny::testServer case asserts a successful compare populates the result reactive with the expected pair count",
+        "A shiny::testServer case asserts a deck carrying an unresolved code still populates results and populates the unresolved caption text with that code and the cardpool release id",
+        "A shiny::testServer case asserts a refused fetch leaves the result reactive at its prior value (DL-040) and populates the status output",
+        "A testthat case asserts suite_nav_ui(deckCompare) marks the Deck Compare item active and carries no nr-suite-item-inert class on it",
+        "make document regenerates man/ for the new exports and make docs-current reports clean",
+        "make test reports FAIL 0",
+        "R/README.md carries the Deck Compare section including the cardpool reprint-alias schema-gap follow-up owned by the cardpool lineage (DL-032) and inst/shiny-app/README.md carries the nav-destination LAYOUT rationale (DL-031)",
+        "Per C-08 this milestone stops at a local commit: no push and no PR is opened against netrunneR until the user is asked and explicitly confirms - an unpushed branch is the expected end state"
+      ],
+      "tests": [
+        "shiny::testServer module cases plus a suite_nav_ui() html assertion; shinytest2 integration is absent from renv.lock by design and is skipped"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-005-001",
+          "version": 1,
+          "file": "R/mod_lane_board.R",
+          "function": "suite_nav_ui",
+          "behavior": "The built vector carries deckCompare alongside iceBreaker, metaMaps and metaStats, and the items list carries item('deckCompare', 'Deck Compare'). The entry therefore leaves the nr-suite-item-inert Not built yet state the strip already renders for unbuilt destinations, which is the growth path the strip was written to accommodate.",
+          "decision_refs": [
+            "DL-031"
+          ]
+        },
+        {
+          "id": "CI-M-005-002",
+          "version": 1,
+          "file": "inst/shiny-app/app_server.R",
+          "function": "app_server",
+          "behavior": "The nav_view guard accepts deckCompare, the output$main switch renders netrunneR::mod_deck_compare_ui('deck_compare') for it, and mod_deck_compare_server() is instantiated once beside the other view modules on the same one-instantiation-per-session discipline, so switching away and back keeps a fetched deck rather than refetching it. It is handed app_data$all_codes, app_data$cards, app_data$matchup and app_data$cardpool_release_id. output$release_info is untouched; the per-view unresolved caption lives inside the module because it names codes only that view knows.",
+          "decision_refs": [
+            "DL-031",
+            "DL-035"
+          ]
+        },
+        {
+          "id": "CI-M-005-003",
+          "version": 1,
+          "file": "R/mod_deck_compare.R",
+          "function": "mod_deck_compare_ui",
+          "behavior": "A Corp deck text input, a Runner deck text input, a Compare action button, a status output for alerts, an unresolved-codes caption output, and the results reactable. A top-level UI mount exists here, unlike mod_card_detail_ui() and the matchup explorer, because this is a view the nav swaps into the main slot rather than a modal that builds its own outputs.",
+          "decision_refs": [
+            "DL-031"
+          ]
+        },
+        {
+          "id": "CI-M-005-004",
+          "version": 2,
+          "file": "R/mod_deck_compare.R",
+          "function": "mod_deck_compare_server",
+          "behavior": "On Compare, parses both references, fetches both decks, resolves their codes and pairs them, holding both decks and the result in session-scoped reactiveVal()s discarded on disconnect: no dbWriteTable(), no store_root, no lineage registry entry. The results reactable groups by ICE with a copy count badge on the group header and expandable breaker rows, rendering values through matchup_value_coldefs() and matchup_na_dash(). A refused fetch or a refused deck renders through alert_box() and leaves any prior result standing rather than blanking the view. Both the cardpool disclaimer and the implementation MIT notice are asserted here, as this view renders cardpool titles and implementation-derived economics alike.",
+          "decision_refs": [
+            "DL-037",
+            "DL-036",
+            "DL-038",
+            "DL-040"
+          ]
+        },
+        {
+          "id": "CI-M-005-005",
+          "version": 1,
+          "file": "R/mod_deck_compare.R",
+          "function": "unresolved_codes_caption",
+          "behavior": "Renders one state for every code the active cardpool release does not know: the text not in cardpool release followed by the release id and the unresolved codes, in the release_info inline style of font-size 11px and colour #8a8f98. It draws no distinction between a code newer than the pinned release and a reprint alias, because cardpool.sql carries no previous-versions or reprint-alias column on card, printing, card_set or restriction_card, so any such split would be inference presented as measurement. Codes that are known but neither ice nor breaker are absent from this caption entirely; an Agenda not appearing in an ice-versus-breaker table is the table working.",
+          "decision_refs": [
+            "DL-032",
+            "DL-035"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": "# R/mod_deck_compare.R - Deck Compare view module.\n#\n# A nav destination, not a modal: it is entered with nothing selected and supplies its own\n# inputs, so there is no opener to hang a modal from (DL-031). Instantiated once per\n# session beside the other view modules - re-instantiating on navigation accumulates\n# observers and silently drops view state.\n#\n# All deck state is session-scoped reactiveVal(). No dbWriteTable(), no store_root, no\n# lineage entry (DL-037). Release-pinning transparency extends the existing release_info\n# caption style rather than introducing a banner.",
+        "docstrings": [],
+        "function_blocks": [
+          {
+            "function": "mod_deck_compare",
+            "comment": "#' Deck Compare view module\n#'\n#' @param id Module namespace id.\n#' @param all_codes,cards,matchup,cardpool_release_id App data from\n#'   [load_ice_breaker_app_data()].\n#' @return `mod_deck_compare_ui()` returns a `shiny::tagList`; the server returns\n#'   invisibly and holds all deck state in session-scoped `reactiveVal()`s.\n#' @details A top-level UI mount exists here, unlike `mod_card_detail_ui()` and the\n#'   matchup explorer, because this is a nav destination swapped into the main slot rather\n#'   than a modal building its own outputs (DL-031). Nothing is persisted: no\n#'   `dbWriteTable()`, no `store_root`, no `.LINEAGE_REGISTRY` entry. Decks are discarded\n#'   on disconnect (DL-037). A refused fetch or refused deck renders through\n#'   `alert_box()` and leaves any prior result standing rather than blanking the view,\n#'   because Compare is an explicit press against free-text references and a typo should\n#'   not destroy the comparison being read (DL-040). Instantiate once per session; the\n#'   module is not re-instantiated on navigation.\n#' @export",
+            "decision_ref": "DL-031",
+            "source": null
+          }
+        ],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [
+    {
+      "id": "W-001",
+      "milestones": [
+        "M-001"
+      ]
+    },
+    {
+      "id": "W-002",
+      "milestones": [
+        "M-002",
+        "M-003",
+        "M-004"
+      ]
+    },
+    {
+      "id": "W-003",
+      "milestones": [
+        "M-005"
+      ]
+    }
+  ],
+  "diagram_graphs": [
+    {
+      "id": "DIAG-001",
+      "type": "dataflow",
+      "scope": "overview",
+      "title": "Deck Compare data flow",
+      "nodes": [
+        {
+          "id": "view",
+          "label": "Deck Compare view",
+          "type": "service"
+        },
+        {
+          "id": "fetch",
+          "label": "fetch_deck / R fetch-deck.R",
+          "type": "service"
+        },
+        {
+          "id": "nrdb",
+          "label": "NetrunnerDB decklist API",
+          "type": "external"
+        },
+        {
+          "id": "resolve",
+          "label": "resolve_deck_codes",
+          "type": "service"
+        },
+        {
+          "id": "appdata",
+          "label": "app_data all_codes cards matchup",
+          "type": "store"
+        },
+        {
+          "id": "pair",
+          "label": "deck_matchups",
+          "type": "service"
+        },
+        {
+          "id": "table",
+          "label": "reactable grouped by ICE",
+          "type": "service"
+        }
+      ],
+      "edges": [
+        {
+          "source": "view",
+          "target": "fetch",
+          "label": "two deck refs parsed to ids",
+          "protocol": null
+        },
+        {
+          "source": "fetch",
+          "target": "nrdb",
+          "label": "paced GET decklist id via nrdb_get",
+          "protocol": "HTTPS"
+        },
+        {
+          "source": "nrdb",
+          "target": "fetch",
+          "label": "envelope success total data validated",
+          "protocol": null
+        },
+        {
+          "source": "fetch",
+          "target": "resolve",
+          "label": "code to quantity vectors in memory",
+          "protocol": null
+        },
+        {
+          "source": "appdata",
+          "target": "resolve",
+          "label": "all_codes for the ice breaker other unresolved split",
+          "protocol": null
+        },
+        {
+          "source": "resolve",
+          "target": "pair",
+          "label": "resolved ice and breaker code sets",
+          "protocol": null
+        },
+        {
+          "source": "appdata",
+          "target": "pair",
+          "label": "precomputed matchup tibble",
+          "protocol": null
+        },
+        {
+          "source": "pair",
+          "target": "table",
+          "label": "pairs plus ice copy counts",
+          "protocol": null
+        },
+        {
+          "source": "resolve",
+          "target": "view",
+          "label": "unresolved codes to the release caption",
+          "protocol": null
+        }
+      ],
+      "ascii_render": null
+    }
+  ],
+  "readme_entries": [
+    {
+      "path": "R",
+      "content": "## Deck Compare (ephemeral, not a lineage)\n\n`R/fetch-deck.R`, `R/deck-compare.R` and `R/mod_deck_compare.R` fetch two NetrunnerDB\ndecks by id or URL, resolve their card codes against the active cardpool release, and\npair the Corp deck's ice against the Runner deck's breakers. Nothing is stored: no\ntable, no `store_root`, no `.LINEAGE_REGISTRY` entry, no release cadence. The decks\nlive in session-scoped `reactiveVal()`s and go when the session does.\n\nThis is not a revival of decklist mirroring, which remains a closed decision. All three\nof the failure modes that killed that feature - the wrong date field, the fabricated\n`identity_code`, the unserializable nested list-column handed to `dbWriteTable()` - were\npersistence-layer mistakes. None is reachable from fetching and displaying. Storing was\nwhat got closed; reading never was.\n\nThe network half is named `fetch-deck.R` deliberately: `tests/testthat/test-capture-boundary.R`\nglobs `R/*fetch*.R` for its AST scan, so a differently named file would sit outside the\nrepo's own no-response-bodies-on-disk gate without anything failing.\n\n### Open follow-up: cardpool has no reprint-alias column (owner: cardpool lineage)\n\n`inst/sql/schema/cardpool.sql` carries no previous-versions or reprint-alias column on\n`card`, `printing`, `card_set` or `restriction_card` (confirmed by direct schema read).\nDeck Compare therefore reports a single honest state for any code it cannot resolve -\n\"not in cardpool release <id>\" - and cannot distinguish a code newer than the pinned\nrelease from a reprint alias the release knows under another code. This is a deliberate,\nuser-confirmed departure from the feature's original two-cause-split requirement: the\nsplit needs data the schema does not hold, so it could only be inference presented as\nmeasurement (see DL-032). jinteki.net's `lookup-card` has a previous-versions fallback\nnetrunneR has no equivalent for; adding that column is cardpool lineage work, not\nDeck Compare work, and until it exists the single state is the correct behaviour."
+    },
+    {
+      "path": "inst/shiny-app",
+      "content": "## LAYOUT: Deck Compare is a nav destination, not a modal\n\nThe matchup explorer is a modal because it is always entered WITH a card - the card it\ncompares is the card whose detail modal you opened. Deck Compare is entered with nothing\nselected and supplies its own two inputs, so it has no opener to hang a modal from, and a\nthird modal would contend with the shared `#shiny-modal` slot.\n\nIt is therefore a fourth `suite_nav_ui()` destination (`deckCompare`, \"Deck Compare\"),\nusing the built/`nr-suite-item-inert` mechanism the strip already renders for unbuilt\ndestinations. Its module is instantiated once per session beside the other view modules,\nso navigating away and back keeps a fetched deck instead of refetching it.\n\nRelease-pinning transparency stays on the existing `output$release_info` caption\nconvention (11px, `#8a8f98`, inline style). The per-view unresolved-codes caption lives\ninside the module rather than in `release_info`, because it names codes only that view knows."
+    }
+  ]
+}
