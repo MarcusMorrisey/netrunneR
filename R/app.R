@@ -1,3 +1,39 @@
+#' Open a graphics device that writes nowhere, if none is open
+#'
+#' `tmap::tmap_leaflet()` (R/mod_meta_map.R) measures legend and label
+#' geometry through grid, which opens R's DEFAULT graphics device the
+#' first time anything asks it to measure something -- there is no way
+#' to opt out of that from tmap's side. Locally that default device is
+#' whatever an interactive session or `shiny::testServer()` already has
+#' open; in a deployed container nothing has opened one, so R falls back
+#' to `grDevices::pdf()` writing "Rplots.pdf" into the working directory.
+#' Under a read-only root filesystem (homelab `compose.app.yaml`'s
+#' `read_only: true`) that write fails, and the map renders the raw
+#' error text in place of itself rather than the widget.
+#'
+#' Confirmed directly against the running container:
+#' `touch Rplots.pdf` in its own working directory fails with
+#' "Read-only file system", the exact text the map showed.
+#'
+#' A null device (`grDevices::pdf(file = NULL)`) answers grid's question
+#' without writing anywhere. Device state is process-global rather than
+#' per-Shiny-session, and this app's only use of a graphics device is
+#' this internal measurement, never an actual plot a person looks at --
+#' opening one once, for the life of the server process, is enough.
+#' Guarded on `dev.list()` so an interactive session's own device is
+#' left alone rather than shadowed by a second one.
+#'
+#' @return `TRUE` if a device was opened, `FALSE` if one was already
+#'   open and nothing was done.
+#' @keywords internal
+ensure_graphics_device <- function() {
+  if (is.null(grDevices::dev.list())) {
+    grDevices::pdf(file = NULL)
+    return(invisible(TRUE))
+  }
+  invisible(FALSE)
+}
+
 #' Serve the packaged Shiny app
 #'
 #' Serves the packaged app from system.file('shiny-app', package =
@@ -8,16 +44,18 @@
 #'
 #' @param ... Passed to shiny::shinyAppDir()'s options argument.
 #'
-#' run_app() and the sync container both open the current release
-#' through this same package -- the reason netrunneR ships as an R
-#' package rather than a set of standalone scripts.
-#'
+#' @details run_app() and the sync container both open the current
+#'   release through this same package -- the reason netrunneR ships as
+#'   an R package rather than a set of standalone scripts. Calls
+#'   [ensure_graphics_device()] before serving, since this is the one
+#'   entry point where tmap's grid-based map rendering actually runs.
 #' @export
 run_app <- function(...) {
   app_dir <- system.file("shiny-app", package = "netrunneR")
   if (!nzchar(app_dir)) {
     rlang::abort("Could not find the shiny-app directory; is netrunneR installed?", class = "netrunneR_missing_app")
   }
+  ensure_graphics_device()
   shiny::shinyAppDir(app_dir, options = list(...))
 }
 

@@ -7,11 +7,7 @@
 run_app(...)
 }
 \arguments{
-\item{...}{Passed to shiny::shinyAppDir()'s options argument.
-
-run_app() and the sync container both open the current release
-through this same package -- the reason netrunneR ships as an R
-package rather than a set of standalone scripts.}
+\item{...}{Passed to shiny::shinyAppDir()'s options argument.}
 }
 \description{
 Serves the packaged app from system.file('shiny-app', package =
@@ -19,4 +15,11 @@ Serves the packaged app from system.file('shiny-app', package =
 stopifnot(has_attribution), so the required backlink to
 alwaysberunning.net renders in the UI itself, not only in
 documentation.
+}
+\details{
+run_app() and the sync container both open the current
+release through this same package -- the reason netrunneR ships as
+an R package rather than a set of standalone scripts. Calls
+\code{\link[=ensure_graphics_device]{ensure_graphics_device()}} before serving, since this is the one
+entry point where tmap's grid-based map rendering actually runs.
 }
