@@ -151,11 +151,20 @@ cobra_get <- function(lineage, path, query = list(), as = c("json", "html"), max
     # by default, which would bypass the ok=FALSE/retry handling below
     # entirely -- disable that so req_perform() always returns a response.
     req <- httr2::req_error(req, is_error = function(resp) FALSE)
+    # A missing tournament id redirects (302) to /error rather than
+    # 404ing -- httr2 follows redirects by default, which would silently
+    # turn that into a 200 whose body is the site's HTML error shell,
+    # not JSON, and jsonlite::fromJSON() on that crashes with a lexical
+    # error rather than a clean not-found. Disabling follow makes the
+    # redirect status visible so it can be treated as not-found below,
+    # the same way a real 404 already is. Confirmed live against
+    # /tournaments/99999/rounds/pairings_data, 2026-09-04.
+    req <- httr2::req_options(req, followlocation = 0L)
 
     resp <- httr2::req_perform(req)
     status <- httr2::resp_status(resp)
 
-    if (status %in% c(401L, 403L, 404L, 406L)) {
+    if (status %in% c(301L, 302L, 303L, 307L, 308L, 401L, 403L, 404L, 406L)) {
       return(list(ok = FALSE, status = as.integer(status), body = NULL))
     }
 

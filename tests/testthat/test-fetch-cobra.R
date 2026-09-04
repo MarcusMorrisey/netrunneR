@@ -21,9 +21,15 @@ test_that("fetch_lineage.netrunneR_api_poll() dispatches lineage 'cobra' to fetc
   expect_identical(called_with$attempt_dir, attempt_dir)
 })
 
-test_that("cobra_get() treats 401/403/404/406 as 'does not exist', not an error", {
+test_that("cobra_get() treats 301/302/303/307/308/401/403/404/406 as 'does not exist', not an error", {
+  # 302 is the live behavior for a missing tournament id (confirmed against
+  # /tournaments/99999/rounds/pairings_data, 2026-09-04): the site redirects
+  # to /error rather than 404ing. The other 3xx codes are included on the
+  # same reasoning, not because they are individually confirmed live -- any
+  # redirect away from the requested resource means "not this", the same
+  # semantic 401/403/404/406 already cover.
   li <- list(base_url = "https://example.test", pacing = list(min_delay_s = 1, max_delay_s = 2))
-  for (code in c(401L, 403L, 404L, 406L)) {
+  for (code in c(301L, 302L, 303L, 307L, 308L, 401L, 403L, 404L, 406L)) {
     httr2::local_mocked_responses(list(httr2::response(status_code = code, body = charToRaw("{}"))))
     result <- cobra_get(li, "/tournaments/999999/rounds/pairings_data")
     expect_false(result$ok, info = as.character(code))
