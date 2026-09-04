@@ -29,6 +29,13 @@ are referenced from the compose and systemd files. The cost-model plan
 continues from `DL-011` rather than restarting, so an id means one thing
 across both repositories.
 
+`DL-031` through `DL-038` belong to the abr/cobra cross-reference
+documentation plan, Phase 1 of the phased design at
+`docs/netrunneR/plans/2026-09-03-abr-cobra-xref/plan.md` in the homelab
+repo. That plan continues from `DL-030` rather than restarting, for the
+same reason the cost-model plan continues from `DL-011`. The high-water
+mark is now `DL-038`.
+
 ## One decision is deliberately unmade
 
 `DL-030` -- how to choose between two break clauses that name the same

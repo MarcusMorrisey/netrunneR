@@ -18,4 +18,23 @@ relied on downstream code not to use. Layered with
 check_deny_pattern(COBRA_DENY_PATTERN) below as an independent second
 check, not a restatement of these allowlists. (ref: DL-002)
 }
+\details{
+ABR_CODE IS A PLAIN REFERENCE, NOT A COMPUTED MATCH. abr_code arrives
+from Cobra's own upstream API already naming a tournament's ABR id --
+netrunneR computes nothing here. It is therefore a plain reference to
+abr.tournament.id in the abr lineage, joinable ad hoc by any consumer
+that reads both releases, the way R/build-implementation.R reads
+another lineage via query_active_release() (R/operations.R).
+
+Two properties are unverified. Upstream does not populate abr_code for
+every tournament, and its actual fill rate is unmeasured -- cobra has
+no live data as of this writing, so no figure or proportion is given
+here. Whether abr_code's string values compare directly against
+abr.tournament.id after cast and trim is also unconfirmed, so a bare
+equality join is not a checked operation.
+
+No cross-reference table exists, and none is built here: a built
+cross-reference is gated on cobra carrying live data and a named
+consumer needing the combined read. (ref: DL-031, DL-032)
+}
 \keyword{internal}
