@@ -290,6 +290,23 @@ while Deck Compare varies on both axes -- a shared table component would
 need a mode flag reintroducing the selector this module's own doc
 comment already removed. (DL-036)
 
+`R/mod_deck_compare.R` lands the view itself: a fourth `suite_nav_ui()`
+destination rather than a modal, because it is entered with nothing
+selected and supplies its own two deck-reference inputs, so there is no
+opener to hang a modal from (DL-031). Both decks and the pairing result
+live in session-scoped `reactiveVal()`s, discarded on disconnect, with
+`mod_deck_compare_server()` instantiated exactly once beside the app's
+other view modules -- re-instantiating on navigation accumulates
+observers and silently drops the fetched decks (DL-037).
+
+On the Compare button a refused fetch or a refused `resolve_deck_codes()`
+deck renders through `alert_box()` and leaves any prior result standing
+rather than blanking the table (DL-040). Compare is an explicit press
+against two free-text references, so a typo or a transient NRDB failure
+is an ordinary outcome, not an exceptional one -- blanking the table on
+every failed press would destroy the only comparison worth keeping on
+screen and cost a full refetch through a paced endpoint to recover it.
+
 ### Rules version ordering: trust the hub, warn on disagreement
 
 `check_version_monotonic()` had two real bugs and prompted one design

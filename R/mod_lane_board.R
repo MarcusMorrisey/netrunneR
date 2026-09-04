@@ -105,7 +105,7 @@ mod_lane_board_ui <- function(id) {
 #' @param active Character. Key of the current view.
 #' @export
 suite_nav_ui <- function(active = "iceBreaker") {
-  built <- c("iceBreaker", "metaMaps", "metaStats")
+  built <- c("iceBreaker", "metaMaps", "metaStats", "deckCompare")
   item <- function(key, label) {
     is_active <- identical(key, active)
     is_built <- key %in% built
@@ -131,7 +131,8 @@ suite_nav_ui <- function(active = "iceBreaker") {
       class = "nr-suite-items",
       item("iceBreaker", "Ice::Breaker"),
       item("metaMaps", "Meta Maps"),
-      item("metaStats", "Meta Stats")
+      item("metaStats", "Meta Stats"),
+      item("deckCompare", "Deck Compare")
     )
   )
 }

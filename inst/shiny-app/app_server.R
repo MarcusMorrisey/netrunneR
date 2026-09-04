@@ -70,6 +70,13 @@ app_server <- function(input, output, session, app_data) {
     traits = app_data$traits, legality = app_data$legality
   )
 
+  # Instantiated once beside the other view modules, on the same
+  # one-instantiation-per-session discipline: switching away and back
+  # keeps whatever deck was fetched rather than refetching it.
+  netrunneR::mod_deck_compare_server(
+    "deck_compare", app_data$all_codes, cards, matchup, app_data$cardpool_release_id
+  )
+
   # The two picker modules are instantiated ONCE per session, not per
   # click. mod_card_browser_server() registers observers, so building a
   # fresh one each time the modal opened would accumulate a growing set
@@ -138,7 +145,7 @@ app_server <- function(input, output, session, app_data) {
   # rebuilding them on every click.
   view <- shiny::reactiveVal("iceBreaker")
   shiny::observeEvent(input$nav_view, {
-    if (input$nav_view %in% c("iceBreaker", "metaMaps", "metaStats")) {
+    if (input$nav_view %in% c("iceBreaker", "metaMaps", "metaStats", "deckCompare")) {
       view(input$nav_view)
     }
   })
@@ -189,6 +196,7 @@ app_server <- function(input, output, session, app_data) {
     switch(view(),
       metaMaps = netrunneR::mod_meta_map_ui("meta_map"),
       metaStats = netrunneR::mod_meta_stats_ui("meta_stats"),
+      deckCompare = netrunneR::mod_deck_compare_ui("deck_compare"),
       netrunneR::mod_lane_board_ui("board")
     )
   })

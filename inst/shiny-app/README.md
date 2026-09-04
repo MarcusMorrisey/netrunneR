@@ -74,6 +74,19 @@ lane board reads the same unfiltered table. Filtering at compute time would bake
 a format into the view manifest's cache identity. The lane board still has no
 format control at all, which is the same gap in a live view.
 
+**Deck Compare is a fourth `suite_nav_ui()` destination, not a modal.**
+Every other view besides the lane board itself is either the lane board
+or something reached from a card already on screen -- the matchup
+explorer opens off the card detail modal, the two pickers open off the
+"add ice"/"add breaker" slots. Deck Compare has no card to open from: it
+is entered with nothing selected and supplies its own two deck-reference
+inputs, so there is no opener to hang a modal from. It is mounted like
+`mod_meta_map_ui()`/`mod_meta_stats_ui()` instead, swapped into `main` by
+`nav_view`, and `mod_deck_compare_server()` is instantiated once beside
+those two on the same one-instantiation-per-session discipline -- so
+switching to another view and back keeps whatever deck was fetched
+rather than refetching it.
+
 ## What a stat strip can say
 
 The strip under a breaker has five states, and they are genuinely different
