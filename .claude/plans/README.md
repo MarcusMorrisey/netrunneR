@@ -110,7 +110,23 @@ built its entire matching design on this now-corrected claim; that plan
 needs revisiting before any cross-reference table is built, not silently
 patched around.
 
-The high-water mark is now `DL-045`.
+`DL-046` was spent 2026-09-05 on two things, both against live production
+data in `abr` and `cobra`: (1) an enforced human-verified override log
+for real abr/cobra tournament matches and exclusions a person confirmed
+by manually reviewing `unmatched_tournaments.csv` (20 matches, 3
+exclusions so far) -- `inst/extdata/abr_cobra_verified_{matches,deletes}.csv`,
+`R/abr-cobra-xref.R`, `tests/testthat/test-abr-cobra-xref.R`; and (2)
+validating two candidate expansions of the conservative fuzzy-match rule
+against real data: widening the date match to +/-1 day while keeping the
+existing name-similarity/player-count bar is safe and validated (890 -> 913
+matches, no false positive found on inspection of the 25 new ones);
+dropping the name-similarity requirement in favor of an exact
+players_count match is NOT safe (real false positives share a similarity
+band with genuine matches, e.g. "York SC") and was not implemented. Full
+evidence in `docs/netrunneR/plans/2026-09-03-abr-cobra-xref/plan.md`
+(homelab repo), 2026-09-05 update section.
+
+The high-water mark is now `DL-046`.
 
 ## One decision is deliberately unmade
 
