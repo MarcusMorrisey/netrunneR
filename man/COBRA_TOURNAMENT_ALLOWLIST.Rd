@@ -36,10 +36,23 @@ per-tournament one, since ABR tracks individual match claims at much
 higher volume than tournaments, but that is a hypothesis, not
 established here.
 
-DO NOT use abr_code as a join key to abr.tournament.id. No verified
-cross-reference between cobra and abr exists as of this writing --
-bare column presence was mistaken for a working key once already; the
-next attempt must verify actual values before designing a match tier
-around them, not after. (ref: DL-044)
+abr_code IS real, but not this. Cobra's public GitHub source
+(Null-Signal-Games/cobra, app/services/abr_upload.rb) shows it POSTs
+tournament results to ABR's own /api/nrtm upload endpoint, which
+responds with a claim identifier -- the fixture at
+spec/fixtures/vcr_cassettes/upload_to_abr.yml records a real example
+response, {"code":301063}. That is what abr_code holds: ABR's claim
+id for the upload, not abr.tournament.id. Confirmed live: querying
+https://alwaysberunning.net/api/nrtm/<abr_code value> returns 401
+(exists, needs ABR API auth we do not have), not 404 (does not
+exist) -- the resource is real, just unreachable without
+credentials neither netrunneR nor this mirror holds.
+
+DO NOT use abr_code as a join key to abr.tournament.id. No public,
+unauthenticated path from an abr_code value to any abr.tournament
+row is known to exist. Bare column presence was mistaken for a
+working key once already; the next attempt must verify actual
+values (and, per this finding, actual auth requirements) before
+designing a match tier around them, not after. (ref: DL-044)
 }
 \keyword{internal}
