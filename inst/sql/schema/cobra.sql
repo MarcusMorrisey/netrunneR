@@ -9,10 +9,11 @@ CREATE TABLE tournament (
   tournament_id TEXT PRIMARY KEY,
   name TEXT,
   slug TEXT,
-  -- abr_code: upstream-supplied reference to abr.tournament.id (abr
-  -- lineage), nullable in practice since upstream does not populate it
-  -- for every tournament and the fill rate is unmeasured. See
-  -- COBRA_TOURNAMENT_ALLOWLIST (R/build-cobra.R) for joinability caveats.
+  -- abr_code: NOT a reference to abr.tournament.id -- corrected
+  -- 2026-09-05, see COBRA_TOURNAMENT_ALLOWLIST (R/build-cobra.R) for the
+  -- full correction. Upstream-supplied, nullable, but its value space
+  -- (six digits) does not overlap abr.tournament.id's (1-5842); do not
+  -- join on it. What it actually references is unconfirmed.
   abr_code TEXT,
   private INTEGER,
   date TEXT,

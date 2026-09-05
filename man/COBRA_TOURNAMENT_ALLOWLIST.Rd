@@ -19,22 +19,27 @@ check_deny_pattern(COBRA_DENY_PATTERN) below as an independent second
 check, not a restatement of these allowlists. (ref: DL-002)
 }
 \details{
-ABR_CODE IS A PLAIN REFERENCE, NOT A COMPUTED MATCH. abr_code arrives
-from Cobra's own upstream API already naming a tournament's ABR id --
-netrunneR computes nothing here. It is therefore a plain reference to
-abr.tournament.id in the abr lineage, joinable ad hoc by any consumer
-that reads both releases, the way R/build-implementation.R reads
-another lineage via query_active_release() (R/operations.R).
+ABR_CODE DOES NOT REFERENCE abr.tournament.id -- CORRECTED 2026-09-05.
+The prior version of this comment (DL-042/DL-043) asserted abr_code was
+"a plain reference to abr.tournament.id in the abr lineage", inferred
+from the field existing and being populated, never checked against
+real values. It is wrong. The same real-world tournament mirrored in
+both lineages ("Startup @ Entoyment. Community Tournament.",
+2024-10-06) has cobra.tournament.abr_code = "667219" for the event
+abr.tournament.id records as 4404 -- confirmed live against both
+mirrors and against alwaysberunning.net's own API directly. ABR's own
+tournament ids run 1-5842 (4433 tournaments, confirmed live); abr_code
+values are six digits, outside that range for every populated row
+inspected. What abr_code actually references upstream is
+unconfirmed -- possibly a per-claim/report id rather than a
+per-tournament one, since ABR tracks individual match claims at much
+higher volume than tournaments, but that is a hypothesis, not
+established here.
 
-Two properties are unverified. Upstream does not populate abr_code for
-every tournament, and its actual fill rate is unmeasured -- cobra has
-no live data as of this writing, so no figure or proportion is given
-here. Whether abr_code's string values compare directly against
-abr.tournament.id after cast and trim is also unconfirmed, so a bare
-equality join is not a checked operation.
-
-No cross-reference table exists, and none is built here: a built
-cross-reference is gated on cobra carrying live data and a named
-consumer needing the combined read. (ref: DL-042, DL-043)
+DO NOT use abr_code as a join key to abr.tournament.id. No verified
+cross-reference between cobra and abr exists as of this writing --
+bare column presence was mistaken for a working key once already; the
+next attempt must verify actual values before designing a match tier
+around them, not after. (ref: DL-044)
 }
 \keyword{internal}

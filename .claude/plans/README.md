@@ -88,7 +88,29 @@ original `DL-031`..`DL-040` plan: `resolve_deck_codes()` was reading a
 has never actually returned (the same gap R/README.md's decklist-mirroring
 postmortem had already named). Fixed by finding the identity via
 `type_code == "identity"` against the resolved cardpool codes instead.
-`DL-044` stays reserved for abr/cobra; the high-water mark is now `DL-045`.
+
+`DL-044` was spent 2026-09-05 correcting a real factual error DL-042/043
+introduced: `cobra.tournament.abr_code` was documented as "a plain
+reference to `abr.tournament.id`" on the strength of the field existing
+and being populated, never checked against real values. It is wrong.
+Cross-referencing the same real-world tournament in both mirrors
+("Startup @ Entoyment. Community Tournament.", 2024-10-06) found
+`abr_code = "667219"` on cobra's side for the exact event `abr.tournament`
+records under `id = 4404` -- confirmed live against both mirrors and
+against alwaysberunning.net's own API directly. ABR's own tournament ids
+run 1-5842; `abr_code` values are six digits, outside that range for
+every populated row inspected. `R/build-cobra.R` and `inst/sql/schema/cobra.sql`
+corrected to say so plainly and warn against using it as a join key. What
+`abr_code` actually references upstream remains unconfirmed.
+
+**The lesson this one leaves:** a field existing and being populated is
+not evidence of what it points to. The abr/cobra cross-reference plan
+(`docs/netrunneR/plans/2026-09-03-abr-cobra-xref/plan.md`, homelab repo)
+built its entire matching design on this now-corrected claim; that plan
+needs revisiting before any cross-reference table is built, not silently
+patched around.
+
+The high-water mark is now `DL-045`.
 
 ## One decision is deliberately unmade
 
