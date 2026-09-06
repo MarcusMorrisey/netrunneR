@@ -105,3 +105,87 @@ validate_abr_cobra_overrides <- function(matches, deletes) {
 
   invisible(TRUE)
 }
+
+#' Human-verified many-cobra-to-one-abr tournament groupings
+#'
+#' `abr_cobra_verified_matches.csv` is deliberately strict one-to-one --
+#' `validate_abr_cobra_overrides()` rejects any abr_id used twice, because
+#' in practice that has always meant a mistake. But it is not always a
+#' mistake: Cobra sometimes records a single abr-recorded event as
+#' multiple rows -- one per day of a multi-day tournament (the confirmed
+#' case: NISEI World Championship 2020, abr id 2850, players_count=294,
+#' split into cobra "Day 1A" (121) and "Day 1B" (173), which sum exactly
+#' to abr's total), or one per pod/bracket of a single aggregate event
+#' (a pattern the 2026-09-05 matcher/verifier agent review flagged
+#' repeatedly -- e.g. "UK Nationals Classique Pod 1-4" -- but never
+#' confirmed, since no case there had corroborating evidence as clean as
+#' the summed player-count match here). This file is where a human
+#' records that a *specific, confirmed* grouping is real, rather than
+#' forcing it through the one-to-one file (which would incorrectly flag
+#' the second cobra row as a duplicate-abr_id mistake) or dropping half
+#' the data by picking only one cobra row to match.
+#'
+#' A future merge implementation must treat every abr_id here as
+#' representing the UNION of its listed cobra rows, not any one of them
+#' alone -- e.g. summing per-day player counts, or merging per-round
+#' pairings/standings across the grouped cobra rows, rather than picking
+#' one and discarding the rest.
+#'
+#' @param path Character. Defaults to the packaged template.
+#' @return A tibble with one row per (abr_id, cobra_tournament_id) pair
+#'   belonging to a confirmed group; multiple rows may share an abr_id.
+#' @keywords internal
+read_abr_cobra_verified_group_matches <- function(path = system.file("extdata", "abr_cobra_verified_group_matches.csv",
+                                                                      package = "netrunneR")) {
+  groups <- readr::read_csv(
+    path,
+    col_types = readr::cols(
+      abr_id = readr::col_character(),
+      cobra_tournament_id = readr::col_character(),
+      reason = readr::col_character(),
+      verified_by = readr::col_character(),
+      verified_at = readr::col_character()
+    )
+  )
+  validate_abr_cobra_group_matches(groups, read_abr_cobra_verified_matches(), read_abr_cobra_verified_deletes())
+  groups
+}
+
+#' Fail closed if the group-match log contradicts itself or the other override files
+#'
+#' Unlike `validate_abr_cobra_overrides()`, a duplicate abr_id here is the
+#' whole point (multiple cobra rows belonging to one abr event) -- so this
+#' checks different invariants: no cobra_tournament_id may appear twice
+#' within the group file itself (each cobra row belongs to at most one
+#' group), and no id on either side may be claimed by the strict
+#' one-to-one matches file or the deletes file, since that would make it
+#' ambiguous which file is authoritative for that id.
+#' @keywords internal
+validate_abr_cobra_group_matches <- function(groups, matches, deletes) {
+  dup_cobra <- groups$cobra_tournament_id[duplicated(groups$cobra_tournament_id)]
+  if (length(dup_cobra) > 0) {
+    stop("abr_cobra_verified_group_matches.csv: cobra_tournament_id used in more than one row: ",
+         paste(unique(dup_cobra), collapse = ", "), call. = FALSE)
+  }
+
+  cobra_conflict <- intersect(groups$cobra_tournament_id, matches$cobra_tournament_id)
+  if (length(cobra_conflict) > 0) {
+    stop("cobra_tournament_id present in both group matches and one-to-one verified matches: ",
+         paste(cobra_conflict, collapse = ", "), call. = FALSE)
+  }
+
+  deleted_cobra_ids <- deletes$source_id[deletes$source == "cobra"]
+  delete_conflict <- intersect(groups$cobra_tournament_id, deleted_cobra_ids)
+  if (length(delete_conflict) > 0) {
+    stop("cobra_tournament_id present in both group matches and verified deletes: ",
+         paste(delete_conflict, collapse = ", "), call. = FALSE)
+  }
+
+  abr_conflict <- intersect(groups$abr_id, matches$abr_id)
+  if (length(abr_conflict) > 0) {
+    stop("abr_id present in both group matches and one-to-one verified matches: ",
+         paste(abr_conflict, collapse = ", "), call. = FALSE)
+  }
+
+  invisible(TRUE)
+}
