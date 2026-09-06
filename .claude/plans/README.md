@@ -126,7 +126,39 @@ band with genuine matches, e.g. "York SC") and was not implemented. Full
 evidence in `docs/netrunneR/plans/2026-09-03-abr-cobra-xref/plan.md`
 (homelab repo), 2026-09-05 update section.
 
-The high-water mark is now `DL-046`.
+`DL-047` was spent 2026-09-05 completing the review of
+`unmatched_tournaments.csv` rows 2124-5358 (DL-046 covered rows 1-2124).
+Fixed-threshold fuzzy matching had already been shown unsafe for this
+remainder, so this used two LLM agent passes instead: 6 matcher agents
+(one per year) proposed pairs using semantic judgment against calibration
+examples; 6 independent verifier agents, blind to who proposed what,
+adversarially checked all 693 proposed pairs and rejected 31 -- mostly
+real player-count mismatches the matcher missed or excused away, plus a
+few generic-boilerplate-name coincidences and one multi-hop nickname
+over-reach. User reviewed both the 662 confirmed and the 31 rejected
+pairs: approved all 662, and overrode 19 of the 31 rejections directly,
+noting a player-count discrepancy alone does not rule out the same
+real-world tournament (abr and cobra can report different counts for the
+same event -- different snapshot timing or reporting methodology). 22
+Cobra tournaments flagged as test/placeholder data by the matcher pass
+were also confirmed and added to the delete list. `abr_cobra_verified_matches.csv`
+grew from 20 to 701 rows; `abr_cobra_verified_deletes.csv` from 3 to 25.
+Full process and both raw outputs (confirmed + rejected) are recorded in
+homelab `docs/netrunneR/plans/2026-09-03-abr-cobra-xref/review-2026-09-05/`
+for audit.
+
+**Lesson for future automated-rule calibration:** the shipped Tier A'
+rule requires players_count agreement within +/-1 as a hard filter. The
+19 user-overridden matches show real confirmed matches can have much
+larger player-count gaps (e.g. 0 vs 149, 3x mismatches) when the two
+platforms captured different snapshots of the same event -- player-count
+agreement is strong corroborating evidence, not a safe hard requirement,
+when a name match is otherwise specific and distinctive. Not a reason to
+loosen the automated rule (still correctly precision-first), but a reason
+future human review should not treat a player-count gap alone as
+disqualifying.
+
+The high-water mark is now `DL-047`.
 
 ## One decision is deliberately unmade
 
