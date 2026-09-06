@@ -158,7 +158,24 @@ loosen the automated rule (still correctly precision-first), but a reason
 future human review should not treat a player-count gap alone as
 disqualifying.
 
-The high-water mark is now `DL-047`.
+`DL-048` was spent 2026-09-05 adding `abr_cobra_verified_group_matches.csv`
+after the user found a one-to-many edge case the strict one-to-one
+`abr_cobra_verified_matches.csv` can't represent: NISEI World
+Championship 2020 (abr id 2850, players_count=294) was split by Cobra
+into two per-day rows (1851 "Day 1A"=121, 1852 "Day 1B"=173), summing
+exactly to abr's total. Rather than loosen the one-to-one file's
+duplicate-abr_id check (a real safety net that has only ever caught
+mistakes so far), added a separate file with its own validator
+(`validate_abr_cobra_group_matches()`) that allows a repeated abr_id on
+purpose but still enforces no cobra id repeats and no id collides with
+the one-to-one matches/deletes files. `R/abr-cobra-xref.R`,
+`tests/testthat/test-abr-cobra-xref.R`. Similar-looking pod/bracket
+splits the 2026-09-05 matcher/verifier review had flagged elsewhere (e.g.
+"UK Nationals Classique Pod 1-4") were deliberately NOT added here --
+none had the same clean corroborating evidence (an exact player-count
+sum) as this confirmed case.
+
+The high-water mark is now `DL-048`.
 
 ## One decision is deliberately unmade
 
