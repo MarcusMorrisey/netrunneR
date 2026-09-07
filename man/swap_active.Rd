@@ -16,3 +16,17 @@ Reused by both promote() (a newly staged release) and rollback() (an
 existing prior release): the swap itself carries no knowledge of where
 the target release directory came from.
 }
+\details{
+The symlink is written RELATIVE to store_root, not as the absolute
+target_release_dir path it's given. store_root itself is bind-mounted
+at a different absolute path in every container that touches it (the
+sync container sees it as /data/\if{html}{\out{<lineage>}}, rstudio sees the same
+directory as /shared/netrunner-mirror/data/\if{html}{\out{<lineage>}}) -- an absolute
+symlink target baked in by whichever container ran the promote only
+resolves inside that one container. A path relative to store_root
+resolves correctly in any of them, because the symlink and its target
+both live under whatever store_root happens to be mounted at locally.
+Confirmed broken in practice: cardpool's \code{active} link (written by the
+sync container) is unreadable from the rstudio container as of
+2026-09-05.
+}
