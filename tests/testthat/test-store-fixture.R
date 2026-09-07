@@ -116,3 +116,61 @@ test_that("read_active_release_tables() returns the tables a release does have",
   expect_equal(sort(out$tables$card$code), sort(mini_pool_cardpool()$code))
   expect_null(out$tables$format)
 })
+
+# --- M-003: the merged abr+cobra tournament read and its abr-only fallback ---
+
+test_that("with both abr and cobra active, the app frame carries merged rows with the same column names as before", {
+  local_store_fixture(c("cardpool", "implementation", "abr", "cobra"))
+  app_data <- load_ice_breaker_app_data()
+
+  expect_null(app_data$missing_lineages)
+  expect_identical(app_data$tournaments$id, "abr:9001")
+  # Same column set the abr-only read always returned -- no consumer
+  # needs to change for the merged read to serve it.
+  expect_identical(
+    sort(names(app_data$tournaments)),
+    sort(c(
+      "id", "title", "date", "format", "type", "location_state", "location_country",
+      "location_lat", "location_lng", "players_count", "top_count",
+      "winner_runner_identity", "winner_corp_identity"
+    ))
+  )
+})
+
+test_that("with cobra absent, the app frame equals the abr-only read", {
+  local_store_fixture(c("cardpool", "implementation", "abr"))
+  app_data <- load_ice_breaker_app_data()
+
+  expect_null(app_data$missing_lineages)
+  expect_identical(app_data$tournaments$id, "9001") # abr's own id, not the "abr:9001" merged key
+  expect_identical(app_data$tournaments$title, "Fixture Store Championship")
+})
+
+test_that("with a cobra release predating tournament_merged, the app frame equals the abr-only read", {
+  # Staged inline rather than as a second STORE_FIXTURE_TABLES() entry:
+  # this is deliberately an OLDER/incomplete cobra shape (schema_version
+  # 1, before M-001), not a second lineage the fixture registry otherwise
+  # models one-per-name.
+  base <- local_store_fixture(c("cardpool", "implementation", "abr"))
+  cobra_root <- file.path(base, "cobra")
+  staging_dir <- file.path(cobra_root, "staging", "pre-merge")
+  processed_dir <- file.path(staging_dir, "processed")
+  fs::dir_create(processed_dir)
+  con <- DBI::dbConnect(RSQLite::SQLite(), file.path(processed_dir, "cobra.sqlite"))
+  DBI::dbWriteTable(con, "tournament", data.frame(tournament_id = "1", name = "Old Cobra Event", stringsAsFactors = FALSE))
+  DBI::dbDisconnect(con)
+  promote(cobra_root, staging_dir, "pre-merge-release")
+
+  app_data <- load_ice_breaker_app_data()
+
+  expect_null(app_data$missing_lineages)
+  expect_identical(app_data$tournaments$id, "9001") # falls back to abr, not an error over the missing table
+})
+
+test_that("with both abr and cobra absent, tournaments is NULL and startup still succeeds", {
+  local_store_fixture(c("cardpool", "implementation"))
+  app_data <- load_ice_breaker_app_data()
+
+  expect_null(app_data$missing_lineages)
+  expect_null(app_data$tournaments)
+})

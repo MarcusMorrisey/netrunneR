@@ -190,6 +190,36 @@ read_matchup_overrides <- function(path = system.file("extdata", "matchup_overri
   )
 }
 
+#' Choose which tournament frame `load_ice_breaker_app_data()` serves
+#'
+#' Extracted from `load_ice_breaker_app_data()` as its own function so
+#' the fallback choice itself -- not just its effect after a full store
+#' fixture load -- has a direct unit test (test-operations.R) alongside
+#' the fixture-driven integration coverage in test-store-fixture.R.
+#'
+#' Both queries are always run (rather than short-circuiting to skip the
+#' abr query when cobra's merged read succeeds): `load_ice_breaker_app_data()`
+#' runs once per process, not per request, so the cost of an unused extra
+#' query is negligible next to the benefit of a selection function with
+#' no side effects of its own to reason about.
+#'
+#' @param merged_release The `read_active_release_tables("cobra", ...)`
+#'   result (or `NULL`).
+#' @param abr_result The `query_active_release("abr", ...)` result (or
+#'   `NULL`).
+#' @return The merged tournament frame when available, else the abr
+#'   frame when available, else `NULL`. (DL-057)
+#' @keywords internal
+select_tournaments_source <- function(merged_release, abr_result) {
+  if (!is.null(merged_release) && !is.null(merged_release$tables$tournament_merged)) {
+    return(merged_release$tables$tournament_merged)
+  }
+  if (!is.null(abr_result)) {
+    return(abr_result$data)
+  }
+  NULL
+}
+
 #' Load the data the ice/breaker Shiny app needs, once per process
 #'
 #' Hoisted out of `app_server()` (called once from `inst/shiny-app/app.R`,
@@ -200,8 +230,10 @@ read_matchup_overrides <- function(path = system.file("extdata", "matchup_overri
 #' @return A list with `cards`, `legality` (the CARDPOOL_LEGALITY_TABLES,
 #'   each NULL when the release predates that schema), `matchup` and
 #'   `traits` (the `ice_breaker_traits` the matchup table was built
-#'   from), `tournaments` (the abr `tournament` table, NULL when no abr
-#'   release is active), `identities` and `factions` (the cardpool
+#'   from), `tournaments` (cobra's merged abr+cobra tournament feed when
+#'   available, else abr's own `tournament` table, else NULL when neither
+#'   is active -- see the merged-read fallback below), `identities` and
+#'   `factions` (the cardpool
 #'   identity cards and the faction lookup, which the meta stats view
 #'   needs and `cards` cannot supply), `cardpool_release_id` and
 #'   `implementation_release_id` (the release directory names
@@ -271,10 +303,28 @@ load_ice_breaker_app_data <- function() {
 
   # OPTIONAL, like rulings and for the same reason: this app is about
   # ice/breaker economics and the tournament map is an addition to it. A
-  # missing abr release degrades that one view rather than joining
+  # missing tournament feed degrades that one view rather than joining
   # missing_lineages and blocking startup for everything.
+  #
+  # Prefer cobra's merged feed (tournament_merged, DL-049): it carries
+  # abr's exact column set (DL-053's synthetic key lives in `id`, not a
+  # separate column) plus cobra-only tournaments abr never had, so this
+  # is a straight query swap with no reshape for any consumer. Read via
+  # read_active_release_tables(), not query_active_release() -- the
+  # latter runs its SQL directly with no dbExistsTable() check first, so
+  # it would throw a real "no such table" error (not return NULL) against
+  # a cobra release promoted before tournament_merged existed
+  # (schema_version < 2); read_active_release_tables() checks per table
+  # and yields NULL for one that's missing, which is the fallback this
+  # needs. Falls back to today's direct abr-only read whenever the merged
+  # read is unavailable for any reason -- no active cobra release, no
+  # cobra.sqlite file, or a pre-merge release -- since abr-only was
+  # always the safe default and returning NULL here would regress the
+  # app from "tournament data" to "no tournament data" over an unrelated
+  # lineage's state. (DL-057)
+  merged_release <- read_active_release_tables("cobra", "cobra.sqlite", "tournament_merged")
   abr_result <- query_active_release("abr", "abr.sqlite", "SELECT * FROM tournament")
-  tournaments <- if (is.null(abr_result)) NULL else abr_result$data
+  tournaments <- select_tournaments_source(merged_release, abr_result)
 
   matchup_overrides <- read_matchup_overrides()
 

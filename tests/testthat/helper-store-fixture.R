@@ -27,6 +27,41 @@ STORE_FIXTURE_TABLES <- function() {
     implementation = list(
       db = "implementation.sqlite",
       tables = list(ice_breaker_traits = mini_pool_ice_breaker_traits())
+    ),
+    abr = list(
+      db = "abr.sqlite",
+      tables = list(tournament = data.frame(
+        id = "9001", title = "Fixture Store Championship", date = "2026.01.10.",
+        format = "standard", type = "store championship",
+        location_state = "CA", location_country = "United States",
+        location_lat = 37.77, location_lng = -122.42,
+        players_count = 16L, top_count = 4L,
+        winner_runner_identity = "21063", winner_corp_identity = "21054",
+        stringsAsFactors = FALSE
+      ))
+    ),
+    # A cobra release WITH tournament_merged (DL-049/M-001) -- the normal,
+    # post-merge shape. See test-store-fixture.R for a release predating
+    # the table, staged inline there rather than as a second named entry
+    # here, since it is a deliberately incomplete/older shape rather than
+    # a second lineage this fixture registry otherwise models one-per-name.
+    cobra = list(
+      db = "cobra.sqlite",
+      tables = list(
+        tournament_merged = data.frame(
+          id = "abr:9001", title = "Fixture Store Championship", date = "2026.01.10.",
+          format = "standard", type = "store championship",
+          location_state = "CA", location_country = "United States",
+          location_lat = 37.77, location_lng = -122.42,
+          players_count = 16L, top_count = 4L,
+          winner_runner_identity = "21063", winner_corp_identity = "21054",
+          stringsAsFactors = FALSE
+        ),
+        tournament_merged_source = data.frame(
+          merged_id = "abr:9001", source = "abr", source_id = "9001", match_tier = "single",
+          stringsAsFactors = FALSE
+        )
+      )
     )
   )
 }

@@ -26,3 +26,27 @@ test_that("click_sets_input() builds a namespaced Shiny.setInputValue() call", {
   expect_match(result, "mod-card_clicked", fixed = TRUE)
   expect_match(result, "01001", fixed = TRUE)
 })
+
+test_that("select_tournaments_source() prefers a non-NULL merged read over an available abr release", {
+  merged_release <- list(tables = list(tournament_merged = data.frame(id = "abr:1+cobra:1")))
+  abr_result <- list(data = data.frame(id = "1"))
+  result <- select_tournaments_source(merged_release, abr_result)
+  expect_identical(result$id, "abr:1+cobra:1")
+})
+
+test_that("select_tournaments_source() falls back to abr when the merged read is entirely NULL", {
+  abr_result <- list(data = data.frame(id = "1"))
+  result <- select_tournaments_source(NULL, abr_result)
+  expect_identical(result$id, "1")
+})
+
+test_that("select_tournaments_source() falls back to abr when cobra has no tournament_merged table", {
+  merged_release <- list(tables = list(tournament_merged = NULL))
+  abr_result <- list(data = data.frame(id = "1"))
+  result <- select_tournaments_source(merged_release, abr_result)
+  expect_identical(result$id, "1")
+})
+
+test_that("select_tournaments_source() returns NULL when both sources are unavailable", {
+  expect_null(select_tournaments_source(NULL, NULL))
+})

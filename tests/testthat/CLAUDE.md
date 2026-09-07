@@ -47,7 +47,7 @@ Test files and shared fixtures. Several files enforce package invariants by stat
 | `test-mod-card-browser.R` | `mod_card_browser_server()`'s empty-filter-result state and click-to-`selected_code` binding | Changing card-browser filters or click wiring |
 | `test-mod-card-detail.R` | `mod_card_detail_server()`'s single-instantiation-per-session discipline and Close-button state clearing | Changing the detail modal's selection-state contract |
 | `test-mod-matchup-explorer.R` | `mod_matchup_explorer_server()`'s not-computable rendering, empty-result rendering, and row-click binding | Changing the matchup table or its click wiring |
-| `test-operations.R` | `safe_render()`'s error-fallback and pass-through behavior | Changing render-error handling |
+| `test-operations.R` | `safe_render()`'s error-fallback and pass-through behavior; `select_tournaments_source()`'s merged-over-abr preference and both-unavailable NULL case | Changing render-error handling, or the app's tournament-source fallback logic |
 | `helper-preship-gates.R` | Shared expectations for the `require_*()` attribution and disclaimer guards | Adding a pre-ship gate or changing how one is asserted |
 | `helper-search-pool.R` | Fixture card pool for the search grammar tests | Adding a search test that needs cards |
 | `test-theme.R` | Palette shape, the map ramp's monotonic lightness and its floor clearing the page ground, the no-data grey sitting outside the ramp, and that no tile provider is declared | Changing app colours or anything the map is drawn in |

@@ -10,8 +10,10 @@ load_ice_breaker_app_data()
 A list with \code{cards}, \code{legality} (the CARDPOOL_LEGALITY_TABLES,
 each NULL when the release predates that schema), \code{matchup} and
 \code{traits} (the \code{ice_breaker_traits} the matchup table was built
-from), \code{tournaments} (the abr \code{tournament} table, NULL when no abr
-release is active), \code{identities} and \code{factions} (the cardpool
+from), \code{tournaments} (cobra's merged abr+cobra tournament feed when
+available, else abr's own \code{tournament} table, else NULL when neither
+is active -- see the merged-read fallback below), \code{identities} and
+\code{factions} (the cardpool
 identity cards and the faction lookup, which the meta stats view
 needs and \code{cards} cannot supply), \code{cardpool_release_id} and
 \code{implementation_release_id} (the release directory names
