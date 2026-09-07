@@ -173,3 +173,44 @@ CREATE TABLE recent_index (
   tournament_type_id INTEGER,
   discovered_at TEXT
 );
+
+-- Merged abr+cobra tournament feed (R/merge-abr-cobra.R), built alongside
+-- the ten cobra-only tables above. Column set is exactly abr.tournament's
+-- (inst/sql/schema/abr.sql) so SELECT * FROM tournament_merged and
+-- SELECT * FROM tournament (abr) are byte-identical in shape -- the app's
+-- read-side fallback between the two must never need a reshape. id holds
+-- the synthetic merged key ("abr:<id>" / "cobra:<id>" /
+-- "abr:<id>+cobra:<id>"); there is no separate merged_id column here
+-- because no app consumer reads tournament$id, so the id column was free
+-- to repurpose. (DL-049, DL-053)
+CREATE TABLE tournament_merged (
+  id TEXT PRIMARY KEY,
+  title TEXT,
+  date TEXT,
+  format TEXT,
+  type TEXT,
+  location_state TEXT,
+  location_country TEXT,
+  location_lat REAL,
+  location_lng REAL,
+  players_count INTEGER,
+  top_count INTEGER,
+  winner_runner_identity TEXT,
+  winner_corp_identity TEXT
+);
+
+-- Provenance for tournament_merged: one row per (source, source_id) that
+-- contributed to a merged row. A flat abr_id/cobra_tournament_id column
+-- pair on tournament_merged could not represent a group match (several
+-- cobra rows -- e.g. NISEI Worlds split across per-day rows -- summing
+-- into one abr row, per abr_cobra_verified_group_matches.csv), so
+-- provenance lives in its own one-to-many table instead. match_tier
+-- records which override-precedence tier produced the pairing (deleted
+-- cobra rows never appear here at all, in either table). (DL-050, DL-062)
+CREATE TABLE tournament_merged_source (
+  merged_id TEXT NOT NULL REFERENCES tournament_merged(id),
+  source TEXT NOT NULL,      -- 'abr' | 'cobra'
+  source_id TEXT NOT NULL,
+  match_tier TEXT NOT NULL,  -- 'group' | 'verified' | 'algorithmic' | 'single'
+  PRIMARY KEY (merged_id, source, source_id)
+);
