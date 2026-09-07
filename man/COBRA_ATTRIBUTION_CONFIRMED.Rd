@@ -23,8 +23,9 @@ where a person looking at the data can see it -- the same narrow,
 link-shaped obligation ABR_ATTRIBUTION_CONFIRMED attests, not a
 licence notice to reproduce or non-affiliation wording to carry.
 
-Defaults FALSE, matching RULES_DISCLAIMER_CONFIRMED's shape rather
-than ABR_ATTRIBUTION_CONFIRMED's: the gate exists and the UI it
-guards is built in this same change, but flipping it is a human
-attestation this file does not make for itself. (DL-060)
+Shipped TRUE: the repo owner reviewed cobra_attribution_ui() (a real
+anchor to tournaments.nullsignal.games, rendered unconditionally by
+both cobra-sourced views) and confirmed it satisfies the obligation
+above, the same human attestation ABR_ATTRIBUTION_CONFIRMED already
+records. (DL-060)
 }
