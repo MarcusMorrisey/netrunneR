@@ -55,4 +55,4 @@ Package source: six lineage mirrors sharing one fetch/build/validate/promote pip
 | `search-fields.R` | `new_search_field()`, `search_field_registry()`, `resolve_search_field()`, `cardpool_search_fields()` | Adding a searchable field or changing its operators |
 | `search-eval.R` | `search_match()`, `search_filter()`, `search_explain()`, `eval_search_condition()` | Changing how a parsed query is evaluated against cards |
 | `parse-clojure.R` | `read_form()`, `read_defcards()`, `count_form_elements()` | Changing how the implementation lineage reads Clojure card definitions |
-| `app.R` | `run_app()`, `require_abr_attribution()`, `require_implementation_license_notice()`, `require_cardpool_disclaimer()`, `require_rules_disclaimer()`, `card_image_url()` | Wiring the Shiny app or adding an ABR-, implementation-, cardpool-, or rules-sourced view |
+| `app.R` | `run_app()`, `require_abr_attribution()`, `require_cobra_attribution()`, `require_implementation_license_notice()`, `require_cardpool_disclaimer()`, `require_rules_disclaimer()`, `card_image_url()` | Wiring the Shiny app or adding an ABR-, cobra-, implementation-, cardpool-, or rules-sourced view |

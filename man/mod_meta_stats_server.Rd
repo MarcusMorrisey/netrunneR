@@ -15,8 +15,10 @@ mod_meta_stats_server(
 \arguments{
 \item{id}{Module id.}
 
-\item{tournaments}{The abr \code{tournament} table, or NULL when no abr
-release is active. NULL renders an explanation rather than an empty
+\item{tournaments}{The merged abr+cobra tournament feed
+(\code{tournament_merged}, R/merge-abr-cobra.R) when cobra has an active
+release with one, else abr's own \code{tournament} table, else NULL when
+neither is active. NULL renders an explanation rather than an empty
 chart, for the reason given on mod_card_detail_server()'s \code{rulings}.}
 
 \item{identities}{The cardpool identity cards, NOT the app's

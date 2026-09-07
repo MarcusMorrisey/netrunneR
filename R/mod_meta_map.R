@@ -28,6 +28,11 @@ mod_meta_map_ui <- function(id) {
     # map above it managed to draw -- the obligation attaches to using
     # the data, not to the drawing succeeding.
     abr_attribution_ui(),
+    # tournaments may now carry cobra-sourced rows too (the abr/cobra
+    # merge, R/merge-abr-cobra.R) -- same unconditional rendering, same
+    # reasoning: the credit obligation attaches to using cobra's data,
+    # not to whether the map above it drew anything.
+    cobra_attribution_ui(),
     shiny::uiOutput(ns("notes"))
     )
   )
@@ -36,8 +41,10 @@ mod_meta_map_ui <- function(id) {
 #' Tournament map module server
 #'
 #' @param id Module id.
-#' @param tournaments The abr `tournament` table, or NULL when no abr
-#'   release is active. NULL renders an explanation rather than an empty
+#' @param tournaments The merged abr+cobra tournament feed
+#'   (`tournament_merged`, R/merge-abr-cobra.R) when cobra has an active
+#'   release with one, else abr's own `tournament` table, else NULL when
+#'   neither is active. NULL renders an explanation rather than an empty
 #'   map, for the reason given on mod_card_detail_server()'s `rulings`.
 #' @param filters A reactive returning the app-level filter selection,
 #'   from mod_filter_bar_server(). NULL filters nothing, which is what a
@@ -54,6 +61,7 @@ mod_meta_map_server <- function(id, tournaments = NULL, filters = NULL,
     # backlink above is what the attestation is about, and nobody but a
     # person can attest that it renders.
     require_abr_attribution(ABR_ATTRIBUTION_CONFIRMED)
+    require_cobra_attribution(COBRA_ATTRIBUTION_CONFIRMED)
 
     have_spatial <- requireNamespace("sf", quietly = TRUE) &&
       requireNamespace("tmap", quietly = TRUE) &&

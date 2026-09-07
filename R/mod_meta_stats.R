@@ -88,6 +88,10 @@ mod_meta_stats_ui <- function(id) {
         shiny::uiOutput(ns("chord_slot"))
       ),
       abr_attribution_ui(),
+      # tournaments may now carry cobra-sourced rows too (the abr/cobra
+      # merge, R/merge-abr-cobra.R) -- same unconditional rendering as
+      # the map's.
+      cobra_attribution_ui(),
       shiny::uiOutput(ns("notes"))
     )
   )
@@ -96,8 +100,10 @@ mod_meta_stats_ui <- function(id) {
 #' Meta statistics module server
 #'
 #' @param id Module id.
-#' @param tournaments The abr `tournament` table, or NULL when no abr
-#'   release is active. NULL renders an explanation rather than an empty
+#' @param tournaments The merged abr+cobra tournament feed
+#'   (`tournament_merged`, R/merge-abr-cobra.R) when cobra has an active
+#'   release with one, else abr's own `tournament` table, else NULL when
+#'   neither is active. NULL renders an explanation rather than an empty
 #'   chart, for the reason given on mod_card_detail_server()'s `rulings`.
 #' @param identities The cardpool identity cards, NOT the app's
 #'   ice/breaker pool. Winners are identities, and an identity is in
@@ -118,6 +124,7 @@ mod_meta_stats_server <- function(id, tournaments = NULL, identities = NULL,
     # abr data, and abr's terms attach to using the data rather than to
     # any particular drawing of it.
     require_abr_attribution(ABR_ATTRIBUTION_CONFIRMED)
+    require_cobra_attribution(COBRA_ATTRIBUTION_CONFIRMED)
 
     have_treemap <- requireNamespace("d3treeR", quietly = TRUE) &&
       requireNamespace("treemap", quietly = TRUE)

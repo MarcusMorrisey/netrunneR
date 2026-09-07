@@ -207,6 +207,49 @@ test_that("an open ABR gate would mean the backlink actually renders", {
   expect_match(squish(abr_attribution_ui()), "href=", fixed = TRUE)
 })
 
+test_that("the cobra notice is a real link, not the site's name as text", {
+  # Same reasoning as the ABR notice: a rendered string reading
+  # "tournaments.nullsignal.games" satisfies a reader looking for a
+  # credit while satisfying nothing the terms actually ask for.
+  txt <- squish(cobra_attribution_ui())
+
+  expect_match(txt, "href=\"https://tournaments.nullsignal.games/\"", fixed = TRUE)
+  expect_match(txt, "tournaments.nullsignal.games")
+})
+
+test_that("the cobra link is not hidden behind a disclosure triangle", {
+  txt <- squish(cobra_attribution_ui())
+  expect_no_match(txt, "<details", fixed = TRUE)
+})
+
+test_that("the cobra gate stays closed until a view calls require_cobra_attribution()", {
+  # Same reasoning as the rules/ABR gates: a guard with nothing behind it
+  # still passes, so attesting that the app renders a backlink it has
+  # nowhere to render is what this catches.
+  rendered_anywhere <- any(grepl(
+    "require_cobra_attribution",
+    unlist(lapply(list.files(test_path("..", ".."), pattern = "[.]R$",
+                             recursive = TRUE, full.names = TRUE),
+                  readLines, warn = FALSE))
+  ))
+  if (!isTRUE(SHIPPED_GATE_DEFAULTS$COBRA_ATTRIBUTION_CONFIRMED)) {
+    succeed()
+  } else {
+    expect_true(rendered_anywhere)
+  }
+})
+
+test_that("an open cobra gate would mean the backlink actually renders", {
+  # The attestation is about the app SHOWING the link, not about someone
+  # having once read the terms. If the gate is ever opened, the notice
+  # must carry the anchor -- otherwise the attestation is about nothing.
+  if (!isTRUE(SHIPPED_GATE_DEFAULTS$COBRA_ATTRIBUTION_CONFIRMED)) {
+    succeed()
+    return(invisible(NULL))
+  }
+  expect_match(squish(cobra_attribution_ui()), "href=", fixed = TRUE)
+})
+
 # ---- per-publisher copyright notices -------------------------------
 # The licence changed hands: Fantasy Flight cards carry an FFG/Wizards
 # line on the card face, Null Signal cards carry a Null Signal line and

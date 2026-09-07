@@ -119,11 +119,12 @@ in front of one person.
 ## Attribution obligations
 
 Each mirrored lineage carries a notice that must render wherever its data does,
-and a `require_*()` guard asserting it. All four live in `R/app.R`.
+and a `require_*()` guard asserting it. All five live in `R/app.R`.
 
 | Lineage | Must render | Guard |
 | --- | --- | --- |
 | `abr` | The `alwaysberunning.net` backlink | `require_abr_attribution()` |
+| `cobra` | The `tournaments.nullsignal.games` backlink | `require_cobra_attribution()` |
 | `implementation` | The mtgred/netrunner MIT copyright and permission notice | `require_implementation_license_notice()` |
 | `cardpool` | Not maintained, produced, endorsed, supported or affiliated with Fantasy Flight Games and/or Wizards of the Coast | `require_cardpool_disclaimer()` |
 | `rules` | Not associated with, produced by or endorsed by Fantasy Flight Games, R. Talsorian Games or Wizards of the Coast | `require_rules_disclaimer()` |

@@ -117,6 +117,57 @@ abr_attribution_ui <- function() {
   )
 }
 
+#' Guard a cobra-sourced view with a required attribution flag
+#'
+#' The abr/cobra merge (R/merge-abr-cobra.R) makes cobra-sourced
+#' tournament rows user-visible in the tournament map and meta stats
+#' views for the first time -- every other source that reaches the UI
+#' (abr, cardpool, implementation, nrdb) already has a guard here; this
+#' is the fifth. Every cobra-sourced view must be constructed with
+#' has_attribution = TRUE, asserted with stopifnot() rather than left to
+#' a documentation convention, so the required credit and backlink to
+#' [NSG's tournament platform](https://tournaments.nullsignal.games/)
+#' cannot be silently dropped by a future UI change. (DL-060)
+#'
+#' @param has_attribution Logical. TRUE if the view's UI renders
+#'   cobra_attribution_ui().
+#'
+#' @export
+require_cobra_attribution <- function(has_attribution) {
+  stopifnot(isTRUE(has_attribution))
+  invisible(TRUE)
+}
+
+#' The NSG tournament-platform backlink, as UI
+#'
+#' One definition, rendered by every cobra-sourced view, same reasoning
+#' as abr_attribution_ui(): wording copied into several modules drifts,
+#' and here the thing that would drift is the link itself.
+#'
+#' A REAL ANCHOR, NOT TEXT, and NOT wrapped in a <details> -- same
+#' reasoning as abr_attribution_ui(): this is one sentence, not a licence
+#' notice long enough to warrant collapsing, and hiding a credit behind a
+#' disclosure triangle defeats the point of crediting it. The link and
+#' the full stop are emitted as one HTML() string for the same reason
+#' abr_attribution_ui() does: htmltools would otherwise put the bare "."
+#' on its own line and a stray space would appear before it.
+#'
+#' HTML() is safe here because every character of it is a literal in this
+#' file: there is no interpolation and no user input anywhere near it.
+#'
+#' @return A shiny tag.
+#' @export
+cobra_attribution_ui <- function() {
+  shiny::tags$p(
+    class = "small text-muted",
+    "Tournament data also from ",
+    shiny::HTML(paste0(
+      '<a href="https://tournaments.nullsignal.games/" rel="noopener" ',
+      'target="_blank">tournaments.nullsignal.games</a>.'
+    ))
+  )
+}
+
 #' The cardpool non-affiliation and copyright disclaimer, as UI
 #'
 #' One definition, rendered by every cardpool-sourced view. The wording
