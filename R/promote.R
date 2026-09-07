@@ -50,14 +50,28 @@ promote <- function(store_root, staging_dir, release_id) {
 #' existing prior release): the swap itself carries no knowledge of where
 #' the target release directory came from.
 #'
+#' The symlink is written RELATIVE to store_root, not as the absolute
+#' target_release_dir path it's given. store_root itself is bind-mounted
+#' at a different absolute path in every container that touches it (the
+#' sync container sees it as /data/<lineage>, rstudio sees the same
+#' directory as /shared/netrunner-mirror/data/<lineage>) -- an absolute
+#' symlink target baked in by whichever container ran the promote only
+#' resolves inside that one container. A path relative to store_root
+#' resolves correctly in any of them, because the symlink and its target
+#' both live under whatever store_root happens to be mounted at locally.
+#' Confirmed broken in practice: cardpool's `active` link (written by the
+#' sync container) is unreadable from the rstudio container as of
+#' 2026-09-05.
+#'
 #' @param store_root Character. The lineage's store root.
 #' @param target_release_dir Character. An existing release directory.
 #' @export
 swap_active <- function(store_root, target_release_dir) {
   active_link <- file.path(store_root, "active")
   tmp_link <- file.path(store_root, sprintf(".active.tmp.%s", basename(tempfile())))
+  relative_target <- fs::path_rel(target_release_dir, start = store_root)
 
-  fs::link_create(target_release_dir, tmp_link, symbolic = TRUE)
+  fs::link_create(relative_target, tmp_link, symbolic = TRUE)
 
   # base file.rename(), NOT fs::file_move(). fs::file_move() moves INTO
   # new_path when new_path is a directory, and `active` is a symlink TO a

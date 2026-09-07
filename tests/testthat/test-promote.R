@@ -110,3 +110,39 @@ test_that("rollback() aborts on a release_id with no directory on disk", {
   li <- new_lineage("cardpool", "git_mirror", store_root)
   expect_error(rollback(li, "no-such-release"), class = "netrunneR_no_such_release")
 })
+
+test_that("swap_active() writes a relative symlink target, not an absolute one", {
+  # The cross-container bug: an absolute target only resolves inside
+  # whichever container ran the promote (the sync container sees
+  # store_root as /data/<lineage>; rstudio sees the identical directory
+  # bind-mounted at /shared/netrunner-mirror/data/<lineage>). A relative
+  # target resolves in both, because it's read relative to `active`'s own
+  # location, which is store_root either way. Confirmed broken in
+  # production for cardpool's `active` link as of 2026-09-05.
+  store_root <- withr::local_tempdir()
+  release_dir <- file.path(store_root, "releases", "release-1")
+  fs::dir_create(release_dir)
+
+  swap_active(store_root, release_dir)
+
+  raw_target <- as.character(fs::link_path(file.path(store_root, "active")))
+  expect_false(fs::is_absolute_path(raw_target))
+  # still resolves correctly, from store_root's own perspective
+  expect_identical(basename(fs::path_real(file.path(store_root, "active"))), "release-1")
+})
+
+test_that("swap_active() writes a symlink that resolves correctly from a different absolute mount point for the same store_root", {
+  # Simulates the actual cross-container scenario: the same store_root
+  # directory, accessed via two different absolute paths (a second
+  # symlink standing in for a second container's bind mount).
+  real_root <- withr::local_tempdir()
+  release_dir <- file.path(real_root, "releases", "release-1")
+  fs::dir_create(release_dir)
+  swap_active(real_root, release_dir)
+
+  alt_mount_parent <- withr::local_tempdir()
+  alt_root <- file.path(alt_mount_parent, "alt-view-of-store")
+  fs::link_create(real_root, alt_root, symbolic = TRUE)
+
+  expect_identical(basename(fs::path_real(file.path(alt_root, "active"))), "release-1")
+})
