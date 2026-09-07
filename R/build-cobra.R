@@ -154,6 +154,7 @@ build_cobra <- function(lineage, staged_raw) {
   bundles <- staged_raw$bundles
 
   tournaments <- cobra_bind_allowlisted(lapply(bundles, flatten_cobra_tournament), COBRA_TOURNAMENT_ALLOWLIST)
+  tournaments <- apply_cobra_tournament_date_corrections(tournaments)
   stages <- cobra_bind_allowlisted(lapply(bundles, flatten_cobra_stages), COBRA_STAGE_ALLOWLIST)
   rounds <- cobra_bind_allowlisted(lapply(bundles, flatten_cobra_rounds), COBRA_ROUND_ALLOWLIST)
   pairings <- cobra_bind_allowlisted(lapply(bundles, flatten_cobra_pairings), COBRA_PAIRING_ALLOWLIST)
