@@ -138,6 +138,14 @@ COBRA_DENY_PATTERN <- "(?i)(contact|e[-_]?mail|player[0-9]*[-_]?(name|handle)|us
 #' check_deny_pattern(COBRA_DENY_PATTERN) scan across every table before
 #' any write.
 #'
+#' Also builds the merged abr+cobra tournament feed
+#' (`merge_abr_cobra()`, R/merge-abr-cobra.R) and writes its two tables
+#' (`tournament_merged`, `tournament_merged_source`) in the same
+#' transaction. abr is read via `query_active_release()` and is
+#' optional here exactly as it is everywhere else this codebase reads
+#' it: a missing abr release produces cobra-only merged rows, not an
+#' aborted cobra build. (DL-049, DL-057)
+#'
 #' @param lineage A lineage object of class netrunneR_api_poll named "cobra".
 #' @param staged_raw The value returned by fetch_cobra().
 #'
@@ -165,19 +173,53 @@ build_cobra <- function(lineage, staged_raw) {
 
   recent_index <- cobra_bind_allowlisted(list(staged_raw$recent_index), COBRA_RECENT_INDEX_ALLOWLIST)
 
+  # Merged abr+cobra tournament feed (R/merge-abr-cobra.R). abr is
+  # optional here the same way it is everywhere else this codebase reads
+  # it (query_active_release() returns NULL, never errors, when abr has
+  # no active release) -- a NULL abr_result produces cobra-only merged
+  # rows rather than aborting the cobra build over an unrelated
+  # lineage's state. (DL-057)
+  abr_result <- query_active_release("abr", "abr.sqlite", "SELECT * FROM tournament")
+  abr_tournament <- if (is.null(abr_result)) {
+    data.frame(
+      id = character(0), title = character(0), date = character(0), format = character(0),
+      type = character(0), location_state = character(0), location_country = character(0),
+      location_lat = numeric(0), location_lng = numeric(0), players_count = integer(0),
+      top_count = integer(0), winner_runner_identity = character(0), winner_corp_identity = character(0),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    abr_result$data
+  }
+  merged <- merge_abr_cobra(
+    abr_tournament = abr_tournament, cobra_tournament = tournaments,
+    cobra_stage = stages, cobra_standing = standings,
+    cardpool_titles = cardpool_card_titles()
+  )
+
   all_tables <- list(
     tournament = tournaments, stage = stages, round = rounds, pairing = pairings,
     standing = standings, faction_count = faction_counts, identity_count = identity_counts,
     cut_conversion_faction = cut_conversion_factions, cut_conversion_identity = cut_conversion_identities,
-    recent_index = recent_index
+    recent_index = recent_index,
+    tournament_merged = merged$tournament_merged, tournament_merged_source = merged$tournament_merged_source
   )
 
   # Layer two: an independent regex scan of column names across every
   # table, run after the allowlist select()s above rather than instead
   # of them -- see COBRA_DENY_PATTERN's docstring for why both layers
   # are required.
+  # tournament_merged/tournament_merged_source are abr-shaped (they carry
+  # abr.tournament's own location_lat/location_lng, deliberately admitted
+  # by ABR_TOURNAMENT_ALLOWLIST for venue mapping) -- COBRA_DENY_PATTERN
+  # rejects lat/lon on the premise that no *cobra* table ever legitimately
+  # carries one, which no longer holds for these two merge tables. Scan
+  # them against ABR_DENY_PATTERN (R/build-abr.R) instead, the pattern
+  # that actually matches what they contain.
+  merge_table_names <- c("tournament_merged", "tournament_merged_source")
   deny_checks <- lapply(names(all_tables), function(nm) {
-    result <- check_deny_pattern(all_tables[[nm]], COBRA_DENY_PATTERN)
+    pattern <- if (nm %in% merge_table_names) ABR_DENY_PATTERN else COBRA_DENY_PATTERN
+    result <- check_deny_pattern(all_tables[[nm]], pattern)
     result$check <- sprintf("%s:%s", result$check, nm)
     result
   })
@@ -210,11 +252,28 @@ build_cobra <- function(lineage, staged_raw) {
     message = sprintf("%d tournament row(s) built from %d pool bundle(s)", nrow(tournaments), length(bundles))
   )
 
+  # tournament_merged_source is otherwise a table no production code
+  # reads back -- a table like that rots silently. Surfacing the merged
+  # row count and a per-tier breakdown in every build's own check record
+  # means a merge regression (e.g. algorithmic pairings silently
+  # overtaking verified ones) is visible in the build record itself,
+  # not only provable after the fact by querying the table directly. (DL-062)
+  tier_counts <- table(merged$tournament_merged_source$match_tier)
+  merge_check <- list(
+    check = "tournament_merged_row_count",
+    status = "pass",
+    message = sprintf(
+      "%d merged tournament row(s); source tiers: %s",
+      nrow(merged$tournament_merged),
+      paste(sprintf("%s=%d", names(tier_counts), as.integer(tier_counts)), collapse = ", ")
+    )
+  )
+
   list(
     db_path = db_path,
     build_revision = br,
     release_id = sprintf("%s-%s", format(Sys.time(), "%Y%m%dT%H%M%SZ", tz = "UTC"), release_entropy_suffix()),
-    checks = c(staged_raw$checks %||% list(), deny_checks, list(rows_check))
+    checks = c(staged_raw$checks %||% list(), deny_checks, list(rows_check, merge_check))
   )
 }
 

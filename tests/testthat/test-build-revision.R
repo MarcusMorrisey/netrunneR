@@ -38,3 +38,32 @@ test_that("build_revision() aborts loudly on a missing expected input rather tha
     class = "netrunneR_build_revision_missing_input"
   )
 })
+
+test_that("build_revision() moves for every lineage when R/merge-abr-cobra.R changes", {
+  # R/merge-abr-cobra.R is a shared module (DL-054), not cobra's own
+  # build_module_path -- a bugfix there must reach every lineage's
+  # digest, not just cobra's, or a fix could ship silently inert until
+  # some unrelated lineage's own build_module_path happened to change too.
+  pkg_root <- find_package_root()
+  merge_module_path <- if (fs::dir_exists(file.path(pkg_root, "pkg-src"))) {
+    file.path(pkg_root, "pkg-src", "R", "merge-abr-cobra.R")
+  } else {
+    file.path(pkg_root, "R", "merge-abr-cobra.R")
+  }
+  if (!fs::file_exists(merge_module_path)) skip("R/merge-abr-cobra.R not resolvable from installed package")
+
+  li_cobra <- lineage("cobra")
+  li_abr <- lineage("abr")
+  before_cobra <- build_revision(li_cobra, li_cobra$build_module_path)
+  before_abr <- build_revision(li_abr, li_abr$build_module_path)
+
+  original_bytes <- readBin(merge_module_path, "raw", n = fs::file_size(merge_module_path))
+  withr::defer(writeBin(original_bytes, merge_module_path))
+  writeBin(c(original_bytes, charToRaw("\n# test-only byte, restored by withr::defer\n")), merge_module_path)
+
+  after_cobra <- build_revision(li_cobra, li_cobra$build_module_path)
+  after_abr <- build_revision(li_abr, li_abr$build_module_path)
+
+  expect_false(identical(before_cobra, after_cobra))
+  expect_false(identical(before_abr, after_abr))
+})

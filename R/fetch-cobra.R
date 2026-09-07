@@ -390,13 +390,24 @@ read_cobra_object <- function(pool_dir, tournament_id) {
 #' Digest the whole pool's current content: sorted resolved ids paired
 #' with each object file's own content hash, so a refreshed-but-unchanged
 #' tournament does not change content_identity and a real edit does.
+#'
+#' Also folds in abr's active release_id (NA when abr has no active
+#' release), so a scheduled build's no-op short-circuit
+#' (`no_op_change()`, R/sync.R) never keeps the merged tournament feed on
+#' a stale abr snapshot: `no_op_change()` compares only
+#' (content_identity, build_revision), and an abr promotion moves
+#' neither on its own -- on a day cobra's own upstream is quiet, the
+#' merged feed would otherwise keep yesterday's abr data indefinitely.
+#' (DL-055)
 #' @keywords internal
 cobra_content_identity <- function(pool_dir, resolved_ids) {
   ids <- sort(resolved_ids)
   file_hashes <- vapply(ids, function(id) {
     digest::digest(file = file.path(pool_dir, sprintf("%s.json", id)), algo = "sha256")
   }, character(1))
-  digest::digest(list(ids, file_hashes), algo = "sha256")
+  abr_release <- resolve_active_release("abr")
+  abr_release_id <- if (is.null(abr_release)) NA_character_ else basename(abr_release$release_dir)
+  digest::digest(list(ids, file_hashes, abr_release_id), algo = "sha256")
 }
 
 #' @keywords internal

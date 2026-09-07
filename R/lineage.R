@@ -83,7 +83,9 @@ store_base <- function() {
   # since fetch_cobra() (R/fetch-cobra.R) issues many small per-tournament
   # requests across its discovery/tail-probe/backfill-walk crawl, not one
   # paginated call the way abr's tournament list is.
-  cobra = list(source_type = "api_poll", schedule = "daily", schema_version = 1L,
+  # schema_version 2L: cobra.sql gained tournament_merged and
+  # tournament_merged_source (the abr/cobra merge, DL-049/DL-050).
+  cobra = list(source_type = "api_poll", schedule = "daily", schema_version = 2L,
                pacing = list(min_delay_s = 2, max_delay_s = 2),
                build_module_path = "R/build-cobra.R",
                base_url = "https://tournaments.nullsignal.games")

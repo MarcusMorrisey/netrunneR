@@ -9,8 +9,13 @@ tournament does not change content_identity and a real edit does.}
 cobra_content_identity(pool_dir, resolved_ids)
 }
 \description{
-Digest the whole pool's current content: sorted resolved ids paired
-with each object file's own content hash, so a refreshed-but-unchanged
-tournament does not change content_identity and a real edit does.
+Also folds in abr's active release_id (NA when abr has no active
+release), so a scheduled build's no-op short-circuit
+(\code{no_op_change()}, R/sync.R) never keeps the merged tournament feed on
+a stale abr snapshot: \code{no_op_change()} compares only
+(content_identity, build_revision), and an abr promotion moves
+neither on its own -- on a day cobra's own upstream is quiet, the
+merged feed would otherwise keep yesterday's abr data indefinitely.
+(DL-055)
 }
 \keyword{internal}

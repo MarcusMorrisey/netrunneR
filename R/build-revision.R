@@ -37,7 +37,7 @@ build_revision <- function(lineage, build_module_path) {
   shared_modules <- c(
     "R/sync.R", "R/promote.R", "R/build-revision.R", "R/capture.R",
     "R/validate-helpers.R", "R/validate.R", "R/ledger.R", "R/release.R",
-    "R/config.R"
+    "R/config.R", "R/merge-abr-cobra.R"
   )
 
   # Installed layout strips the inst/ prefix (sql/schema); the source tree

@@ -180,6 +180,51 @@ test_that("cobra_content_identity() is stable under a re-fetch that changes noth
   expect_identical(first, second)
 })
 
+test_that("cobra_content_identity() moves when abr's active release_id changes, holding the cobra pool fixed", {
+  # DL-055: no_op_change() compares only (content_identity, build_revision),
+  # and an abr promotion moves neither on its own -- folding abr's active
+  # release_id into this digest is what keeps a scheduled build from
+  # serving the merged feed a stale abr snapshot on a day cobra's own
+  # upstream is quiet.
+  store_base <- withr::local_tempdir()
+  withr::local_envvar(c(NETRUNNER_STORE_BASE = store_base))
+  abr_root <- file.path(store_base, "abr")
+
+  staging_a <- file.path(store_base, "abr-staging-a")
+  fs::dir_create(staging_a)
+  promote(abr_root, staging_a, "release-a")
+
+  pool_dir <- withr::local_tempdir()
+  jsonlite::write_json(list(a = 1), file.path(pool_dir, "1.json"), auto_unbox = TRUE)
+  before <- cobra_content_identity(pool_dir, "1")
+
+  staging_b <- file.path(store_base, "abr-staging-b")
+  fs::dir_create(staging_b)
+  promote(abr_root, staging_b, "release-b")
+
+  after <- cobra_content_identity(pool_dir, "1")
+
+  expect_false(identical(before, after))
+})
+
+test_that("cobra_content_identity() is stable when abr's active release_id is unchanged", {
+  store_base <- withr::local_tempdir()
+  withr::local_envvar(c(NETRUNNER_STORE_BASE = store_base))
+  abr_root <- file.path(store_base, "abr")
+
+  staging_a <- file.path(store_base, "abr-staging-a")
+  fs::dir_create(staging_a)
+  promote(abr_root, staging_a, "release-a")
+
+  pool_dir <- withr::local_tempdir()
+  jsonlite::write_json(list(a = 1), file.path(pool_dir, "1.json"), auto_unbox = TRUE)
+
+  first <- cobra_content_identity(pool_dir, "1")
+  second <- cobra_content_identity(pool_dir, "1")
+
+  expect_identical(first, second)
+})
+
 test_that("check_cobra_pool_nonempty() warns rather than fails on an empty pool", {
   expect_identical(check_cobra_pool_nonempty(list())$status, "warn")
   expect_identical(check_cobra_pool_nonempty(list(a = list()))$status, "pass")

@@ -19,4 +19,13 @@ ABR_TOURNAMENT_ALLOWLIST's discipline) and then an independent
 check_deny_pattern(COBRA_DENY_PATTERN) scan across every table before
 any write.
 }
+\details{
+Also builds the merged abr+cobra tournament feed
+(\code{merge_abr_cobra()}, R/merge-abr-cobra.R) and writes its two tables
+(\code{tournament_merged}, \code{tournament_merged_source}) in the same
+transaction. abr is read via \code{query_active_release()} and is
+optional here exactly as it is everywhere else this codebase reads
+it: a missing abr release produces cobra-only merged rows, not an
+aborted cobra build. (DL-049, DL-057)
+}
 \keyword{internal}
