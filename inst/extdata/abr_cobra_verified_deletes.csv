@@ -24,3 +24,8 @@ cobra,3838,"Cobra name is literally 'Test', clear placeholder/test data.",Marcus
 cobra,4064,"Cobra name is literally ""Test""",Marcus Morrisey,2026-09-05
 cobra,4095,"Cobra name is literally ""Test""",Marcus Morrisey,2026-09-05
 cobra,4163,"Name is literally ""GP San Jose - Testing Only""",Marcus Morrisey,2026-09-05
+cobra,4106,"user-found: literally named ""Test"", round_count=1, matches known junk pattern.",Marcus Morrisey,2026-09-05
+cobra,4249,"user-found: literally named ""Test"", round_count=0 (never run), matches known junk pattern.",Marcus Morrisey,2026-09-05
+cobra,4478,"user-found: ""SWFL Netrunner Jnet Night"" has player_count=0 and round_count=0 -- created but never run, not a real tournament.",Marcus Morrisey,2026-09-05
+cobra,4652,"user-found: ""St. Louis Circuit Opener 2026 1"" has player_count=1 and round_count=0 -- created but never run, not a real tournament.",Marcus Morrisey,2026-09-05
+cobra,4079,"user-found: literally named ""test"" (lowercase), matches known junk pattern.",Marcus Morrisey,2026-09-05
